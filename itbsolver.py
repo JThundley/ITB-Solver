@@ -122,7 +122,7 @@ class Tile_Ice_Damaged(Tile_Ice):
 
 class Tile_Lava(Tile_Water):
     def __init__(self, effects=set('fire')):
-        super().__init__(type='ice_lava', effects=effects)
+        super().__init__(type='lava', effects=effects)
     def repair(self):
         try:
             self.effects.remove('smoke')

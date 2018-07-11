@@ -36,7 +36,7 @@ class Tile():
     def __init__(self, type='ground', effects=set()):
         self.type = type # the type of tile, the name of it.
         self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
-            #  fire, smoke, acid, mine, freezemine, timepod
+            #  fire, smoke, acid, mine, freezemine, timepod. Units can also be shielded.
     def takeDamage(self, damage):
         "Process the tile taking damage. Damage is an int of how much damage to take, but normal tiles are unaffected by damage."
         return
@@ -51,6 +51,8 @@ class Tile():
         self.removeEffect('fire')
     def applyAcid(self):
         self.effects.add('acid')
+    def applyShield(self):
+        pass # Tiles can't be shielded, only units
     def removeEffect(self, effect):
         try:
             self.effects.remove(effect)
@@ -204,11 +206,15 @@ class Unit_Volcano(Unit_Mountain):
     def takeDamage(self, damage=1):
         pass # what part of indestructible do you not understand?!
 
-class Unit_building(Unit):
+class Unit_Building(Unit):
     def __init__(self, type='building', currenthp=1, maxhp=1, effects=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
     def repairHP(self, hp):
         pass # buildings can't repair, dream on
+
+class Unit_Building_Objective(Unit_Building):
+    def __init__(self, type='building_objective', currenthp=1, maxhp=1, effects=set()):
+        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
 
 ############## PROGRAM FLOW FUNCTIONS ###############
 

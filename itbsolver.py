@@ -36,35 +36,30 @@ class Tile():
     def __init__(self, type='ground', effects=set()):
         self.type = type # the type of tile, the name of it.
         self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
-            #  fire, smoke, acid, mine, freezemine
+            #  fire, smoke, acid, mine, freezemine, timepod
     def takeDamage(self, damage):
         "Process the tile taking damage. Damage is an int of how much damage to take, but normal tiles are unaffected by damage."
         return
-    def addFire(self):
+    def applyFire(self):
         "set the current tile on fire"
         self.effects.add('fire')
-    def addSmoke(self):
+        self.removeEffect('timepod') # fire kills timepods
+    def applySmoke(self):
         "make a smoke cloud on the current tile"
         self.effects.add('smoke')
-    def addIce(self):
-        try:
-            self.affects.remove('fire')
-        except KeyError:
-            pass
-    def addAcid(self):
+    def applyIce(self):
+        self.removeEffect('fire')
+    def applyAcid(self):
         self.effects.add('acid')
-    def removeAcid(self):
+    def removeEffect(self, effect):
         try:
-            self.effects.remove('acid')
+            self.effects.remove(effect)
         except KeyError:
             pass
     def repair(self):
         "process the action of a friendly mech repairing on this tile and removing certain effects."
         for effect in ('fire', 'smoke', 'acid'):
-            try:
-                self.effects.remove(effect)
-            except KeyError:
-                pass
+            self.removeEffect(effect)
 
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
@@ -72,38 +67,28 @@ class Tile_Forest(Tile):
         super().__init__(type='forest', effects=effects)
     def takeDamage(self, damage):
         "tile gains the fire effect"
-        self.addFire()
+        self.applyFire()
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
     def __init__(self, effects=set()):
         super().__init__(type='sand', effects=effects)
     def takeDamage(self, damage):
-        self.addSmoke()
+        self.applySmoke()
 
 class Tile_Water(Tile):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
     def __init__(self, effects=set()):
         super().__init__(type='water', effects=effects)
-    def addFire(self):
+    def applyFire(self):
         pass
-    def addIce(self):
+    def applyIce(self):
         raise ReplaceObj(Tile_Ice)
     def repair(self): # acid cannot be removed from water by repairing it.
-        for effect in ('fire', 'smoke'):
-            try:
-                self.effects.remove(effect)
-            except KeyError:
-                pass
-
-class Tile_Chasm(Tile):
-    "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
-    def __init__(self, effects=set()):
-        super().__init__(type='chasm', effects=effects)
-    def addFire(self):
-        pass
-    def addIce(self):
-        pass
+        try:
+            self.effects.remove('smoke')
+        except KeyError:
+            pass
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
@@ -111,7 +96,7 @@ class Tile_Ice(Tile):
         super().__init__(type='ice', effects=effects)
     def takeDamage(self, damage):
         raise ReplaceObj(Tile_Ice_Damaged)
-    def addFire(self):
+    def applyFire(self):
         raise ReplaceObj(Tile_Water)
 
 class Tile_Ice_Damaged(Tile_Ice):
@@ -120,8 +105,19 @@ class Tile_Ice_Damaged(Tile_Ice):
     def takeDamage(self, damage):
         raise ReplaceObj(Tile_Water)
 
+class Tile_Chasm(Tile):
+    "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
+    def __init__(self, effects=set()):
+        super().__init__(type='chasm', effects=effects)
+    def applyFire(self):
+        pass
+    def applyIce(self):
+        pass
+    def applyAcid(self):
+        pass
+
 class Tile_Lava(Tile_Water):
-    def __init__(self, effects=set('fire')):
+    def __init__(self, effects={'fire'}):
         super().__init__(type='lava', effects=effects)
     def repair(self):
         try:
@@ -129,21 +125,50 @@ class Tile_Lava(Tile_Water):
         except KeyError:
             pass
 
+class Tile_Grassland(Tile):
+    "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
+    def __init__(self, effects=set()):
+        super().__init__(type='grassland', effects=effects)
+
+class Tile_Terraformed(Tile):
+    "This tile was terraformed as part of your bonus objective. Also just a regular ground tile."
+    def __init__(self, effects=set()):
+        super().__init__(type='terraformed', effects=effects)
+
+class Tile_Teleporter(Tile):
+    "End movement here to warp to the matching pad. Swap with any present unit."
+    def __init__(self, color, effects=set()):
+        super().__init__(type='teleporter', effects=effects)
+        self.color = color # Either red or blue
+
+class Tile_Conveyor(Tile):
+    "This tile will push any unit in the direction marked on the belt."
+    def __init__(self, direction, effects=set()):
+        "direction must be u, r, d, l for up, right, down, left"
+        super().__init__(type='conveyor', effects=effects)
+        self.direction = direction
+
 class Unit(Tile):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, type, currenthp, maxhp, effects=set()):
+    def __init__(self, type, currenthp, maxhp, attributes=set(), effects=set()):
         """type is the name of the unit (str)
         currenthp is the unit's current hitpoints (int)
         maxhp is the unit's maximum hitpoints (int)
         effects is a set of effects applied to this unit
+        attributes is a set of attributes or properties that the unit has.
         """
         super().__init__(type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
+        self.attributes = attributes # possible attributes are: massive, stable, flying, burrower, webbed
+        self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
+            # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
     def takeDamage(self, damage):
         self.currenthp -= damage # the unit takes the damage
+        self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
-            raise ReplaceObj(None) # it's dead, replace it with nothing
+            self.damage_taken -= self.currenthp # adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
+            self.die()
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
         self.takeDamage(1) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
@@ -152,13 +177,16 @@ class Unit(Tile):
         self.currenthp += hp
         if self.currenthp > self.maxhp:
             self.currenthp = self.maxhp
+    def die(self):
+        "Make the unit die."
+        raise ReplaceObj(None) # it's dead, replace it with nothing
 
 class Unit_Mountain(Unit):
-    def __init__(self, type='mountain', currenthp=1, maxhp=1, effects=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
-    def addFire(self):
+    def __init__(self, type='mountain', currenthp=1, maxhp=1, attributes={'stable'}, effects=set()):
+        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def applyFire(self):
         pass # mountains can't be set on fire
-    def addAcid(self):
+    def applyAcid(self):
         pass # same for acid
     def takeDamage(self, damage=1):
         ReplaceObj(Unit_Mountain_Damaged)
@@ -168,6 +196,13 @@ class Unit_Mountain_Damaged(Unit_Mountain):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
     def takeDamage(self, damage=1):
         ReplaceObj(Tile)
+
+class Unit_Volcano(Unit_Mountain):
+    "Indestructible volcano that blocks movement and projectiles."
+    def __init__(self, type='volcano', currenthp=1, maxhp=1, effects=set()):
+        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def takeDamage(self, damage=1):
+        pass # what part of indestructible do you not understand?!
 
 class Unit_building(Unit):
     def __init__(self, type='building', currenthp=1, maxhp=1, effects=set()):
@@ -179,9 +214,5 @@ class Unit_building(Unit):
 
 ############## MAIN ########################
 if __name__ == '__main__':
-    i = Tile_Ice()
-    try:
-        i.takeDamage(1)
-    except ReplaceObj as whatsnew:
-        print(whatsnew)
-        whatsnew.newobj = whatsnew
+    u = Unit_Mountain_Damaged()
+    print(u.attributes)

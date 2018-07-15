@@ -36,10 +36,10 @@ class Tile():
     def __init__(self, type='ground', effects=set()):
         self.type = type # the type of tile, the name of it.
         self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
-            #  fire, smoke, acid, mine, freezemine, timepod. Units can also be shielded.
+            #  fire, smoke, acid, mine, freezemine, timepod. Units can also have shield, ice, web.
     def takeDamage(self, damage):
         "Process the tile taking damage. Damage is an int of how much damage to take, but normal tiles are unaffected by damage."
-        return
+        self.removeEffect('timepod')
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add('fire')
@@ -142,6 +142,7 @@ class Tile_Teleporter(Tile):
     def __init__(self, color, effects=set()):
         super().__init__(type='teleporter', effects=effects)
         self.color = color # Either red or blue
+        self.exittile = None # Set by the gameboard when initializing. This is a gameboard coordinate like 'a1'
 
 class Tile_Conveyor(Tile):
     "This tile will push any unit in the direction marked on the belt."
@@ -162,14 +163,21 @@ class Unit(Tile):
         super().__init__(type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
-        self.attributes = attributes # possible attributes are: massive, stable, flying, burrower, webbed
+        self.attributes = attributes # possible attributes are: massive, stable, flying, armoured, burrower,
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
+    def applyWeb(self):
+        self.effects.add('web')
+    def applyShield(self):
+        self.effects.add('shield')
+    def applyIce(self):
+        super().applyIce()
+        self.effects.add('ice')
     def takeDamage(self, damage):
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
-            self.damage_taken -= self.currenthp # adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
+            self.damage_taken -= self.currenthp # adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead. # TODO! This math is wrong
             self.die()
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
@@ -216,6 +224,10 @@ class Unit_Building_Objective(Unit_Building):
     def __init__(self, type='building_objective', currenthp=1, maxhp=1, effects=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
 
+class Unit_Blobber(Unit):
+    "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
+    def __init__(self, type='blobber', currenthp=3, maxhp=3, effects=set()):
+        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
 ############## PROGRAM FLOW FUNCTIONS ###############
 
 ############## MAIN ########################

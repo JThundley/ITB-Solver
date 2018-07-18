@@ -3,11 +3,12 @@
 # This script brute forces the best possible single turn in Into The Breach
 ############# NOTES ######################
 # Order of turn operations:
-#   0 Fire
-#   1 Environment
-#   2 Enemy Actions
-#   3 NPC actions
-#   4 Enemies emerge
+#   Fire
+#   Storm Smoke
+#   Environment
+#   Enemy Actions
+#   NPC actions
+#   Enemies emerge
 
 ############ IMPORTS ######################
 
@@ -69,6 +70,31 @@ class GameBoard():
             for num in range(1, 9):
                 self.board[(letter, num)] = [None, None]
         self.powergrid_hp = powergrid_hp # max is 7
+    def push(self, tile, direction):
+        "push units on tile direction. tile is a tuple of (x, y) coordinates, direction is a Direction.UP direction."
+        if Attributes.STABLE not in self.board[tile][1].attributes: # only non-stable units can be pushed.
+            if direction == Direction.UP:
+                destinationtile = (tile[0], tile[1] + 1)
+            elif direction == Direction.RIGHT:
+                destinationtile = (tile[0] + 1, tile[1])
+            elif direction == Direction.DOWN:
+                destinationtile = (tile[0], tile[1] - 1)
+            elif direction == Direction.LEFT:
+                destinationtile = (tile[0] - 1, tile[1])
+            else:
+                raise Exception("Invalid direction given to GameBoard.push()")
+            try:
+                self.board[destinationtile]
+            except KeyError:
+                return # attempted to push unit off the gameboard, no action is taken
+            else:
+                try:
+                    self.board[destinationtile][1].takeBumpDamage()
+                except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
+                    self.board[destinationtile][1] = self.board[tile][1] # move the unit from tile to destination tile
+                    self.board[tile][1] = None
+                else:
+                    self.board[tile][1].takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
 
 class Tile():
     """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
@@ -208,16 +234,11 @@ class Unit(Tile):
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
-            self.damage_taken -= self.currenthp # adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead. # TODO! This math is wrong
+            self.damage_taken += self.currenthp # currenthp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
             self.die()
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
         self.takeDamage(1) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
-    def repairHP(self, hp=1): # TODO move this out of the base, not all units can be repaired
-        "Repair hp amount of hp. Does not take you higher than the max. Do not remove any effects."
-        self.currenthp += hp
-        if self.currenthp > self.maxhp:
-            self.currenthp = self.maxhp
     def die(self):
         "Make the unit die."
         raise ReplaceObj(None) # it's dead, replace it with nothing
@@ -255,10 +276,22 @@ class Unit_Building_Objective(Unit_Building):
     def __init__(self, type='building_objective', currenthp=1, maxhp=1, effects=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
 
+class Unit_Acid_Vat(Unit_Building_Objective):
+    def __init__(self, type='acidvat', currenthp=2, maxhp=2, effects=set()):
+        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def die(self):
+        "Acid vats turn into acid water when destroyed."
+        ReplaceObj(None) # TODO: How do we have a unit replace a tile?
+
 class Unit_Blobber(Unit):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
     def __init__(self, type='blobber', currenthp=3, maxhp=3, effects=set(), attributes=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def repairHP(self, hp=1):
+        "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
+        self.currenthp += hp
+        if self.currenthp > self.maxhp:
+            self.currenthp = self.maxhp
 
 class Unit_Alpha_Blobber(Unit_Blobber):
     "Also has no attack."

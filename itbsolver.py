@@ -10,6 +10,10 @@
 #   NPC actions
 #   Enemies emerge
 
+# strange interactions:
+# If a shielded unit is on a forest tile and you attack it, the shield takes the damage and the forest fire does NOT ignite
+# If a unit is shielded and on fire, freezing it does nothing, doesn't even put out the fire.
+
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
@@ -34,12 +38,12 @@ class Effects():
 
 class Attributes():
     "These are attributes that are applied to units."
-    # possible attributes are: massive, stable, flying, armoured, burrower,
     MASSIVE = 1 # prevents drowning in water
     STABLE = 2 # prevents units from being pushed
     FLYING = 3 # prevents drowning in water and allows movement through other units
     ARMORED = 4 # all attacks are reduced by 1
     BURROWER = 5 # unit burrows after taking any damage
+    UNPOWERED = 6 # this is for friendly tanks that you can't control until later
 
 class Direction():
     "These are up/down/left/right directions with a function to get the opposite direction."
@@ -54,6 +58,14 @@ class Direction():
             dir -= 4
         return dir
 
+class Alliance():
+    FRIENDLY = 1
+    ENEMY = 2
+    NEUTRAL = 3
+
+class Events():
+    "This is a list of all the events that count towards or against your score."
+    # TODO
 ############### FUNCTIONS #################
 
 ############### CLASSES #################
@@ -65,42 +77,50 @@ class ReplaceObj(Exception):
 class GameBoard():
     "This represents the game board and some of the most basic rules of the game."
     def __init__(self, powergrid_hp=7):
-        self.board = {} # a dictionary of all 64 squares on the board. Each key is a tuple of x,y coordinates and each value is a list of the tile object and unit object: {(1, 1): [Tile, Unit]}
+        self.board = {} # a dictionary of all 64 squares on the board. Each key is a tuple of x,y coordinates and each value is the tile object: {(1, 1): Tile, ...}
+            # Each square is called a square. Each square must have a tile assigned to it, an optionally a unit on top of the square. The unit is part of the tile.
         for letter in range(1, 9):
             for num in range(1, 9):
-                self.board[(letter, num)] = [None, None]
+                self.board[(letter, num)] = Tile((letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-    def push(self, tile, direction):
-        "push units on tile direction. tile is a tuple of (x, y) coordinates, direction is a Direction.UP direction."
-        if Attributes.STABLE not in self.board[tile][1].attributes: # only non-stable units can be pushed.
+    def push(self, square, direction):
+        "push units on square direction. square is a tuple of (x, y) coordinates, direction is a Direction.UP direction."
+        try:
+            if Attributes.STABLE in self.board[square].unit.attributes:
+                return # stable units can't be pushed
+        except AttributeError:
+            return # There was no unit to push
+        else:
             if direction == Direction.UP:
-                destinationtile = (tile[0], tile[1] + 1)
+                destinationsquare = (square[0], square[1] + 1)
             elif direction == Direction.RIGHT:
-                destinationtile = (tile[0] + 1, tile[1])
+                destinationsquare = (square[0] + 1, square[1])
             elif direction == Direction.DOWN:
-                destinationtile = (tile[0], tile[1] - 1)
+                destinationsquare = (square[0], square[1] - 1)
             elif direction == Direction.LEFT:
-                destinationtile = (tile[0] - 1, tile[1])
+                destinationsquare = (square[0] - 1, square[1])
             else:
                 raise Exception("Invalid direction given to GameBoard.push()")
             try:
-                self.board[destinationtile]
+                self.board[destinationsquare]
             except KeyError:
                 return # attempted to push unit off the gameboard, no action is taken
             else:
                 try:
-                    self.board[destinationtile][1].takeBumpDamage()
+                    self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
                 except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
-                    self.board[destinationtile][1] = self.board[tile][1] # move the unit from tile to destination tile
-                    self.board[tile][1] = None
+                    self.board[destinationsquare].unit = self.board[square].unit # move the unit from square to destination square
+                    self.board[square].unit = None
                 else:
-                    self.board[tile][1].takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
+                    self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
 
 class Tile():
     """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
-    def __init__(self, type='ground', effects=set()):
+    def __init__(self, square, type='ground', effects=set(), unit=None):
+        self.square = square # This is the (x, y) coordinate of the square.
         self.type = type # the type of tile, the name of it.
         self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
+        self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
     def takeDamage(self, damage):
         "Process the tile taking damage. Damage is an int of how much damage to take, but normal tiles are unaffected by damage."
         self.removeEffect(Effects.TIMEPOD)
@@ -126,6 +146,20 @@ class Tile():
         "process the action of a friendly mech repairing on this tile and removing certain effects."
         for effect in (Effects.FIRE, Effects.SMOKE, Effects.ACID):
             self.removeEffect(effect)
+    def putUnitHere(self, unit):
+        "run this when a unit lands on this tile to spread effects between the tile and unit."
+        for effect in (Effects.FIRE, Effects.ACID): # give the unit these effects.
+            if effect in self.effects:
+                self.unit.effects.add(effect)
+        if Effects.MINE in self.effects:
+            self.unit.die()
+            self.removeEffect(Effects.MINE)
+            return
+        elif Effects.FREEZEMINE in self.effects:
+            self.unit.applyIce()
+            self.removeEffect(Effects.FREEZEMINE)
+        self.unit = unit
+        self.unit.square = self.square
 
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
@@ -152,6 +186,13 @@ class Tile_Water(Tile):
         raise ReplaceObj(Tile_Ice)
     def repair(self): # acid cannot be removed from water by repairing it.
         self.removeEffect(Effects.SMOKE)
+    def putUnitHere(self, unit):
+        if (Attributes.MASSIVE not in unit.attributes) and (Attributes.FLYING not in unit.attributes):
+            unit.die()
+            if Effects.ACID in unit.effects:
+                self.applyAcid()
+        else:
+            super().putUnitHere(unit)
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
@@ -178,6 +219,11 @@ class Tile_Chasm(Tile):
         pass
     def applyAcid(self):
         pass
+    def putUnitHere(self, unit):
+        if Attributes.FLYING not in unit.attributes:
+            unit.die()
+        else:
+            super().putUnitHere(unit)
 
 class Tile_Lava(Tile_Water):
     def __init__(self, effects={'fire'}):
@@ -204,7 +250,6 @@ class Tile_Teleporter(Tile):
 class Tile_Conveyor(Tile):
     "This tile will push any unit in the direction marked on the belt."
     def __init__(self, direction, effects=set()):
-        "direction must be u, r, d, l for up, right, down, left"
         super().__init__(type='conveyor', effects=effects)
         self.direction = direction
 
@@ -223,14 +268,19 @@ class Unit(Tile):
         self.attributes = attributes
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
+    def applyFire(self):
+        self.effects.add(Effects.FIRE) # no need to try to remove a timepod from a unit
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
         self.effects.add(Effects.SHIELD)
     def applyIce(self):
+        if Effects.SHIELD in self.effects:
+            return # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
         super().applyIce()
         self.effects.add(Effects.ICE)
     def takeDamage(self, damage):
+
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
@@ -246,6 +296,7 @@ class Unit(Tile):
 class Unit_Mountain(Unit):
     def __init__(self, type='mountain', attributes={Attributes.STABLE}, effects=set()):
         super().__init__(type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
     def applyFire(self):
         pass # mountains can't be set on fire
     def applyAcid(self):
@@ -256,6 +307,7 @@ class Unit_Mountain(Unit):
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, type='mountain_damaged', effects=set()):
         super().__init__(type=type, currenthp=1, maxhp=1, effects=effects)
+        self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         ReplaceObj(Tile)
 
@@ -263,22 +315,26 @@ class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
     def __init__(self, type='volcano', effects=set()):
         super().__init__(type=type, currenthp=1, maxhp=1, effects=effects)
+        self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         pass # what part of indestructible do you not understand?!
 
 class Unit_Building(Unit):
     def __init__(self, type='building', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.STABLE}):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+        self.alliance = Alliance.FRIENDLY
     def repairHP(self, hp):
         pass # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
     def __init__(self, type='building_objective', currenthp=1, maxhp=1, effects=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+        self.alliance = Alliance.FRIENDLY
 
 class Unit_Acid_Vat(Unit_Building_Objective):
     def __init__(self, type='acidvat', currenthp=2, maxhp=2, effects=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+        self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
         ReplaceObj(None) # TODO: How do we have a unit replace a tile?
@@ -287,6 +343,7 @@ class Unit_Blobber(Unit):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
     def __init__(self, type='blobber', currenthp=3, maxhp=3, effects=set(), attributes=set()):
         super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.alliance = Alliance.ENEMY
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp

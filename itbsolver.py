@@ -269,18 +269,21 @@ class Unit(Tile):
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
     def applyFire(self):
-        self.effects.add(Effects.FIRE) # no need to try to remove a timepod from a unit
+        if Effects.SHIELD not in self.effects:
+            self.effects.add(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
         self.effects.add(Effects.SHIELD)
     def applyIce(self):
-        if Effects.SHIELD in self.effects:
-            return # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-        super().applyIce()
-        self.effects.add(Effects.ICE)
+        if Effects.SHIELD not in self.effects: # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+            super().applyIce()
+            self.effects.add(Effects.ICE)
     def takeDamage(self, damage):
-
+        for effect in (Effects.SHIELD, Effects.ICE):
+            if effect in self.effects:
+                self.removeEffect(Effects.SHIELD)
+                # XXX CONTINUE
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP

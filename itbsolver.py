@@ -81,7 +81,7 @@ class GameBoard():
             # Each square is called a square. Each square must have a tile assigned to it, an optionally a unit on top of the square. The unit is part of the tile.
         for letter in range(1, 9):
             for num in range(1, 9):
-                self.board[(letter, num)] = Tile((letter, num))
+                self.board[(letter, num)] = Tile((letter, num), self)
         self.powergrid_hp = powergrid_hp # max is 7
     def push(self, square, direction):
         "push units on square direction. square is a tuple of (x, y) coordinates, direction is a Direction.UP direction."
@@ -114,10 +114,14 @@ class GameBoard():
                 else:
                     self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
 
+##############################################################################
+######################################## TILES ###############################
+##############################################################################
 class Tile():
     """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
-    def __init__(self, square, type='ground', effects=set(), unit=None):
+    def __init__(self, square, board, type='ground', effects=set(), unit=None):
         self.square = square # This is the (x, y) coordinate of the square.
+        self.board = board # this is a link back to the main game board so tiles and units can change it
         self.type = type # the type of tile, the name of it.
         self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
@@ -163,23 +167,23 @@ class Tile():
 
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
-    def __init__(self, effects=set()):
-        super().__init__(type='forest', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='forest', effects=effects)
     def takeDamage(self, damage):
         "tile gains the fire effect"
         self.applyFire()
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
-    def __init__(self, effects=set()):
-        super().__init__(type='sand', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='sand', effects=effects)
     def takeDamage(self, damage):
         self.applySmoke()
 
 class Tile_Water(Tile):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
-    def __init__(self, effects=set()):
-        super().__init__(type='water', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='water', effects=effects)
     def applyFire(self): # water can't be set on fire
         pass
     def applyIce(self):
@@ -196,23 +200,23 @@ class Tile_Water(Tile):
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
-    def __init__(self, effects=set()):
-        super().__init__(type='ice', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='ice', effects=effects)
     def takeDamage(self, damage):
         raise ReplaceObj(Tile_Ice_Damaged)
     def applyFire(self):
         raise ReplaceObj(Tile_Water)
 
 class Tile_Ice_Damaged(Tile_Ice):
-    def __init__(self, effects=set()):
-        super().__init__(type='ice_damaged', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='ice_damaged', effects=effects)
     def takeDamage(self, damage):
         raise ReplaceObj(Tile_Water)
 
 class Tile_Chasm(Tile):
     "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
-    def __init__(self, effects=set()):
-        super().__init__(type='chasm', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='chasm', effects=effects)
     def applyFire(self):
         pass
     def applyIce(self):
@@ -226,43 +230,47 @@ class Tile_Chasm(Tile):
             super().putUnitHere(unit)
 
 class Tile_Lava(Tile_Water):
-    def __init__(self, effects={'fire'}):
-        super().__init__(type='lava', effects=effects)
+    def __init__(self, square, board, effects={'fire'}):
+        super().__init__(square, board, type='lava', effects=effects)
     def repair(self):
         self.removeEffect(Effects.SMOKE)
     # TODO: Can lava be frozen?
 
 class Tile_Grassland(Tile):
     "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
-    def __init__(self, effects=set()):
-        super().__init__(type='grassland', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='grassland', effects=effects)
 
 class Tile_Terraformed(Tile):
     "This tile was terraformed as part of your bonus objective. Also just a regular ground tile."
-    def __init__(self, effects=set()):
-        super().__init__(type='terraformed', effects=effects)
+    def __init__(self, square, board, effects=set()):
+        super().__init__(square, board, type='terraformed', effects=effects)
 
 class Tile_Teleporter(Tile):
     "End movement here to warp to the matching pad. Swap with any present unit."
-    def __init__(self, color, effects=set()):
-        super().__init__(type='teleporter', effects=effects)
+    def __init__(self, square, board, color, effects=set()):
+        super().__init__(square, board, type='teleporter', effects=effects)
 
 class Tile_Conveyor(Tile):
     "This tile will push any unit in the direction marked on the belt."
-    def __init__(self, direction, effects=set()):
-        super().__init__(type='conveyor', effects=effects)
+    def __init__(self, square, board, direction, effects=set()):
+        super().__init__(square, board, type='conveyor', effects=effects)
         self.direction = direction
+
+##############################################################################
+######################################## UNITS ###############################
+##############################################################################
 
 class Unit(Tile):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, type, currenthp, maxhp, attributes=set(), effects=set()):
+    def __init__(self, square, board, type, currenthp, maxhp, attributes=set(), effects=set()):
         """type is the name of the unit (str)
         currenthp is the unit's current hitpoints (int)
         maxhp is the unit's maximum hitpoints (int)
         effects is a set of effects applied to this unit. Use Effects.EFFECTNAME for this.
         attributes is a set of attributes or properties that the unit has. use Attributes.ATTRNAME for this.
         """
-        super().__init__(type=type, effects=effects)
+        super().__init__(square=None, board=None, type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
         self.attributes = attributes
@@ -280,10 +288,13 @@ class Unit(Tile):
             super().applyIce()
             self.effects.add(Effects.ICE)
     def takeDamage(self, damage):
-        for effect in (Effects.SHIELD, Effects.ICE):
-            if effect in self.effects:
-                self.removeEffect(Effects.SHIELD)
-                # XXX CONTINUE
+        for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
+            try:
+                self.effects.remove(effect)
+            except KeyError:
+                pass
+            else:
+                return
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
@@ -297,8 +308,8 @@ class Unit(Tile):
         raise ReplaceObj(None) # it's dead, replace it with nothing
 
 class Unit_Mountain(Unit):
-    def __init__(self, type='mountain', attributes={Attributes.STABLE}, effects=set()):
-        super().__init__(type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+    def __init__(self, square, board, type='mountain', attributes={Attributes.STABLE}, effects=set()):
+        super().__init__(square, board, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyFire(self):
         pass # mountains can't be set on fire
@@ -308,35 +319,35 @@ class Unit_Mountain(Unit):
         ReplaceObj(Unit_Mountain_Damaged)
 
 class Unit_Mountain_Damaged(Unit_Mountain):
-    def __init__(self, type='mountain_damaged', effects=set()):
-        super().__init__(type=type, currenthp=1, maxhp=1, effects=effects)
+    def __init__(self, square, board, type='mountain_damaged', effects=set()):
+        super().__init__(square, board, type=type, currenthp=1, maxhp=1, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         ReplaceObj(Tile)
 
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
-    def __init__(self, type='volcano', effects=set()):
-        super().__init__(type=type, currenthp=1, maxhp=1, effects=effects)
+    def __init__(self, square, board, type='volcano', effects=set()):
+        super().__init__(square, board, type=type, currenthp=1, maxhp=1, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         pass # what part of indestructible do you not understand?!
 
 class Unit_Building(Unit):
-    def __init__(self, type='building', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.STABLE}):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='building', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.STABLE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
     def repairHP(self, hp):
         pass # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
-    def __init__(self, type='building_objective', currenthp=1, maxhp=1, effects=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='building_objective', currenthp=1, maxhp=1, effects=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.FRIENDLY
 
 class Unit_Acid_Vat(Unit_Building_Objective):
-    def __init__(self, type='acidvat', currenthp=2, maxhp=2, effects=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='acidvat', currenthp=2, maxhp=2, effects=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
@@ -344,8 +355,8 @@ class Unit_Acid_Vat(Unit_Building_Objective):
 
 class Unit_Blobber(Unit):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
-    def __init__(self, type='blobber', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='blobber', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.alliance = Alliance.ENEMY
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
@@ -355,180 +366,180 @@ class Unit_Blobber(Unit):
 
 class Unit_Alpha_Blobber(Unit_Blobber):
     "Also has no attack."
-    def __init__(self, type='alphablobber', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphablobber', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scorpion(Unit_Blobber):
-    def __init__(self, type='scorpion', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='scorpion', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Acid_Scorpion(Unit_Blobber):
-    def __init__(self, type='acidscorpion', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='acidscorpion', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scorpion(Unit_Blobber):
-    def __init__(self, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly(Unit_Blobber):
-    def __init__(self, type='firefly', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='firefly', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Firefly(Unit_Blobber):
-    def __init__(self, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Leaper(Unit_Blobber):
-    def __init__(self, type='leaper', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='leaper', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Leaper(Unit_Blobber):
-    def __init__(self, type='alphaleaper', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphaleaper', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle(Unit_Blobber):
-    def __init__(self, type='beetle', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='beetle', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Beetle(Unit_Blobber):
-    def __init__(self, type='alphabeetle', currenthp=5, maxhp=5, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphabeetle', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scarab(Unit_Blobber):
-    def __init__(self, type='scarab', currenthp=2, maxhp=2, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='scarab', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scarab(Unit_Blobber):
-    def __init__(self, type='alphascarab', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphascarab', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Crab(Unit_Blobber):
-    def __init__(self, type='crab', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='crab', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Crab(Unit_Blobber):
-    def __init__(self, type='alphacrab', currenthp=5, maxhp=5, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphacrab', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Centipede(Unit_Blobber):
-    def __init__(self, type='centipede', currenthp=3, maxhp=3, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='centipede', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Centipede(Unit_Blobber):
-    def __init__(self, type='alphacentipede', currenthp=5, maxhp=5, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphacentipede', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Digger(Unit_Blobber):
-    def __init__(self, type='digger', currenthp=2, maxhp=2, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='digger', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Digger(Unit_Blobber):
-    def __init__(self, type='alphadigger', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphadigger', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Hornet(Unit_Blobber):
-    def __init__(self, type='hornet', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='hornet', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Acid_Hornet(Unit_Blobber):
-    def __init__(self, type='acidhornet', currenthp=3, maxhp=3, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='acidhornet', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Hornet(Unit_Blobber):
-    def __init__(self, type='alphahornet', currenthp=4, maxhp=4, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphahornet', currenthp=4, maxhp=4, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Soldier_Psion(Unit_Blobber):
-    def __init__(self, type='soldierpsion', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='soldierpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Shell_Psion(Unit_Blobber):
-    def __init__(self, type='shellpsion', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='shellpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blood_Psion(Unit_Blobber):
-    def __init__(self, type='bloodpsion', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='bloodpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blast_Psion(Unit_Blobber):
-    def __init__(self, type='blastpsion', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='blastpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Psion_Tyrant(Unit_Blobber):
-    def __init__(self, type='psiontyrant', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='psiontyrant', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spider(Unit_Blobber):
-    def __init__(self, type='spider', currenthp=2, maxhp=2, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='spider', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spider(Unit_Blobber):
-    def __init__(self, type='alphaspider', currenthp=4, maxhp=4, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphaspider', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Burrower(Unit_Blobber):
-    def __init__(self, type='burrower', currenthp=3, maxhp=3, effects=set(), attributes=set(Attributes.BURROWER, Attributes.STABLE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='burrower', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.BURROWER, Attributes.STABLE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Burrower(Unit_Blobber):
-    def __init__(self, type='alphaburrower', currenthp=5, maxhp=5, effects=set(), attributes=set(Attributes.BURROWER, Attributes.STABLE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, square, board, type='alphaburrower', currenthp=5, maxhp=5, effects=set(), attributes={Attributes.BURROWER, Attributes.STABLE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle_Leader(Unit_Blobber):
-    def __init__(self, type='beetleleader', currenthp=6, maxhp=6, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='beetleleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Large_Goo(Unit_Blobber):
-    def __init__(self, type='largegoo', currenthp=3, maxhp=3, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='largegoo', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Medium_Goo(Unit_Blobber):
-    def __init__(self, type='mediumgoo', currenthp=2, maxhp=2, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='mediumgoo', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Small_Goo(Unit_Blobber):
-    def __init__(self, type='smallgoo', currenthp=1, maxhp=1, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='smallgoo', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Hornet_Leader(Unit_Blobber):
-    def __init__(self, type='hornetleader', currenthp=6, maxhp=6, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='hornetleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Psion_Abomination(Unit_Blobber):
-    def __init__(self, type='psionabomination', currenthp=5, maxhp=5, effects=set(), attributes=set(Attributes.FLYING)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='psionabomination', currenthp=5, maxhp=5, effects=set(), attributes={Attributes.FLYING}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scorpion_Leader(Unit_Blobber):
-    def __init__(self, type='scorpionleader', currenthp=7, maxhp=7, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='scorpionleader', currenthp=7, maxhp=7, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly_Leader(Unit_Blobber):
-    def __init__(self, type='fireflyleader', currenthp=6, maxhp=6, effects=set(), attributes=set(Attributes.MASSIVE)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='fireflyleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spider_Leader(Unit_Blobber):
-    def __init__(self, type='spiderleader', currenthp=6, maxhp=6, effects=set(), attributes=set(Attributes.Massive)):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='spiderleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Blob(Unit_Blobber):
-    def __init__(self, type='alphablob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='alphablob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blob(Unit_Blobber):
-    def __init__(self, type='blob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='blob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling_Egg(Unit_Blobber):
-    def __init__(self, type='spiderlingegg', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='spiderlingegg', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling(Unit_Blobber):
-    def __init__(self, type='spiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='spiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spiderling(Unit_Blobber):
-    def __init__(self, type='alphaspiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
-        super().__init__(type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, square, board, type='alphaspiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+        super().__init__(square, board, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 ############## PROGRAM FLOW FUNCTIONS ###############
 
 ############## MAIN ########################

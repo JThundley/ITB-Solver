@@ -69,11 +69,6 @@ class Events():
 ############### FUNCTIONS #################
 
 ############### CLASSES #################
-class ReplaceObj(Exception):
-    "Raised by tiles and units to tell the GameBoard to replace the current tile or unit with newobj"
-    def __init__(self, newobj):
-        self.newobj = newobj
-
 class GameBoard():
     "This represents the game board and some of the most basic rules of the game."
     def __init__(self, powergrid_hp=7):
@@ -113,7 +108,15 @@ class GameBoard():
                     self.board[square].unit = None
                 else:
                     self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
-
+    def replaceTile(self, square, newtile, keepeffects=True):
+        "replace tile in square with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
+        unit = self.board[square].unit
+        oldeffects = self.board[square].effects
+        self.board[square] = newtile
+        if keepeffects:
+            newtile.effects.update(oldeffects)
+        if unit:
+            self.board[square].putUnitHere(unit)
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -187,7 +190,7 @@ class Tile_Water(Tile):
     def applyFire(self): # water can't be set on fire
         pass
     def applyIce(self):
-        raise ReplaceObj(Tile_Ice)
+        self.board.replaceTile(self.square, Tile_Ice(self.square, self.board)) # XXX TODO freezing acid water kind of gets rid of acid, right?
     def repair(self): # acid cannot be removed from water by repairing it.
         self.removeEffect(Effects.SMOKE)
     def putUnitHere(self, unit):
@@ -205,7 +208,7 @@ class Tile_Ice(Tile):
     def takeDamage(self, damage):
         raise ReplaceObj(Tile_Ice_Damaged)
     def applyFire(self):
-        raise ReplaceObj(Tile_Water)
+        self.board.replaceTile(self.square, Tile_Water(self.square, self.board))
 
 class Tile_Ice_Damaged(Tile_Ice):
     def __init__(self, square, board, effects=set()):

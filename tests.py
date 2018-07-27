@@ -23,21 +23,27 @@ def t_forestCatchesFire():
     "A forest tile takes damage and catches fire."
     b = GameBoard()
     b.board[(1, 1)] = Tile_Forest(square=(1, 1), board=b)
-    square = b.board[(1, 1)]
-    assert square.effects == set()
-    square.takeDamage(1)
-    assert square.effects == {Effects.FIRE}
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+
+def t_fireTurnsIceToWater():
+    "An ice tile takes fire damage and turns to water"
+    b = GameBoard()
+    b.board[(1, 1)] = Tile_Ice(square=(1, 1), board=b)
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].type == "water"
 
 def t_shieldBlocksTileFire():
     "A shielded unit is hit with fire which blocks the unit and tile from catching fire while the shield remains."
     b = GameBoard()
-    square = b.board[(1, 1)]
-    square.unit = Unit_Blobber(square, b, effects={Effects.SHIELD})
-    assert square.effects == set()
-    assert square.unit.effects == {Effects.SHIELD}
-    square.unit.applyFire()
-    assert square.effects == set()
-    assert square.unit.effects == {Effects.SHIELD}
+    b.board[(1, 1)].unit = Unit_Blobber(b.board[(1, 1)], b, effects={Effects.SHIELD})
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    b.board[(1, 1)].unit.applyFire()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
 if __name__ == '__main__':
     g = globals()

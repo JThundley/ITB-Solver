@@ -36,15 +36,37 @@ def t_fireTurnsIceToWater():
     assert b.board[(1, 1)].type == "water"
 
 def t_shieldBlocksTileFire():
-    "A shielded unit is hit with fire which blocks the unit and tile from catching fire while the shield remains."
+    "A shielded unit is hit with fire which blocks the unit from catching fire while the shield remains. The tile is set on fire."
     b = GameBoard()
-    b.board[(1, 1)].unit = Unit_Blobber(b.board[(1, 1)], b, effects={Effects.SHIELD})
+    b.board[(1, 1)].unit = Unit_Blobber((1, 1), b, effects={Effects.SHIELD})
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
     b.board[(1, 1)].unit.applyFire()
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
+def t_IceAndShieldHitWithFire():
+    "A frozen unit with a shield is hit by fire. The ice is removed, the shield remains, the tile catches on fire."
+    b = GameBoard()
+    b.board[(1, 1)].unit = Unit_Blobber((1, 1), b, effects={Effects.SHIELD, Effects.ICE})
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].unit.applyFire()
+    print(b.board[(1, 1)].effects)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+
+def t_ShieldRemovedOnFireTile():
+    "A shielded unit is put onto a fire tile. The unit takes a hit which removes the shield and the unit catches fire."
+    b = GameBoard()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    b.board[(1, 1)].putUnitHere()
+
+# A flying unit that is on fire that moves to a water tile remains on fire
+# A flying unit that is frozen on water remains frozen because the tile under it becomes ice instead of water.
+# A flying unit or ground unit that is frozen and is then moved onto a water tile is unfrozen.
+# A water tile that is hit with ice becomes an ice tile
+# A ground unit that is on fire that moves into a water tile is no longer on fire.
 if __name__ == '__main__':
     g = globals()
     for test in [x for x in g if x.startswith('t_')]:

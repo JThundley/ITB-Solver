@@ -154,10 +154,15 @@ class Tile():
         for effect in (Effects.FIRE, Effects.SMOKE, Effects.ACID):
             self.removeEffect(effect)
     def putUnitHere(self, unit):
-        "run this when a unit lands on this tile to spread effects between the tile and unit."
-        for effect in (Effects.FIRE, Effects.ACID): # give the unit these effects.
-            if effect in self.effects:
-                self.unit.effects.add(effect)
+        "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. returns nothing."
+        self.unit = unit
+        self.unit.square = self.square
+        if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded, spread fire to it
+            if Effects.FIRE in self.effects:
+                self.unit.effects.add(Effects.FIRE)
+            if Effects.ACID in self.effects: # same with acid, but also remove it from the tile.
+                self.unit.effects.add(Effects.ACID)
+                self.removeEffect(Effects.ACID)
         if Effects.MINE in self.effects:
             self.unit.die()
             self.removeEffect(Effects.MINE)
@@ -165,8 +170,6 @@ class Tile():
         elif Effects.FREEZEMINE in self.effects:
             self.unit.applyIce()
             self.removeEffect(Effects.FREEZEMINE)
-        self.unit = unit
-        self.unit.square = self.square
 
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
@@ -194,11 +197,15 @@ class Tile_Water(Tile):
     def repair(self): # acid cannot be removed from water by repairing it.
         self.removeEffect(Effects.SMOKE)
     def putUnitHere(self, unit):
-        if (Attributes.MASSIVE not in unit.attributes) and (Attributes.FLYING not in unit.attributes):
+        self.unit = unit
+        self.unit.square = self.square
+        if (Attributes.MASSIVE not in unit.attributes) and (Attributes.FLYING not in unit.attributes): # kill non-massive non-flying units that went into the water.
             unit.die()
             if Effects.ACID in unit.effects:
                 self.applyAcid()
         else:
+            self.unit.removeEffect(Effects.FIRE) # water puts out the fire
+            self.unit.removeEffect(Effects.ICE)  # water puts out the fire
             super().putUnitHere(unit)
 
 class Tile_Ice(Tile):
@@ -266,14 +273,16 @@ class Tile_Conveyor(Tile):
 
 class Unit(Tile):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, square, board, type, currenthp, maxhp, attributes=set(), effects=set()):
-        """type is the name of the unit (str)
+    def __init__(self, board, type, currenthp, maxhp, attributes=set(), effects=set()):
+        """
+        board is the GameBoard instance
+        type is the name of the unit (str)
         currenthp is the unit's current hitpoints (int)
         maxhp is the unit's maximum hitpoints (int)
         effects is a set of effects applied to this unit. Use Effects.EFFECTNAME for this.
         attributes is a set of attributes or properties that the unit has. use Attributes.ATTRNAME for this.
         """
-        super().__init__(square=None, board=None, type=type, effects=effects)
+        super().__init__(square=None, board=board, type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
         self.attributes = attributes

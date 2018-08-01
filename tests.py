@@ -55,7 +55,7 @@ def t_IceAndShieldHitWithFire():
     gb = GameBoard()
     gb.board[(1, 1)].putUnitHere(Unit_Blobber(gboard=gb, effects={Effects.SHIELD, Effects.ICE}))
     assert gb.board[(1, 1)].effects == set()
-    # gb.board[(1, 1)].applyFire()
+    gb.board[(1, 1)].applyFire() # why does uncommenting this line break everything? I don't understand, I use putUnitHere in other functions the same way, I use applyFire() in other functions the same way.
     # assert gb.board[(1, 1)].effects == {Effects.FIRE}
     # assert gb.board[(1, 1)].unit.effects == {Effects.SHIELD}
 #

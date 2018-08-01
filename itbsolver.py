@@ -126,8 +126,13 @@ class GameBoard():
 class Tile():
     """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
     def __init__(self, gboard, square=None, type='ground', effects=set(), unit=None):
-        if DEBUG:
-            print("Tile effects are:", effects)
+        # if DEBUG:
+        #     print("gboard is:", gboard)
+        #     print("square is:", square)
+        #     print("type is:", type)
+        #     print("effects is:", effects)
+        #     print("unit is:", unit)
+
         self.square = square # This is the (x, y) coordinate of the square. This is required for tiles, but the default is None since units subclass Tiles.
         self.gboard = gboard # this is a link back to the main game board so tiles and units can change it
         self.type = type # the type of tile, the name of it.
@@ -162,7 +167,7 @@ class Tile():
             pass
     def applyAcid(self):
         self.effects.add(Effects.ACID)
-        self.effects.removeEffect(Effects.FIRE)
+        self.removeEffect(Effects.FIRE)
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
@@ -305,7 +310,7 @@ class Tile_Conveyor(Tile):
 
 class Unit(Tile):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, gboard, type, currenthp, maxhp, attributes=set(), effects=set()):
+    def __init__(self, gboard, type, currenthp, maxhp, effects=set(), attributes=set()):
         """
         gboard is the GameBoard instance
         type is the name of the unit (str)

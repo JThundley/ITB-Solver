@@ -11,6 +11,7 @@ def runTest(funcname):
 def t_bumpDamage():
     "2 units bump into each other and take 1 damage each."
     b = GameBoard()
+    assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
     b.board[(2, 1)].putUnitHere(Unit_Alpha_Beetle(b))
     assert b.board[(1, 1)].unit.currenthp == 3
@@ -22,6 +23,7 @@ def t_bumpDamage():
 def t_forestCatchesFire():
     "A forest tile takes damage and catches fire."
     b = GameBoard()
+    assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)] = Tile_Forest(square=(1, 1), gboard=b)
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].takeDamage(1)
@@ -30,6 +32,7 @@ def t_forestCatchesFire():
 def t_fireTurnsIceToWater():
     "An ice tile takes fire damage and turns to water"
     b = GameBoard()
+    assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)] = Tile_Ice(square=(1, 1), gboard=b)
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyFire()
@@ -38,7 +41,7 @@ def t_fireTurnsIceToWater():
 def t_shieldBlocksTileFire():
     "A shielded unit is hit with fire which blocks the unit from catching fire while the shield remains. The tile is set on fire."
     b = GameBoard()
-    print(b.board[(1, 1)].effects)
+    #print(b.board[(1, 1)].effects)
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].putUnitHere(Unit_Blobber(b, effects={Effects.SHIELD}))
     assert b.board[(1, 1)].effects == set()
@@ -49,25 +52,25 @@ def t_shieldBlocksTileFire():
 
 def t_IceAndShieldHitWithFire():
     "A frozen unit with a shield is hit by fire. The ice is removed, the shield remains, the tile catches on fire."
-    b = GameBoard()
-    b.board[(1, 1)].putUnitHere(Unit_Blobber(b, effects={Effects.SHIELD, Effects.ICE}))
-    assert b.board[(1, 1)].effects == set()
-    b.board[(1, 1)].applyFire()
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
-    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
-
-def t_ShieldRemovedOnFireTile():
-    "A shielded unit is put onto a fire tile. The unit takes a hit which removes the shield and the unit catches fire."
-    b = GameBoard()
-    b.board[(1, 1)].applyFire()
-    b.board[(1, 1)].putUnitHere(Unit_Blobber(b, effects={Effects.SHIELD}))
-    #print(b.board[(1, 1)].unit.square)
-    #print(b.board[(1, 1)].unit.gboard)
-    b.board[(1, 1)].takeDamage(1)
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
-    assert b.board[(1, 1)].unit.currenthp == 3
-    #print("Unit effects are:", b.board[(1, 1)].unit.effects)
-    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    gb = GameBoard()
+    gb.board[(1, 1)].putUnitHere(Unit_Blobber(gboard=gb, effects={Effects.SHIELD, Effects.ICE}))
+    assert gb.board[(1, 1)].effects == set()
+    # gb.board[(1, 1)].applyFire()
+    # assert gb.board[(1, 1)].effects == {Effects.FIRE}
+    # assert gb.board[(1, 1)].unit.effects == {Effects.SHIELD}
+#
+# def t_ShieldRemovedOnFireTile():
+#     "A shielded unit is put onto a fire tile. The unit takes a hit which removes the shield and the unit catches fire."
+#     b = GameBoard()
+#     b.board[(1, 1)].applyFire()
+#     b.board[(1, 1)].putUnitHere(Unit_Blobber(b, effects={Effects.SHIELD}))
+#     #print(b.board[(1, 1)].unit.square)
+#     #print(b.board[(1, 1)].unit.gboard)
+#     b.board[(1, 1)].takeDamage(1)
+#     assert b.board[(1, 1)].effects == {Effects.FIRE}
+#     assert b.board[(1, 1)].unit.currenthp == 3
+#     #print("Unit effects are:", b.board[(1, 1)].unit.effects)
+#     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 
 

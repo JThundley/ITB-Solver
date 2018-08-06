@@ -14,6 +14,10 @@
 # If a shielded unit is on a forest tile and you attack it, the shield takes the damage and the forest fire does NOT ignite
 # If a unit is shielded and on fire, freezing it does nothing, doesn't even put out the fire.
 
+# TODO
+# change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
+# change replaceTile and replaceUnit argument order.
+# change takeDamage on units to take into effect ARMORED and ACID.
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
@@ -37,7 +41,7 @@ class Effects():
     EXPLOSIVE = 11
 
 class Attributes():
-    "These are attributes that are applied to units."
+    "These are attributes that are applied to units. These do not change during the actions of a single turn."
     MASSIVE = 1 # prevents drowning in water
     STABLE = 2 # prevents units from being pushed
     FLYING = 3 # prevents drowning in water and allows movement through other units
@@ -114,36 +118,43 @@ class GameBoard():
     def replaceTile(self, square, newtile, keepeffects=True):
         "replace tile in square with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
         unit = self.board[square].unit
-        oldeffects = self.board[square].effects
-        self.board[square] = newtile
         if keepeffects:
-            newtile.effects.update(oldeffects)
-        if unit:
+            newtile.effects.update(self.board[square].effects)
+        self.board[square] = newtile
+        try:
             self.board[square].putUnitHere(unit)
+        except AttributeError: # raised by None.putUnitHere()
+            pass
+    def moveUnit(self, srcsquare, destsquare):
+        "Move a unit from srcsquare to destsquare, keeping the effects. returns nothing."
+        self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
+        self.board[srcsquare].putUnitHere(None)
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
-class Tile():
-    """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
-    def __init__(self, gboard, square=None, type='ground', effects=set(), unit=None):
-        # if DEBUG:
-        #     print("gboard is:", gboard)
-        #     print("square is:", square)
-        #     print("type is:", type)
-        #     print("effects is:", effects)
-        #     print("unit is:", unit)
+class TileUnit_Base():
+    "This is the base object that forms both Tiles and Units."
+    def __init__(self, gboard, square=None, type=None, effects=None):
+        self.gboard = gboard  # this is a link back to the game board instance so tiles and units can change it
+        self.square = square # This is the (x, y) coordinate of the Tile or Unit. This is required for Tiles, but not for Units which have their square set when they are placed on a square.
+        self.type = type # the name of the unit or tile
+        if not effects:
+            self.effects = set()
+        else:
+            self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
 
-        self.square = square # This is the (x, y) coordinate of the square. This is required for tiles, but the default is None since units subclass Tiles.
-        self.gboard = gboard # this is a link back to the main game board so tiles and units can change it
-        self.type = type # the type of tile, the name of it.
-        self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
+class Tile(TileUnit_Base):
+    """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
+    def __init__(self, gboard, square=None, type='ground', effects=None, unit=None):
+        super().__init__(gboard, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
     def takeDamage(self, damage):
         """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
-        There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs.
+        There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs, this never has an effect on the tile.
         Damage is an int of how much damage to take, but normal tiles are unaffected by damage.
         """
-        self.removeEffect(Effects.TIMEPOD)
+        for effect in Effects.TIMEPOD, Effects.FREEZEMINE, Effects.MINE:
+            self.removeEffect(effect)
         try:
             self.unit.takeDamage(damage)
         except AttributeError:
@@ -168,12 +179,17 @@ class Tile():
     def applyAcid(self):
         self.effects.add(Effects.ACID)
         self.removeEffect(Effects.FIRE)
+        try:
+            self.unit.applyAcid()
+        except AttributeError:
+            pass
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
         except AttributeError:
             pass
     def removeEffect(self, effect):
+        "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
         try:
             self.effects.remove(effect)
         except KeyError:
@@ -183,9 +199,13 @@ class Tile():
         for effect in (Effects.FIRE, Effects.ACID):
             self.removeEffect(effect)
     def putUnitHere(self, unit):
-        "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. returns nothing."
+        "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit. If there's a unit already on the tile, it's overwritten and deleted. returns nothing."
         self.unit = unit
-        self.unit.square = self.square
+        try:
+            self.unit.square = self.square
+        except AttributeError: # raised by None.square = blah
+            return # bail, the unit has been replaced by nothing which is ok.
+        # Spread effects present on the tile to the new unit that just landed here:
         if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded...
             if Effects.FIRE in self.effects: # and the tile is on fire...
                 self.unit.applyFire() # spread fire to it.
@@ -201,7 +221,7 @@ class Tile():
 
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(square, gboard, type='forest', effects=effects)
     def takeDamage(self, damage):
         "tile gains the fire effect"
@@ -210,7 +230,7 @@ class Tile_Forest(Tile):
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(square, gboard, type='sand', effects=effects)
     def takeDamage(self, damage):
         self.applySmoke()
@@ -218,18 +238,19 @@ class Tile_Sand(Tile):
 
 class Tile_Water(Tile):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(square, gboard, type='water', effects=effects)
-    def applyFire(self): # water can't be set on fire
-        try:
+    def applyFire(self):
+        "Water can't be set on fire"
+        try: # spread the fire to the unit
             self.unit.applyFire()
         except AttributeError:
-            pass
+            return # but not the tile
     def applyIce(self):
         self.removeEffect(Effects.ACID)
         self.gboard.replaceTile(self.square, Tile_Ice(self.square, self.gboard)) # freezing acid water gets rid of acid
     def repair(self): # acid cannot be removed from water by repairing it.
-        pass
+        pass # TODO process other things here!
     def putUnitHere(self, unit):
         self.unit = unit
         self.unit.square = self.square
@@ -245,7 +266,7 @@ class Tile_Water(Tile):
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='ice', effects=effects)
     def takeDamage(self, damage):
         self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.square, self.gboard))
@@ -253,14 +274,14 @@ class Tile_Ice(Tile):
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square))
 
 class Tile_Ice_Damaged(Tile_Ice):
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='ice_damaged', effects=effects)
     def takeDamage(self, damage):
-        raise ReplaceObj(Tile_Water)
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square))
 
 class Tile_Chasm(Tile):
     "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='chasm', effects=effects)
     def applyFire(self):
         pass
@@ -275,31 +296,35 @@ class Tile_Chasm(Tile):
             super().putUnitHere(unit)
 
 class Tile_Lava(Tile_Water):
-    def __init__(self, gboard, square=None, effects={'fire'}):
+    def __init__(self, gboard, square=None, effects=None):
+        try: # try adding fire to a newly passed in effects set
+            effects.add(Effects.FIRE)
+        except AttributeError: # if it doesn't exist, set it to fire since that's what a lava tile always has
+            effects = {Effects.FIRE}
         super().__init__(gboard, square, type='lava', effects=effects)
     def repair(self):
         self.removeEffect(Effects.SMOKE)
-    # TODO: Can lava be frozen?
+    # TODO: Can lava be frozen? BOB SAID NO. Do more testing on lava tiles.
 
 class Tile_Grassland(Tile):
     "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='grassland', effects=effects)
 
 class Tile_Terraformed(Tile):
     "This tile was terraformed as part of your bonus objective. Also just a regular ground tile."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='terraformed', effects=effects)
 
 class Tile_Teleporter(Tile):
     "End movement here to warp to the matching pad. Swap with any present unit."
-    def __init__(self, gboard, square=None, effects=set()):
+    def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='teleporter', effects=effects)
         # TODO: implement this
 
 class Tile_Conveyor(Tile):
     "This tile will push any unit in the direction marked on the belt."
-    #def __init__(self, gboard, square=None, direction, effects=set()):
+    #def __init__(self, gboard, square=None, direction, effects=None):
     #    super().__init__(gboard, square, type='conveyor', effects=effects)
     #    self.direction = direction
     # TODO: implement this
@@ -308,9 +333,9 @@ class Tile_Conveyor(Tile):
 ######################################## UNITS ###############################
 ##############################################################################
 
-class Unit(Tile):
+class Unit(TileUnit_Base):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, gboard, type, currenthp, maxhp, effects=set(), attributes=set()):
+    def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
         """
         gboard is the GameBoard instance
         type is the name of the unit (str)
@@ -322,7 +347,10 @@ class Unit(Tile):
         super().__init__(gboard=gboard, type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
-        self.attributes = attributes
+        if not attributes:
+            self.attributes = set()
+        else:
+            self.attributes = attributes
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
     def applyFire(self):
@@ -356,10 +384,14 @@ class Unit(Tile):
         self.takeDamage(1) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
     def die(self):
         "Make the unit die."
-        raise ReplaceObj(None) # it's dead, replace it with nothing
+        self.gboard.board[self.tile].putUnitHere(None) # it's dead, replace it with nothing
 
 class Unit_Mountain(Unit):
-    def __init__(self, gboard, type='mountain', attributes={Attributes.STABLE}, effects=set()):
+    def __init__(self, gboard, type='mountain', attributes=None, effects=None):
+        try:
+            attributes.add(Attributes.STABLE)
+        except AttributeError:
+            attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyFire(self):
@@ -367,46 +399,54 @@ class Unit_Mountain(Unit):
     def applyAcid(self):
         pass # same for acid
     def takeDamage(self, damage=1):
-        ReplaceObj(Unit_Mountain_Damaged)
+        self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
-    def __init__(self, gboard, type='mountain_damaged', effects=set()):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, effects=effects)
+    def __init__(self, gboard, type='mountain_damaged', effects=None):
+        super().__init__(gboard, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
-        ReplaceObj(Tile)
+        self.gboard.board[self.square].putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
-    def __init__(self, gboard, type='volcano', effects=set()):
+    def __init__(self, gboard, type='volcano', effects=None):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         pass # what part of indestructible do you not understand?!
 
 class Unit_Building(Unit):
-    def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.STABLE}):
+    def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
+        try:
+            attributes.add(Attributes.STABLE)
+        except AttributeError:
+            attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
     def repairHP(self, hp):
         pass # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
-    def __init__(self, gboard, type='building_objective', currenthp=1, maxhp=1, effects=set()):
+    def __init__(self, gboard, type='building_objective', currenthp=1, maxhp=1, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.FRIENDLY
 
-class Unit_Acid_Vat(Unit_Building_Objective):
-    def __init__(self, gboard, type='acidvat', currenthp=2, maxhp=2, effects=set()):
+class Unit_Acid_Vat(Unit):
+    def __init__(self, gboard, type='acidvat', currenthp=2, maxhp=2, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        ReplaceObj(None) # TODO: How do we have a unit replace a tile?
-
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square, effects={Effects.ACID}, keepeffects=True)) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
+        self.gboard.board[self.square].putUnitHere(None)
+############################################################################################################################
+###################################################### ENEMY UNITS #########################################################
+############################################################################################################################
 class Unit_Blobber(Unit):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
-    def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.alliance = Alliance.ENEMY
     def repairHP(self, hp=1):
@@ -417,179 +457,187 @@ class Unit_Blobber(Unit):
 
 class Unit_Alpha_Blobber(Unit_Blobber):
     "Also has no attack."
-    def __init__(self, gboard, type='alphablobber', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphablobber', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scorpion(Unit_Blobber):
-    def __init__(self, gboard, type='scorpion', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='scorpion', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Acid_Scorpion(Unit_Blobber):
-    def __init__(self, gboard, type='acidscorpion', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='acidscorpion', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scorpion(Unit_Blobber):
-    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly(Unit_Blobber):
-    def __init__(self, gboard, type='firefly', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='firefly', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Firefly(Unit_Blobber):
-    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Leaper(Unit_Blobber):
-    def __init__(self, gboard, type='leaper', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='leaper', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Leaper(Unit_Blobber):
-    def __init__(self, gboard, type='alphaleaper', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphaleaper', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle(Unit_Blobber):
-    def __init__(self, gboard, type='beetle', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='beetle', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Beetle(Unit_Blobber):
-    def __init__(self, gboard, type='alphabeetle', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphabeetle', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scarab(Unit_Blobber):
-    def __init__(self, gboard, type='scarab', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='scarab', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scarab(Unit_Blobber):
-    def __init__(self, gboard, type='alphascarab', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphascarab', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Crab(Unit_Blobber):
-    def __init__(self, gboard, type='crab', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='crab', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Crab(Unit_Blobber):
-    def __init__(self, gboard, type='alphacrab', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphacrab', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Centipede(Unit_Blobber):
-    def __init__(self, gboard, type='centipede', currenthp=3, maxhp=3, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='centipede', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Centipede(Unit_Blobber):
-    def __init__(self, gboard, type='alphacentipede', currenthp=5, maxhp=5, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphacentipede', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Digger(Unit_Blobber):
-    def __init__(self, gboard, type='digger', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='digger', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Digger(Unit_Blobber):
-    def __init__(self, gboard, type='alphadigger', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphadigger', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Hornet(Unit_Blobber):
-    def __init__(self, gboard, type='hornet', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Hornet(Unit_Blobber): # this is the base class for flying units
+    def __init__(self, gboard, type='hornet', currenthp=2, maxhp=2, effects=None, attributes=None):
+        try:
+            attributes.add(Attributes.FLYING)
+        except AttributeError:
+            attributes = {Attributes.FLYING}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Acid_Hornet(Unit_Blobber):
-    def __init__(self, gboard, type='acidhornet', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Acid_Hornet(Unit_Hornet):
+    def __init__(self, gboard, type='acidhornet', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Alpha_Hornet(Unit_Blobber):
-    def __init__(self, gboard, type='alphahornet', currenthp=4, maxhp=4, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Alpha_Hornet(Unit_Hornet):
+    def __init__(self, gboard, type='alphahornet', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Soldier_Psion(Unit_Blobber):
-    def __init__(self, gboard, type='soldierpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Soldier_Psion(Unit_Hornet):
+    def __init__(self, gboard, type='soldierpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Shell_Psion(Unit_Blobber):
-    def __init__(self, gboard, type='shellpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Shell_Psion(Unit_Hornet):
+    def __init__(self, gboard, type='shellpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Blood_Psion(Unit_Blobber):
-    def __init__(self, gboard, type='bloodpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Blood_Psion(Unit_Hornet):
+    def __init__(self, gboard, type='bloodpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Blast_Psion(Unit_Blobber):
-    def __init__(self, gboard, type='blastpsion', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Blast_Psion(Unit_Hornet):
+    def __init__(self, gboard, type='blastpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Psion_Tyrant(Unit_Blobber):
-    def __init__(self, gboard, type='psiontyrant', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.FLYING}):
+class Unit_Psion_Tyrant(Unit_Hornet):
+    def __init__(self, gboard, type='psiontyrant', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spider(Unit_Blobber):
-    def __init__(self, gboard, type='spider', currenthp=2, maxhp=2, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='spider', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spider(Unit_Blobber):
-    def __init__(self, gboard, type='alphaspider', currenthp=4, maxhp=4, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphaspider', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Burrower(Unit_Blobber):
-    def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.BURROWER, Attributes.STABLE}):
+    def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
+        try:
+            attributes.update((Attributes.BURROWER, Attributes.STABLE))
+        except AttributeError:
+            attributes = {Attributes.BURROWER, Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Alpha_Burrower(Unit_Blobber):
-    def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=set(), attributes={Attributes.BURROWER, Attributes.STABLE}):
+class Unit_Alpha_Burrower(Unit_Burrower):
+    def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes={Attributes.BURROWER, Attributes.STABLE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}): # XXX CONTINUE
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Large_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Medium_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='mediumgoo', currenthp=2, maxhp=2, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='mediumgoo', currenthp=2, maxhp=2, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Small_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='smallgoo', currenthp=1, maxhp=1, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='smallgoo', currenthp=1, maxhp=1, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Hornet_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.FLYING}):
+    def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.FLYING}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Psion_Abomination(Unit_Blobber):
-    def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=set(), attributes={Attributes.FLYING}):
+    def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes={Attributes.FLYING}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scorpion_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spider_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=set(), attributes={Attributes.MASSIVE}):
+    def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Blob(Unit_Blobber):
-    def __init__(self, gboard, type='alphablob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphablob', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blob(Unit_Blobber):
-    def __init__(self, gboard, type='blob', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='blob', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling_Egg(Unit_Blobber):
-    def __init__(self, gboard, type='spiderlingegg', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='spiderlingegg', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling(Unit_Blobber):
-    def __init__(self, gboard, type='spiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='spiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spiderling(Unit_Blobber):
-    def __init__(self, gboard, type='alphaspiderling', currenthp=1, maxhp=1, effects=set(), attributes=set()):
+    def __init__(self, gboard, type='alphaspiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 ############## PROGRAM FLOW FUNCTIONS ###############
 

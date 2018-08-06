@@ -142,6 +142,12 @@ class TileUnit_Base():
             self.effects = set()
         else:
             self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
+    def removeEffect(self, effect):
+        "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
+        try:
+            self.effects.remove(effect)
+        except KeyError:
+            pass
 
 class Tile(TileUnit_Base):
     """This object is a normal tile. All other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
@@ -187,12 +193,6 @@ class Tile(TileUnit_Base):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
         except AttributeError:
-            pass
-    def removeEffect(self, effect):
-        "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
-        try:
-            self.effects.remove(effect)
-        except KeyError:
             pass
     def repair(self):
         "process the action of a friendly mech repairing on this tile and removing certain effects."
@@ -365,7 +365,8 @@ class Unit(TileUnit_Base):
         if Effects.SHIELD not in self.effects: # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
             super().applyIce()
             self.effects.add(Effects.ICE)
-    def takeDamage(self, damage):
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        "Process this unit taking damage. All effects are considered unless set to True in the arguments."
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
@@ -374,6 +375,12 @@ class Unit(TileUnit_Base):
             else:
                 self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
                 return # and then stop processing things, the shield or ice took the damage.
+        if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects:
+            pass # acid cancels out armored
+        elif not ignorearmor and Attributes.ARMORED in self.attributes:
+            damage -= 1
+        elif not ignoreacid and Effects.ACID in self.effects:
+            damage *= 2
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
@@ -381,10 +388,11 @@ class Unit(TileUnit_Base):
             self.die()
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
-        self.takeDamage(1) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
+        self.takeDamage(1, ignorearmor=True, ignoreacid=True) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
     def die(self):
         "Make the unit die."
         self.gboard.board[self.tile].putUnitHere(None) # it's dead, replace it with nothing
+        # TODO: spread certain effects back to the tile on death!
 
 class Unit_Mountain(Unit):
     def __init__(self, gboard, type='mountain', attributes=None, effects=None):
@@ -572,7 +580,7 @@ class Unit_Alpha_Spider(Unit_Blobber):
     def __init__(self, gboard, type='alphaspider', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Burrower(Unit_Blobber):
+class Unit_Burrower(Unit_Blobber): # Base unit for burrowers
     def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
         try:
             attributes.update((Attributes.BURROWER, Attributes.STABLE))
@@ -581,43 +589,51 @@ class Unit_Burrower(Unit_Blobber):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Burrower(Unit_Burrower):
-    def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes={Attributes.BURROWER, Attributes.STABLE}):
+    def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Beetle_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}): # XXX CONTINUE
+class Unit_Beetle_Leader(Unit_Blobber): # Base unit for massive bosses
+    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None): # XXX CONTINUE
+        try:
+            attributes.add(Attributes.MASSIVE)
+        except AttributeError:
+            attributes = {Attributes.MASSIVE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Large_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Large_Goo(Unit_Beetle_Leader):
+    def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Medium_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='mediumgoo', currenthp=2, maxhp=2, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Medium_Goo(Unit_Beetle_Leader):
+    def __init__(self, gboard, type='mediumgoo', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Small_Goo(Unit_Blobber):
-    def __init__(self, gboard, type='smallgoo', currenthp=1, maxhp=1, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Small_Goo(Unit_Beetle_Leader):
+    def __init__(self, gboard, type='smallgoo', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Hornet_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.FLYING}):
+class Unit_Hornet_Leader(Unit_Beetle_Leader): # base class for flying and massive units
+    def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes=None):
+        try:
+            attributes.add(Attributes.FLYING)
+        except AttributeError:
+            attributes = {Attributes.FLYING}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Psion_Abomination(Unit_Blobber):
-    def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes={Attributes.FLYING}):
+class Unit_Psion_Abomination(Unit_Hornet_Leader):
+    def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Scorpion_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Scorpion_Leader(Unit_Hornet_Leader):
+    def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Firefly_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Firefly_Leader(Unit_Hornet_Leader):
+    def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Spider_Leader(Unit_Blobber):
-    def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes={Attributes.MASSIVE}):
+class Unit_Spider_Leader(Unit_Hornet_Leader):
+    def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Blob(Unit_Blobber):
@@ -643,4 +659,4 @@ class Unit_Alpha_Spiderling(Unit_Blobber):
 
 ############## MAIN ########################
 if __name__ == '__main__':
-    b = GameBoard()
+    pass

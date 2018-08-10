@@ -18,6 +18,9 @@
 # change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
 # change replaceTile and replaceUnit argument order.
 # change takeDamage on units to take into effect ARMORED and ACID.
+# Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable.
+# implement fire immunity attribute
+# a flying psion that is on fire doesn't transfer fire to the vek emerge tile below.
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
@@ -41,7 +44,7 @@ class Effects():
     EXPLOSIVE = 11
 
 class Attributes():
-    "These are attributes that are applied to units. These do not change during the actions of a single turn."
+    "These are attributes that are applied to units."
     MASSIVE = 1 # prevents drowning in water
     STABLE = 2 # prevents units from being pushed
     FLYING = 3 # prevents drowning in water and allows movement through other units
@@ -85,8 +88,7 @@ class GameBoard():
         #    assert self.board[(1, 1)].effects == set()
         self.powergrid_hp = powergrid_hp # max is 7
     def push(self, square, direction):
-        "push units on square direction. square is a tuple of (x, y) coordinates, direction is a Direction.UP direction."
-        # TODO: Change this method to push multiple tiles instead of just one at a time. We need to calculate whether the a tile is pushing a unit to another tile that hasn't been pushed yet
+        "push units on square direction. square is a tuple of (x, y) coordinates, direction is a Direction.UP direction. This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed."
         try:
             if Attributes.STABLE in self.board[square].unit.attributes:
                 return # stable units can't be pushed
@@ -111,8 +113,7 @@ class GameBoard():
                 try:
                     self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
                 except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
-                    self.board[destinationsquare].unit = self.board[square].unit # move the unit from square to destination square
-                    self.board[square].unit = None
+                    self.moveUnit(square, destinationsquare) # move the unit from square to destination square
                 else:
                     self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
     def replaceTile(self, square, newtile, keepeffects=True):
@@ -121,10 +122,11 @@ class GameBoard():
         if keepeffects:
             newtile.effects.update(self.board[square].effects)
         self.board[square] = newtile
+        self.board[square].square = square
         try:
             self.board[square].putUnitHere(unit)
         except AttributeError: # raised by None.putUnitHere()
-            pass
+            return
     def moveUnit(self, srcsquare, destsquare):
         "Move a unit from srcsquare to destsquare, keeping the effects. returns nothing."
         self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
@@ -164,7 +166,7 @@ class Tile(TileUnit_Base):
         try:
             self.unit.takeDamage(damage)
         except AttributeError:
-            pass
+            return
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
@@ -172,7 +174,7 @@ class Tile(TileUnit_Base):
         try:
             self.unit.applyFire()
         except AttributeError:
-            pass
+            return
     def applySmoke(self):
         "make a smoke cloud on the current tile"
         self.effects.add(Effects.SMOKE)
@@ -181,19 +183,19 @@ class Tile(TileUnit_Base):
         try:
             self.unit.applyIce()
         except AttributeError:
-            pass
+            return
     def applyAcid(self):
         self.effects.add(Effects.ACID)
         self.removeEffect(Effects.FIRE)
         try:
             self.unit.applyAcid()
         except AttributeError:
-            pass
+            return
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
         except AttributeError:
-            pass
+            return
     def repair(self):
         "process the action of a friendly mech repairing on this tile and removing certain effects."
         for effect in (Effects.FIRE, Effects.ACID):
@@ -205,7 +207,9 @@ class Tile(TileUnit_Base):
             self.unit.square = self.square
         except AttributeError: # raised by None.square = blah
             return # bail, the unit has been replaced by nothing which is ok.
-        # Spread effects present on the tile to the new unit that just landed here:
+        self.spreadEffects()
+    def spreadEffects(self):
+        "Spread effects from the tile to a unit that newly landed here. This also executes other things the tile can do to the unit when it lands there, such as dying if it falls into a chasm."
         if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded...
             if Effects.FIRE in self.effects: # and the tile is on fire...
                 self.unit.applyFire() # spread fire to it.
@@ -222,7 +226,7 @@ class Tile(TileUnit_Base):
 class Tile_Forest(Tile):
     "If damaged, lights on fire."
     def __init__(self, gboard, square=None, effects=None):
-        super().__init__(square, gboard, type='forest', effects=effects)
+        super().__init__(gboard, square, type='forest', effects=effects)
     def takeDamage(self, damage):
         "tile gains the fire effect"
         self.applyFire()
@@ -231,7 +235,7 @@ class Tile_Forest(Tile):
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
     def __init__(self, gboard, square=None, effects=None):
-        super().__init__(square, gboard, type='sand', effects=effects)
+        super().__init__(gboard, square, type='sand', effects=effects)
     def takeDamage(self, damage):
         self.applySmoke()
         super().takeDamage(damage)
@@ -239,7 +243,7 @@ class Tile_Sand(Tile):
 class Tile_Water(Tile):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
     def __init__(self, gboard, square=None, effects=None):
-        super().__init__(square, gboard, type='water', effects=effects)
+        super().__init__(gboard, square, type='water', effects=effects)
     def applyFire(self):
         "Water can't be set on fire"
         try: # spread the fire to the unit
@@ -247,22 +251,24 @@ class Tile_Water(Tile):
         except AttributeError:
             return # but not the tile
     def applyIce(self):
-        self.removeEffect(Effects.ACID)
-        self.gboard.replaceTile(self.square, Tile_Ice(self.square, self.gboard)) # freezing acid water gets rid of acid
+        self.removeEffect(Effects.ACID) # freezing acid water gets rid of acid
+        self.gboard.replaceTile(self.square, Tile_Ice(self.square, self.gboard))
+        try:
+            self.unit.applyIce()
+        except AttributeError:
+            return
     def repair(self): # acid cannot be removed from water by repairing it.
         pass # TODO process other things here!
-    def putUnitHere(self, unit):
-        self.unit = unit
-        self.unit.square = self.square
-        if (Attributes.MASSIVE not in unit.attributes) and (Attributes.FLYING not in unit.attributes): # kill non-massive non-flying units that went into the water.
-            unit.die()
+    def spreadEffects(self):
+        if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
+            self.unit.die()
         else: # the unit lived
-            if Attributes.FLYING not in unit.attributes:
+            if Attributes.FLYING not in self.unit.attributes:
                 self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
             else: # not a flying unit
                 if Effects.ACID in self.effects: # spread acid but don't remove it from the tile
                     self.unit.applyAcid()
-            self.unit.removeEffect(Effects.ICE)  # water breaks you out of the ice
+            self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
@@ -284,16 +290,24 @@ class Tile_Chasm(Tile):
     def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='chasm', effects=effects)
     def applyFire(self):
-        pass
+        try:
+            self.unit.applyFire()
+        except AttributeError:
+            return
     def applyIce(self):
-        pass
+        try:
+            self.unit.applyIce()
+        except AttributeError:
+            return
     def applyAcid(self):
-        pass
-    def putUnitHere(self, unit):
+        try:
+            self.unit.applyAcid
+        except AttributeError:
+            return
+    def spreadEffects(self):
         if Attributes.FLYING not in unit.attributes:
             unit.die()
-        else:
-            super().putUnitHere(unit)
+        # no need to super().spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
 
 class Tile_Lava(Tile_Water):
     def __init__(self, gboard, square=None, effects=None):
@@ -363,7 +377,6 @@ class Unit(TileUnit_Base):
         self.effects.add(Effects.SHIELD)
     def applyIce(self):
         if Effects.SHIELD not in self.effects: # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-            super().applyIce()
             self.effects.add(Effects.ICE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Process this unit taking damage. All effects are considered unless set to True in the arguments."
@@ -391,7 +404,7 @@ class Unit(TileUnit_Base):
         self.takeDamage(1, ignorearmor=True, ignoreacid=True) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
     def die(self):
         "Make the unit die."
-        self.gboard.board[self.tile].putUnitHere(None) # it's dead, replace it with nothing
+        self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         # TODO: spread certain effects back to the tile on death!
 
 class Unit_Mountain(Unit):
@@ -403,9 +416,9 @@ class Unit_Mountain(Unit):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyFire(self):
-        pass # mountains can't be set on fire
+        return # mountains can't be set on fire
     def applyAcid(self):
-        pass # same for acid
+        return # same for acid
     def takeDamage(self, damage=1):
         self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
 
@@ -422,7 +435,7 @@ class Unit_Volcano(Unit_Mountain):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
-        pass # what part of indestructible do you not understand?!
+        return # what part of indestructible do you not understand?!
 
 class Unit_Building(Unit):
     def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
@@ -433,7 +446,7 @@ class Unit_Building(Unit):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
     def repairHP(self, hp):
-        pass # buildings can't repair, dream on
+        return # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
     def __init__(self, gboard, type='building_objective', currenthp=1, maxhp=1, effects=None):
@@ -593,7 +606,7 @@ class Unit_Alpha_Burrower(Unit_Burrower):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle_Leader(Unit_Blobber): # Base unit for massive bosses
-    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None): # XXX CONTINUE
+    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None):
         try:
             attributes.add(Attributes.MASSIVE)
         except AttributeError:

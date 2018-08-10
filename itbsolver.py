@@ -252,7 +252,7 @@ class Tile_Water(Tile):
             return # but not the tile
     def applyIce(self):
         self.removeEffect(Effects.ACID) # freezing acid water gets rid of acid
-        self.gboard.replaceTile(self.square, Tile_Ice(self.square, self.gboard))
+        self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -275,15 +275,15 @@ class Tile_Ice(Tile):
     def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='ice', effects=effects)
     def takeDamage(self, damage):
-        self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.square, self.gboard))
+        self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
     def applyFire(self):
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square))
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
 
 class Tile_Ice_Damaged(Tile_Ice):
     def __init__(self, gboard, square=None, effects=None):
         super().__init__(gboard, square, type='ice_damaged', effects=effects)
     def takeDamage(self, damage):
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square))
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
 
 class Tile_Chasm(Tile):
     "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
@@ -459,7 +459,7 @@ class Unit_Acid_Vat(Unit):
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, self.square, effects={Effects.ACID}, keepeffects=True)) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, effects={Effects.ACID}, keepeffects=True)) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
         self.gboard.board[self.square].putUnitHere(None)
 ############################################################################################################################

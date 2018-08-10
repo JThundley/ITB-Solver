@@ -149,10 +149,27 @@ def t_WaterTilePutsOutUnitFire():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
 
-#
+def t_RepairWaterAcidTileDontRemoveAcid():
+    "When a water tile has acid on it, it becomes an acid water tile. A flying unit repairing here does NOT remove the acid."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    b.board[(1, 1)].repair()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+
+def t_FreezingAcidWaterRemovesAcid():
+    "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed, it becomes a regular water tile. Hence, freezing acid effectively removes it."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].type == 'ice'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].type == 'water'
+
 # A unit that repairs in a smoke cloud (because camilla allows actions while smoked) does NOT remove the smoke.
-# When a water tile has acid on it, it becomes an acid water tile. A flying unit repairing here does NOT remove the acid.
-#   When this is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed, it becomes a regular water tile. Hence, freezing acid effectively removes it.
 # A flying unit on an acid water tile does not get acid on it.
 # If a forest tile gets acid on it, the forest is removed and it is no longer flammable from damage.
 # if a tile with acid on it is frozen, nothing happens. The acid remains.
@@ -161,6 +178,9 @@ def t_WaterTilePutsOutUnitFire():
 # Lava: Only appears on the final map, picture it as unfreezable, hot acid. It sets any massive, non-fliers alight.
 #Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # What happens when a frozen flying or ground unit is pushed onto a chasm tile?
+# When you step on an acid tile, it becomes a regular tile. the first unit that steps there takes acid away.
+# Mountain tile can't gain acid.
+# When a unit with acid dies, it leaves behind an acid pool.
 if __name__ == '__main__':
     g = sorted(globals())
     for test in [x for x in g if x.startswith('t_')]:

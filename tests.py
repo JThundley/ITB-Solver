@@ -24,19 +24,22 @@ def t_forestCatchesFire():
     "A forest tile takes damage and catches fire."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
-    b.board[(1, 1)] = Tile_Forest(square=(1, 1), gboard=b)
+    b.replaceTile((1, 1), Tile_Forest(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].effects == {Effects.FIRE}
 
 def t_fireTurnsIceToWater():
-    "An ice tile takes fire damage and turns to water"
+    "An ice tile takes fire damage and turns to water. A flying unit on the tile catches fire."
     b = GameBoard()
+    b.replaceTile((1, 1), Tile_Ice(b))
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
-    b.board[(1, 1)] = Tile_Ice(square=(1, 1), gboard=b)
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].type == "water"
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 def t_shieldBlocksTileFire():
     "A shielded unit is hit with fire which blocks the unit from catching fire while the shield remains. The tile is set on fire."
@@ -51,12 +54,15 @@ def t_shieldBlocksTileFire():
 
 def t_IceAndShieldHitWithFire():
     "A frozen unit with a shield is hit by fire. The ice is removed, the shield remains, the tile catches on fire."
-    gb = GameBoard()
-    gb.board[(1, 1)].putUnitHere(Unit_Blobber(gboard=gb, effects={Effects.SHIELD, Effects.ICE}))
-    assert gb.board[(1, 1)].effects == set()
-    #gb.board[(1, 1)].applyFire() # why does uncommenting this line break everything? I don't understand, I use putUnitHere in other functions the same way, I use applyFire() in other functions the same way.
-    # assert gb.board[(1, 1)].effects == {Effects.FIRE}
-    # assert gb.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
+    b.board[(1, 1)].applyIce()
+    b.board[(1, 1)].applyShield()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ICE, Effects.SHIELD}
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
 def t_ShieldRemovedOnFireTile():
     "A shielded unit is put onto a fire tile. The unit takes a hit which removes the shield and the unit catches fire."
@@ -69,7 +75,7 @@ def t_ShieldRemovedOnFireTile():
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 def t_MountainOverkill():
-    "A mountain takes 5 damage twice and needs to hits to be destroyed."
+    "A mountain takes 5 damage twice and needs two hits to be destroyed."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].putUnitHere(Unit_Mountain(b))
@@ -149,7 +155,7 @@ def t_WaterTilePutsOutUnitFire():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
 
-def t_RepairWaterAcidTileDontRemoveAcid():
+def t_RepairWaterAcidTileDoesntRemoveAcid():
     "When a water tile has acid on it, it becomes an acid water tile. A flying unit repairing here does NOT remove the acid."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
@@ -169,18 +175,52 @@ def t_FreezingAcidWaterRemovesAcid():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].type == 'water'
 
-# A unit that repairs in a smoke cloud (because camilla allows actions while smoked) does NOT remove the smoke.
-# A flying unit on an acid water tile does not get acid on it.
-# If a forest tile gets acid on it, the forest is removed and it is no longer flammable from damage.
-# if a tile with acid on it is frozen, nothing happens. The acid remains.
+def t_RepairingInSmokeLeavesSmoke():
+    "A unit that repairs in a smoke cloud (because camilla allows actions while smoked) does NOT remove the smoke."
+    b = GameBoard()
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    b.board[(1, 1)].repair()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+
+def t_FlyingDoesntGetAcidFromAcidWater():
+    "A flying unit on an acid water tile does not get acid on it."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(2, 1)].unit.effects == set()
+    b.push((2, 1), Direction.LEFT)
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit.effects == set()
+
+def t_AcidRemovesForest():
+    "If a forest tile gets acid on it, the forest is removed and it is no longer flammable from damage."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b))
+    assert b.board[(1, 1)].type == "forest"
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].type == "ground"
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+
+def t_IceDoesntEffectAcidPool():
+  "If a tile with acid on it is frozen, nothing happens. The acid remains."
+  b = GameBoard()
+  b.board[(1, 1)].applyAcid()
+  assert b.board[(1, 1)].effects == {Effects.ACID}
+  b.board[(1, 1)].applyIce()
+  assert b.board[(1, 1)].effects == {Effects.ACID}
+
 # A frozen tile that is hit with fire breaks the ice, catches the tile and unit on fire.
-# A mountain takes 5 damage and becomes a damaged mountain. It takes another 5 damage and becomes a normal tile. Mountains need 2 hits to become regular tiles, the amount of damage doesn't matter.
 # Lava: Only appears on the final map, picture it as unfreezable, hot acid. It sets any massive, non-fliers alight.
 #Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # What happens when a frozen flying or ground unit is pushed onto a chasm tile?
 # When you step on an acid tile, it becomes a regular tile. the first unit that steps there takes acid away.
 # Mountain tile can't gain acid.
 # When a unit with acid dies, it leaves behind an acid pool.
+# Does acid put out fires?
+# Do Rocks with acid leave behind an acid pool when they die?
 if __name__ == '__main__':
     g = sorted(globals())
     for test in [x for x in g if x.startswith('t_')]:

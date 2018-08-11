@@ -78,14 +78,15 @@ class Events():
 ############### CLASSES #################
 class GameBoard():
     "This represents the game board and some of the most basic rules of the game."
-    def __init__(self, powergrid_hp=7):
-        self.board = {} # a dictionary of all 64 squares on the board. Each key is a tuple of x,y coordinates and each value is the tile object: {(1, 1): Tile, ...}
-            # Each square is called a square. Each square must have a tile assigned to it, an optionally a unit on top of the square. The unit is part of the tile.
-        for letter in range(1, 9):
-            for num in range(1, 9):
-                self.board[(letter, num)] = Tile(self, square=(letter, num))
-        #if DEBUG:
-        #    assert self.board[(1, 1)].effects == set()
+    def __init__(self, board=None, powergrid_hp=7):
+        if board:
+            self.board = board
+        else: # create a blank board of normal ground tiles
+            self.board = {} # a dictionary of all 64 squares on the board. Each key is a tuple of x,y coordinates and each value is the tile object: {(1, 1): Tile, ...}
+                # Each square is called a square. Each square must have a tile assigned to it, an optionally a unit on top of the square. The unit is part of the tile.
+            for letter in range(1, 9):
+                for num in range(1, 9):
+                    self.board[(letter, num)] = Tile(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
     def push(self, square, direction):
         "push units on square direction. square is a tuple of (x, y) coordinates, direction is a Direction.UP direction. This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed."
@@ -94,28 +95,16 @@ class GameBoard():
                 return # stable units can't be pushed
         except AttributeError:
             return # There was no unit to push
-        else:
-            if direction == Direction.UP:
-                destinationsquare = (square[0], square[1] + 1)
-            elif direction == Direction.RIGHT:
-                destinationsquare = (square[0] + 1, square[1])
-            elif direction == Direction.DOWN:
-                destinationsquare = (square[0], square[1] - 1)
-            elif direction == Direction.LEFT:
-                destinationsquare = (square[0] - 1, square[1])
-            else:
-                raise Exception("Invalid direction given to GameBoard.push()")
+        else: # push the unit
+            destinationsquare = self.getRelTile(square, direction, 1)
             try:
-                self.board[destinationsquare]
+                self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
+            except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
+                self.moveUnit(square, destinationsquare) # move the unit from square to destination square
             except KeyError:
-                return # attempted to push unit off the gameboard, no action is taken
+                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
             else:
-                try:
-                    self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
-                except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
-                    self.moveUnit(square, destinationsquare) # move the unit from square to destination square
-                else:
-                    self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
+                self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
     def replaceTile(self, square, newtile, keepeffects=True):
         "replace tile in square with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
         unit = self.board[square].unit
@@ -131,6 +120,27 @@ class GameBoard():
         "Move a unit from srcsquare to destsquare, keeping the effects. returns nothing."
         self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
         self.board[srcsquare].putUnitHere(None)
+    def getRelTile(self, square, direction, distance):
+        """return the coordinates of the tile that starts at square and goes direction direction a certain distance. return False if that tile would be off the board.
+        square is a tuple of coordinates (1, 1)
+        direction is a Direction.UP type global constant
+        distance is an int
+        """
+        if direction == Direction.UP:
+            destinationsquare = (square[0], square[1] + distance)
+        elif direction == Direction.RIGHT:
+            destinationsquare = (square[0] + distance, square[1])
+        elif direction == Direction.DOWN:
+            destinationsquare = (square[0], square[1] - distance)
+        elif direction == Direction.LEFT:
+            destinationsquare = (square[0] - distance, square[1])
+        else:
+            raise Exception("Invalid direction given.")
+        try:
+            self.board[destinationsquare]
+        except KeyError:
+            return False
+        return destinationsquare
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -198,8 +208,7 @@ class Tile(TileUnit_Base):
             return
     def repair(self):
         "process the action of a friendly mech repairing on this tile and removing certain effects."
-        for effect in (Effects.FIRE, Effects.ACID):
-            self.removeEffect(effect)
+        self.removeEffect(Effects.FIRE)
     def putUnitHere(self, unit):
         "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit. If there's a unit already on the tile, it's overwritten and deleted. returns nothing."
         self.unit = unit
@@ -231,6 +240,12 @@ class Tile_Forest(Tile):
         "tile gains the fire effect"
         self.applyFire()
         super().takeDamage(damage)
+    def applyAcid(self):
+        self.gboard.replaceTile(self.square, Tile(self.gboard, effects={Effects.ACID})) # Acid removes the forest and makes it no longer flammable
+        try:
+            self.unit.applyAcid()
+        except AttributeError:
+            pass
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
@@ -265,10 +280,9 @@ class Tile_Water(Tile):
         else: # the unit lived
             if Attributes.FLYING not in self.unit.attributes:
                 self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
-            else: # not a flying unit
                 if Effects.ACID in self.effects: # spread acid but don't remove it from the tile
                     self.unit.applyAcid()
-            self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice
+            self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
 
 class Tile_Ice(Tile):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
@@ -278,6 +292,10 @@ class Tile_Ice(Tile):
         self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
     def applyFire(self):
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+        try:
+            self.unit.applyFire()
+        except AttributeError:
+            return
 
 class Tile_Ice_Damaged(Tile_Ice):
     def __init__(self, gboard, square=None, effects=None):
@@ -367,17 +385,21 @@ class Unit(TileUnit_Base):
             self.attributes = attributes
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
+    def applyEffectUnshielded(self, effect):
+        "A helper method to check for the presence of a shield before applying certain effects."
+        if Effects.SHIELD not in self.effects:
+            self.effects.add(effect)
     def applyFire(self):
         self.removeEffect(Effects.ICE)
-        if Effects.SHIELD not in self.effects:
-            self.effects.add(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
+        self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
+    def applyIce(self):
+        self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+    def applyAcid(self):
+        self.applyEffectUnshielded(Effects.ACID)
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
         self.effects.add(Effects.SHIELD)
-    def applyIce(self):
-        if Effects.SHIELD not in self.effects: # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-            self.effects.add(Effects.ICE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Process this unit taking damage. All effects are considered unless set to True in the arguments."
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.

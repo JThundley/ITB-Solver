@@ -100,6 +100,18 @@ def t_FlyingUnitOnFireOverWater():
     assert b.board[(1, 2)].effects == {Effects.FIRE}
     assert b.board[(1, 2)].unit == None
 
+def t_FlyingUnitCatchesFireOverWater():
+    "A flying unit is set on fire on an Ice tile. The unit catches fire, the tile does not."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Ice(b))
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 2)].effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].unit.type == 'hornet'
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+
 def t_FlyingUnitIcedOverWater():
     "A flying unit that is frozen on water remains frozen because the tile under it becomes ice instead of water."
     b = GameBoard()
@@ -212,15 +224,78 @@ def t_IceDoesntEffectAcidPool():
   b.board[(1, 1)].applyIce()
   assert b.board[(1, 1)].effects == {Effects.ACID}
 
-# A frozen tile that is hit with fire breaks the ice, catches the tile and unit on fire.
-# Lava: Only appears on the final map, picture it as unfreezable, hot acid. It sets any massive, non-fliers alight.
+def t_LavaCantBeFrozen():
+    "Lava is unfreezable."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Lava(b))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].type == 'lava'
+
+def t_LavaSetsMassiveOnFire():
+    "Massive units that go into lava catch on fire."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 2)].effects == set()
+    assert b.board[(1, 2)].unit.effects == set()
+    b.moveUnit((1, 2), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 2)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+
+def t_UnitTakesAcidFromTile():
+    "When you step on an acid tile, it becomes a regular tile. the first unit that steps there takes acid away."
+    b = GameBoard()
+    b.board[(1, 1)].applyAcid()
+    b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 2)].effects == set()
+    assert b.board[(1, 2)].unit.effects == set()
+    b.moveUnit((1, 2), (1, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 2)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID}
+
+def t_UnitLeavesAcidWhenKilled():
+    "When a unit with acid dies, it leaves behind an acid pool."
+    b = GameBoard()
+    b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 2)].effects == set()
+    assert b.board[(1, 2)].unit.effects == set()
+    b.board[(1, 2)].applyAcid()
+    b.moveUnit((1, 2), (1, 1))
+    b.board[(1, 1)].unit.die()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 2)].effects == set()
+
+def t_MountainTileCantGainAcid():
+    "Mountain tile can't gain acid., absolutely nothing happens to the mountain or the tile."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+
 #Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # What happens when a frozen flying or ground unit is pushed onto a chasm tile?
-# When you step on an acid tile, it becomes a regular tile. the first unit that steps there takes acid away.
-# Mountain tile can't gain acid.
-# When a unit with acid dies, it leaves behind an acid pool.
 # Does acid put out fires?
 # Do Rocks with acid leave behind an acid pool when they die?
+# a flying psion that is on fire doesn't transfer fire to the vek emerge tile below.
+# a ground unit with acid is pushed into water: tile becomes an acid water tile
+# a ground unit with acid and fire dies on a normal tile: acid pool is left on the tile.
+# Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile
+# Attacking a forest that is smoked will remove the smoke and set the tile on fire.
+# What happens when Acid hits lava?
+# When a building on a normal tile is hit with acid, the tile has acid.
+# When a massive unit dies in water, it becomes a water acid tile.
+# Spiderling eggs with acid hatch into spiders with acid.
+# frozen with acid units pushed into water make the water into acid water.
 if __name__ == '__main__':
     g = sorted(globals())
     for test in [x for x in g if x.startswith('t_')]:

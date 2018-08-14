@@ -266,7 +266,7 @@ def t_UnitLeavesAcidWhenKilled():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 2)].unit.effects == set()
-    b.board[(1, 2)].applyAcid()
+    b.board[(1, 2)].unit.applyAcid()
     b.moveUnit((1, 2), (1, 1))
     b.board[(1, 1)].unit.die()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -283,9 +283,10 @@ def t_MountainTileCantGainAcid():
     assert b.board[(1, 1)].unit.effects == set()
 
 #Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
-# What happens when a frozen flying or ground unit is pushed onto a chasm tile?
-# Does acid put out fires?
-# Do Rocks with acid leave behind an acid pool when they die?
+# Frozen ground units that are pushed into a chasm die
+# Frozen flying units that are pushed into a chasm die
+# acid puts out fires.
+# Rocks with acid leave behind an acid pool when they die.
 # a flying psion that is on fire doesn't transfer fire to the vek emerge tile below.
 # a ground unit with acid is pushed into water: tile becomes an acid water tile
 # a ground unit with acid and fire dies on a normal tile: acid pool is left on the tile.
@@ -296,6 +297,11 @@ def t_MountainTileCantGainAcid():
 # When a massive unit dies in water, it becomes a water acid tile.
 # Spiderling eggs with acid hatch into spiders with acid.
 # frozen with acid units pushed into water make the water into acid water.
+# if you freeze a flying unit over a chasm it dies
+# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
+# when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
+# when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
+# when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
 if __name__ == '__main__':
     g = sorted(globals())
     for test in [x for x in g if x.startswith('t_')]:

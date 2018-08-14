@@ -444,7 +444,8 @@ class Unit(TileUnit_Base):
     def die(self):
         "Make the unit die."
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
-        # TODO: spread certain effects back to the tile on death!
+        if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
+            self.gboard.board[self.square].applyAcid()
 
 class Unit_Mountain(Unit):
     def __init__(self, gboard, type='mountain', attributes=None, effects=None):

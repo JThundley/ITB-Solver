@@ -37,10 +37,11 @@ class Effects():
     MINE = 6
     FREEZEMINE = 7
     VEKEMERGE = 8
+    SUBMERGED = 9 # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this water tiles and check for it there.
     # These effects can only be applied to units:
-    SHIELD = 9
-    WEB = 10
-    EXPLOSIVE = 11
+    SHIELD = 10
+    WEB = 11
+    EXPLOSIVE = 12
 
 class Attributes():
     "These are attributes that are applied to units."
@@ -50,6 +51,7 @@ class Attributes():
     ARMORED = 4 # all attacks are reduced by 1
     BURROWER = 5 # unit burrows after taking any damage
     UNPOWERED = 6 # this is for friendly tanks that you can't control until later
+    IMMUNEFIRE = 7 # you are immune from fire if you have this attribute, you can't catch fire.
 
 class Direction():
     "These are up/down/left/right directions with a function to get the opposite direction."
@@ -198,12 +200,11 @@ class Tile(TileUnit_Base):
         except AttributeError:
             return
     def applyAcid(self):
-        self.effects.add(Effects.ACID)
-        self.removeEffect(Effects.FIRE)
         try:
             self.unit.applyAcid()
-        except AttributeError:
-            return
+        except AttributeError: # the tile doesn't get acid if a unit is present to take it instead
+            self.effects.add(Effects.ACID)
+            self.removeEffect(Effects.FIRE)
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
@@ -244,11 +245,12 @@ class Tile_Forest(Tile):
         self.applyFire()
         super().takeDamage(damage)
     def applyAcid(self):
-        self.gboard.replaceTile(self.square, Tile(self.gboard, effects={Effects.ACID})) # Acid removes the forest and makes it no longer flammable
         try:
             self.unit.applyAcid()
         except AttributeError:
-            pass
+            self.gboard.replaceTile(self.square, Tile(self.gboard, effects={Effects.ACID}))  # Acid removes the forest and makes it no longer flammable
+        # The tile doesn't get acid effects if the unit takes it instead.
+
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
@@ -262,6 +264,7 @@ class Tile_Water(Tile):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
     def __init__(self, gboard, square=None, type='water', effects=None):
         super().__init__(gboard, square, type, effects=effects)
+        self.effects.add(Effects.SUBMERGED)
     def applyFire(self):
         "Water can't be set on fire"
         try: # spread the fire to the unit
@@ -276,7 +279,7 @@ class Tile_Water(Tile):
         except AttributeError:
             return
     def repair(self): # acid cannot be removed from water by repairing it.
-        pass # TODO process other things here!
+        pass # fire can't be removed from water
     def spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -332,11 +335,8 @@ class Tile_Chasm(Tile):
 
 class Tile_Lava(Tile_Water):
     def __init__(self, gboard, square=None, type='lava', effects=None):
-        try: # try adding fire to a newly passed in effects set
-            effects.add(Effects.FIRE)
-        except AttributeError: # if it doesn't exist, set it to fire since that's what a lava tile always has
-            effects = {Effects.FIRE}
         super().__init__(gboard, square, type, effects=effects)
+        self.effects.add(Effects.FIRE)
     def repair(self):
         return # No effects can be removed from lava from repairing on it.
     def applyIce(self):
@@ -408,7 +408,8 @@ class Unit(TileUnit_Base):
             self.effects.add(effect)
     def applyFire(self):
         self.removeEffect(Effects.ICE)
-        self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
+        if not Attributes.IMMUNEFIRE in self.attributes:
+            self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
     def applyAcid(self):

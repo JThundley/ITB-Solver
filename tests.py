@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 "These are u nit tests for itbsolver. All test functions must start with t_ to differentiate them from the functions of the main script."
 
 from itbsolver import *
@@ -38,7 +40,7 @@ def t_fireTurnsIceToWater():
     assert b.board[(1, 1)].unit.effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].type == "water"
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 def t_shieldBlocksTileFire():
@@ -90,12 +92,12 @@ def t_FlyingUnitOnFireOverWater():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
     b.board[(1, 2)].putUnitHere(Unit_Hornet(b))
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 2)].effects == set()
     b.board[(1, 2)].applyFire()
     b.moveUnit((1, 2), (1, 1))
     assert b.board[(1, 1)].unit.type == 'hornet'
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
     assert b.board[(1, 2)].effects == {Effects.FIRE}
     assert b.board[(1, 2)].unit == None
@@ -109,7 +111,7 @@ def t_FlyingUnitCatchesFireOverWater():
     assert b.board[(1, 2)].effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].unit.type == 'hornet'
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 def t_FlyingUnitIcedOverWater():
@@ -117,7 +119,7 @@ def t_FlyingUnitIcedOverWater():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].unit.type == 'hornet'
@@ -131,9 +133,9 @@ def t_WaterUnfreezesUnit():
     b.replaceTile((1, 2), Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b)) # flying unit on the bottom next to the tile
     b.board[(2, 2)].putUnitHere(Unit_Blobber(b)) # ground unit above it next to water tile
-    assert b.board[(1, 1)].effects == set() # no tile effects
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED} # no new tile effects
     assert b.board[(2, 1)].unit.effects == set() # no unit effects
-    assert b.board[(1, 2)].effects == set()  # no tile effects
+    assert b.board[(1, 2)].effects == {Effects.SUBMERGED}  # no new tile effects
     assert b.board[(2, 2)].unit.effects == set()  # no unit effects
     b.board[(2, 1)].applyIce() # freeze the flyer
     b.board[(2, 2)].applyIce()  # freeze the flyer
@@ -158,33 +160,33 @@ def t_WaterTilePutsOutUnitFire():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Beetle_Leader(b)) # massive unit on the bottom next to the water tile
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
     b.board[(2, 1)].applyFire()
     assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
     b.moveUnit((2, 1), (1, 1))
     assert b.board[(2, 1)].effects == {Effects.FIRE}
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
 
 def t_RepairWaterAcidTileDoesntRemoveAcid():
     "When a water tile has acid on it, it becomes an acid water tile. A flying unit repairing here does NOT remove the acid."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].repair()
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
 
 def t_FreezingAcidWaterRemovesAcid():
     "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed, it becomes a regular water tile. Hence, freezing acid effectively removes it."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].type == 'ice'
     b.board[(1, 1)].applyFire()
-    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].type == 'water'
 
 def t_RepairingInSmokeLeavesSmoke():
@@ -200,10 +202,10 @@ def t_FlyingDoesntGetAcidFromAcidWater():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
     b.push((2, 1), Direction.LEFT)
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
 
 def t_AcidRemovesForest():
@@ -228,9 +230,9 @@ def t_LavaCantBeFrozen():
     "Lava is unfreezable."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Lava(b))
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert b.board[(1, 1)].type == 'lava'
 
 def t_LavaSetsMassiveOnFire():
@@ -238,11 +240,11 @@ def t_LavaSetsMassiveOnFire():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Lava(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 2)].unit.effects == set()
     b.moveUnit((1, 2), (1, 1))
-    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
@@ -282,7 +284,7 @@ def t_MountainTileCantGainAcid():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
 
-#Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
+# Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # Frozen ground units that are pushed into a chasm die
 # Frozen flying units that are pushed into a chasm die
 # acid puts out fires.
@@ -302,6 +304,10 @@ def t_MountainTileCantGainAcid():
 # when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
 # when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
 # when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
+# 
+# Fire spreads from units on fire to forest tiles. This makes a burning unit standing on forest "immune" to smoke. As the fire spreading will clear the smoke.
+#  I'm pretty sure the damage to a shielded unit will not start a forest fire if they are standing on a forest tile.
+
 if __name__ == '__main__':
     g = sorted(globals())
     for test in [x for x in g if x.startswith('t_')]:

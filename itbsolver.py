@@ -16,7 +16,6 @@
 
 # TODO
 # change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
-# change replaceTile and replaceUnit argument order.
 # change takeDamage on units to take into effect ARMORED and ACID.
 # Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable.
 # implement fire immunity attribute
@@ -251,7 +250,6 @@ class Tile_Forest(Tile):
             self.gboard.replaceTile(self.square, Tile(self.gboard, effects={Effects.ACID}))  # Acid removes the forest and makes it no longer flammable
         # The tile doesn't get acid effects if the unit takes it instead.
 
-
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
     def __init__(self, gboard, square=None, type='sand', effects=None):
@@ -296,6 +294,7 @@ class Tile_Ice(Tile):
         super().__init__(gboard, square, type, effects=effects)
     def takeDamage(self, damage):
         self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
+        super().takeDamage(damage)
     def applyFire(self):
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
         try:
@@ -308,9 +307,10 @@ class Tile_Ice_Damaged(Tile_Ice):
         super().__init__(gboard, square, type, effects=effects)
     def takeDamage(self, damage):
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+        super().takeDamage(damage)
 
 class Tile_Chasm(Tile):
-    "Non-flying units die when pushed into water. Chasm tiles cannot have acid or fire, but can have smoke."
+    "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
     def __init__(self, gboard, square=None, type='chasm', effects=None):
         super().__init__(gboard, square, type, effects=effects)
     def applyFire(self):
@@ -329,8 +329,10 @@ class Tile_Chasm(Tile):
         except AttributeError:
             return
     def spreadEffects(self):
-        if Attributes.FLYING not in unit.attributes:
-            unit.die()
+        if (Attributes.FLYING in self.unit.attributes) and (Effects.ICE not in self.unit.effects): # if the unit can fly and is not frozen...
+            pass # congratulations, you live!
+        else:
+            self.unit.die()
         # no need to super().spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
 
 class Tile_Lava(Tile_Water):
@@ -428,11 +430,11 @@ class Unit(TileUnit_Base):
             else:
                 self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
                 return # and then stop processing things, the shield or ice took the damage.
-        if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects:
+        if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects: # if you have both armor and acid...
             pass # acid cancels out armored
-        elif not ignorearmor and Attributes.ARMORED in self.attributes:
-            damage -= 1
-        elif not ignoreacid and Effects.ACID in self.effects:
+        elif not ignorearmor and Attributes.ARMORED in self.attributes: # if we aren't ignoring armor and you're armored...
+            damage -= 1 # damage reduced by 1
+        elif not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
         self.currenthp -= damage # the unit takes the damage
         self.damage_taken += damage
@@ -447,6 +449,11 @@ class Unit(TileUnit_Base):
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
+
+class Unit_Rock(Unit):
+    def __init__(self, gboard, type='rock', attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
 
 class Unit_Mountain(Unit):
     def __init__(self, gboard, type='mountain', attributes=None, effects=None):

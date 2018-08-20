@@ -24,6 +24,15 @@
 ############### GLOBALS ###################
 DEBUG=True
 
+# def ConstantCounter(): # use this later when we're not debugging.
+#     "yields ints starting at 1"
+#     num = 0
+#     while True:
+#         num += 1
+#         yield num
+#
+# CC = ConstantCounter()
+
 class Effects():
     "These are effects that can be applied to tiles and units."
     # These effects can be applied to both tiles and units:
@@ -204,6 +213,9 @@ class Tile(TileUnit_Base):
         except AttributeError: # the tile doesn't get acid if a unit is present to take it instead
             self.effects.add(Effects.ACID)
             self.removeEffect(Effects.FIRE)
+            self.removeEffect(Effects.TIMEPOD)
+            self.removeEffect(Effects.MINE)
+            self.removeEffect(Effects.FREEZEMINE)
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
@@ -464,9 +476,9 @@ class Unit_Mountain(Unit):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyFire(self):
-        self.gboard.board[self.square].removeEffect(Effects.FIRE) # mountains can't be set on fire, neither can the tile they're on. Remove fire that was applied.
+        raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
     def applyAcid(self):
-        self.gboard.board[self.square].removeEffect(Effects.ACID)# same for acid
+        pass
     def takeDamage(self, damage=1):
         self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
 

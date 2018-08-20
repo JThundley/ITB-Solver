@@ -330,11 +330,57 @@ def t_FrozenFlyingUnitDiesInChasm():
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].unit == None
 
-# flying units that are on fire doesn't transfer fire to the vek emerge tile below.
-# ground units that are on fire also don't transfer fire to the tile
-# a ground unit with acid is pushed into water: tile becomes an acid water tile
-# a ground unit with acid and fire dies on a normal tile: acid pool is left on the tile.
+def t_UnitsOnFireDontLightTileOnDeath():
+    "flying units that are on fire doesn't transfer fire to the vek emerge tile below."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    b.moveUnit((1, 1), (2, 1))
+    b.board[(2, 1)].unit.die()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit == None
+
+def t_GroundUnitBringsAcidIntoWater():
+    "a ground unit with acid is pushed into water: tile becomes an acid water tile"
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+
+def t_GroundUnitWithAcidAndFireDies():
+    "a ground unit with acid and fire dies on a normal tile: acid pool is left on the tile."
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyAcid()
+    b.board[(2, 1)].applyFire()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID, Effects.FIRE}
+    b.moveUnit((2, 1), (1, 1))
+    b.board[(1, 1)].unit.die()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit == None
+
+
 # Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile
+    # when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
 # Attacking a forest that is smoked will remove the smoke and set the tile on fire.
 # What happens when Acid hits lava?
 # When a building on a normal tile is hit with acid, the tile has acid.
@@ -343,12 +389,15 @@ def t_FrozenFlyingUnitDiesInChasm():
 # frozen with acid units pushed into water make the water into acid water.
 # if you freeze a flying unit over a chasm it dies
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
-# when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
+# a mountain hit with fire catches the tile on fire, but not the mountain
+# a mountain hit with acid does nothing to the mountain or the tile.
 # when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
 # when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
 # 
-# Fire spreads from units on fire to forest tiles. This makes a burning unit standing on forest "immune" to smoke. As the fire spreading will clear the smoke.
+# Fire spreads from units on fire to forest tiles. This makes a burning unit standing on forest "immune" to smoke. As the fire spreading will clear the smoke. what? test this first
 #  I'm pretty sure the damage to a shielded unit will not start a forest fire if they are standing on a forest tile.
+# Ice puts out fire, this is a dupe
+# If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
 # Test keepeffects by setting an acid vat on fire and then destroying it. The resulting acid water tile should not have fire.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 

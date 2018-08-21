@@ -462,12 +462,18 @@ class Unit(TileUnit_Base):
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
 
-class Unit_Rock(Unit):
-    def __init__(self, gboard, type='rock', attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
-        self.alliance = Alliance.NEUTRAL
+class Unit_Mountain_Building_Base(Unit):
+    "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
+    def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
+        try:
+            attributes.add(Attributes.STABLE)
+        except AttributeError:
+            attributes = {Attributes.STABLE}
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def applyFire(self):
+        raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
 
-class Unit_Mountain(Unit):
+class Unit_Mountain(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='mountain', attributes=None, effects=None):
         try:
             attributes.add(Attributes.STABLE)
@@ -475,8 +481,6 @@ class Unit_Mountain(Unit):
             attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
-    def applyFire(self):
-        raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
     def applyAcid(self):
         pass
     def takeDamage(self, damage=1):
@@ -497,7 +501,7 @@ class Unit_Volcano(Unit_Mountain):
     def takeDamage(self, damage=1):
         return # what part of indestructible do you not understand?!
 
-class Unit_Building(Unit):
+class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
         try:
             attributes.add(Attributes.STABLE)
@@ -505,6 +509,8 @@ class Unit_Building(Unit):
             attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
+    def applyFire(self):
+        raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
     def repairHP(self, hp):
         return # buildings can't repair, dream on
 
@@ -522,6 +528,12 @@ class Unit_Acid_Vat(Unit):
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard, effects={Effects.ACID}, keepeffects=True)) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
         self.gboard.board[self.square].putUnitHere(None)
+
+class Unit_Rock(Unit):
+    def __init__(self, gboard, type='rock', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
+
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################

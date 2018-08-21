@@ -378,7 +378,7 @@ def t_GroundUnitWithAcidAndFireDies():
     assert b.board[(2, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit == None
 
-
+# # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
 # Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile
     # when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
 # Attacking a forest that is smoked will remove the smoke and set the tile on fire.

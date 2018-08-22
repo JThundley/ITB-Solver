@@ -193,6 +193,7 @@ class Tile(TileUnit_Base):
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
+        self.removeEffect(Effects.SMOKE) # Fire removes smoke
         self.removeEffect(Effects.TIMEPOD) # fire kills timepods
         try:
             self.unit.applyFire()
@@ -262,6 +263,13 @@ class Tile_Forest(Tile):
         except AttributeError:
             self.gboard.replaceTile(self.square, Tile(self.gboard, effects={Effects.ACID}))  # Acid removes the forest and makes it no longer flammable
         # The tile doesn't get acid effects if the unit takes it instead.
+    def spreadEffects(self):
+        "Spread effects from the tile to a unit that newly landed here. Units that are on fire spread fire to a forest."
+        if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded...
+            if Effects.FIRE in self.effects: # and the tile is on fire...
+                self.unit.applyFire() # spread fire to it.
+        if Effects.FIRE in self.unit.effects: # if the unit is on fire...
+            self.applyFire() # the forest catches fire, removing smoke if there is any
 
 class Tile_Sand(Tile):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
@@ -281,7 +289,7 @@ class Tile_Water(Tile):
         try: # spread the fire to the unit
             self.unit.applyFire()
         except AttributeError:
-            return # but not the tile
+            return # but not the tile. Fire does NOT remove smoke from a water tile!
     def applyIce(self):
         self.removeEffect(Effects.ACID) # freezing acid water gets rid of acid
         self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
@@ -309,6 +317,7 @@ class Tile_Ice(Tile):
         self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
         super().takeDamage(damage)
     def applyFire(self):
+        self.removeEffect(Effects.SMOKE)
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
         try:
             self.unit.applyFire()
@@ -330,7 +339,7 @@ class Tile_Chasm(Tile):
         try:
             self.unit.applyFire()
         except AttributeError:
-            return
+            return # fire does not remove smoke on a chasm. Seems like it only does this on solid surfaces which include ice but not water.
     def applyIce(self):
         try:
             self.unit.applyIce()
@@ -427,6 +436,7 @@ class Unit(TileUnit_Base):
             self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+        self.gboard.board[self.square].spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
         self.applyEffectUnshielded(Effects.ACID)
     def applyWeb(self):
@@ -462,6 +472,11 @@ class Unit(TileUnit_Base):
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
+    def repairHP(self, hp=1):
+        "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
+        self.currenthp += hp
+        if self.currenthp > self.maxhp:
+            self.currenthp = self.maxhp
 
 class Unit_Mountain_Building_Base(Unit):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
@@ -510,7 +525,7 @@ class Unit_Building(Unit_Mountain_Building_Base):
             attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
-    def applyFire(self):
+    def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
     def repairHP(self, hp):
         return # buildings can't repair, dream on
@@ -543,11 +558,6 @@ class Unit_Blobber(Unit):
     def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.alliance = Alliance.ENEMY
-    def repairHP(self, hp=1):
-        "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
-        self.currenthp += hp
-        if self.currenthp > self.maxhp:
-            self.currenthp = self.maxhp
 
 class Unit_Alpha_Blobber(Unit_Blobber):
     "Also has no attack."

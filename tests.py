@@ -412,24 +412,150 @@ def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].effects == {Effects.FIRE}
 
-# What happens when Acid hits lava?
-# When a building on a normal tile is hit with acid, the tile has acid.
-# When a massive unit dies in water, it becomes a water acid tile.
-# Spiderling eggs with acid hatch into spiders with acid.
-# frozen with acid units pushed into water make the water into acid water.
-# if you freeze a flying unit over a chasm it dies
-# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
-# a mountain hit with fire catches the tile on fire, but not the mountain
-# a mountain hit with acid does nothing to the mountain or the tile.
-# when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
-# when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
-# 
-# Fire spreads from units on fire to forest tiles. This makes a burning unit standing on forest "immune" to smoke. As the fire spreading will clear the smoke. what? test this first
+def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
+    "Setting fire to a normal tile that is smoked will remove the smoke and set the tile on fire."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile(b))
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    assert b.board[(1, 1)].type == 'ground'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+
+def t_SettingFireToSmokedWaterTileDoesNothing():
+    "Setting fire to a water tile that is smoked will leave the smoke."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
+    assert b.board[(1, 1)].type == 'water'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
+
+def t_SettingFireToSmokedChasmTileDoesNothing():
+    "Setting fire to a chasm tile that is smoked will leave the smoke."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Chasm(b))
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    assert b.board[(1, 1)].type == 'chasm'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+
+def t_SettingFireToSmokedIceTileRemovesSmokeAndTurnsToWater():
+    "Setting fire to an ice tile that is smoked will remove the smoke and turn it into a water tile."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Ice(b))
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
+    assert b.board[(1, 1)].type == 'water'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.SMOKE}
+
+def t_BuildingAcidGoesToTile():
+    "When a building on a normal tile is hit with acid, the tile has acid."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Building(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit.effects == set()
+
+def t_FlyingUnitWithAcidDiesInWater():
+    "When a flying unit with acid dies over water, it becomes a water acid tile."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}
+    b.moveUnit((2, 1), (1, 1))
+    b.board[(1, 1)].unit.die()
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit == None
+
+def t_FlyingUnitWithAcidDiesInWater():
+    "frozen with acid units pushed into water make the water into acid water."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyAcid()
+    b.board[(2, 1)].applyIce()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID, Effects.ICE}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit == None
+
+def t_FreezingFlyingUnitOverChasmKillsIt():
+    "if you freeze a flying unit over a chasm it dies"
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Chasm(b))
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+
+def t_UnitsOnFireCatchForestsOnFireByMovingToThem():
+    "Fire spreads from units (including flying) on fire to forest tiles."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyFire()
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit == None
+
+
+# If a unit is on fire and it moves to a smoked forest tile, the tile will catch fire and the smoke will disappear.
 #  I'm pretty sure the damage to a shielded unit will not start a forest fire if they are standing on a forest tile.
 # Ice puts out fire, this is a dupe
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
 # Test keepeffects by setting an acid vat on fire and then destroying it. The resulting acid water tile should not have fire.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
+
+########## Weapons stuff for later
+# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
+# when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
+# when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
+
+########## Research these:
+# What happens when Acid hits lava?
+
+########## Do these ones even matter?
+# Spiderling eggs with acid hatch into spiders with acid.
 
 if __name__ == '__main__':
     g = sorted(globals())

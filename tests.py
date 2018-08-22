@@ -378,10 +378,40 @@ def t_GroundUnitWithAcidAndFireDies():
     assert b.board[(2, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit == None
 
-# # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
-# Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile
-    # when the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke.
-# Attacking a forest that is smoked will remove the smoke and set the tile on fire.
+def t_MountainCantBeSetOnFire():
+    "mountains can't be set on fire, but the tile they're on can!"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == set()
+
+def t_SmokePutsOutFire():
+    "Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile. When the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    assert b.board[(1, 1)].type == 'forest'
+
+def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
+    "Attacking a forest that is smoked will remove the smoke and set the tile on fire."
+    b = GameBoard() # This is all the exact same as smoke puts out fire
+    b.replaceTile((1, 1), Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    b.board[(1, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    assert b.board[(1, 1)].type == 'forest' # until here, now let's attack it again!
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+
 # What happens when Acid hits lava?
 # When a building on a normal tile is hit with acid, the tile has acid.
 # When a massive unit dies in water, it becomes a water acid tile.

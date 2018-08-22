@@ -200,6 +200,7 @@ class Tile(TileUnit_Base):
             return
     def applySmoke(self):
         "make a smoke cloud on the current tile"
+        self.removeEffect(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
     def applyIce(self):
         self.removeEffect(Effects.FIRE)

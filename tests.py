@@ -44,7 +44,7 @@ def t_fireTurnsIceToWater():
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
 def t_shieldBlocksTileFire():
-    "A shielded unit is hit with fire which blocks the unit from catching fire while the shield remains. The tile is set on fire."
+    "a shielded unit that is hit with fire doesn't catch fire but the tile does. The shield remains."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].putUnitHere(Unit_Blobber(b, effects={Effects.SHIELD}))
@@ -415,7 +415,7 @@ def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
 def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
     "Setting fire to a normal tile that is smoked will remove the smoke and set the tile on fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile(b))
+    b.replaceTile((1, 1), Tile_Ground(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -538,26 +538,59 @@ def t_UnitsOnFireCatchForestsOnFireByMovingToThem():
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
     assert b.board[(2, 1)].unit == None
 
+def t_UnitsOnFireCatchSmokedForestsOnFireByMovingToThem():
+    "If a unit is on fire and it moves to a smoked forest tile, the tile will catch fire and the smoke will disappear."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b, effects={Effects.SMOKE}))
+    b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
+    assert b.board[(1, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyFire()
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit == None
 
-# If a unit is on fire and it moves to a smoked forest tile, the tile will catch fire and the smoke will disappear.
-#  I'm pretty sure the damage to a shielded unit will not start a forest fire if they are standing on a forest tile.
+def t_ShieldedUnitOnForestWontIgnightForest():
+    "If a Shielded unit stands on a forest and takes damage, the forest will not ignite."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
+    b.board[(1, 1)].unit.applyShield()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == set()  # no fire on tile
+    assert b.board[(1, 1)].unit.effects == set()  # shield gone, but not on fire
+
+# a unit can be set on fire and then shielded, the fire stays.
+# if a unit that is on fire and shielded moves to a forest tile, it is set on fire.
 # Ice puts out fire, this is a dupe
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
 # Test keepeffects by setting an acid vat on fire and then destroying it. The resulting acid water tile should not have fire.
+# If a unit with acid stands on a desert tile and is attacked and killed, an acid pool is left on the tile, no smoke.
+# Nothing happens when acid hits lava.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
 # when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
-# when unstable mech shoots and lands on acid tile, it takes damage then gains acid.
+# when unstable cannon shoots and lands on acid tile, it takes damage then gains acid. when unstable cannon shoots, it damages the tile that it's on and then pushes.
 
 ########## Research these:
-# What happens when Acid hits lava?
+# Confirm that ice on lava does nothing
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 
 if __name__ == '__main__':
     g = sorted(globals())
+    testsrun = 0
     for test in [x for x in g if x.startswith('t_')]:
         runTest(test)
+        testsrun += 1
+    print(testsrun, "tests run.")

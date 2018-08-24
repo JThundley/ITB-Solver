@@ -281,11 +281,11 @@ class Tile_Forest(Tile_Base):
         # The tile doesn't get acid effects if the unit takes it instead.
     def _spreadEffects(self):
         "Spread effects from the tile to a unit that newly landed here. Units that are on fire spread fire to a forest."
-        if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded...
+        if Effects.FIRE in self.unit.effects: # if the unit is on fire...
+            self.applyFire() # the forest catches fire, removing smoke if there is any
+        elif not Effects.SHIELD in self.unit.effects: # If the unit is not on fire and not shielded...
             if Effects.FIRE in self.effects: # and the tile is on fire...
                 self.unit.applyFire() # spread fire to the unit.
-            elif Effects.FIRE in self.unit.effects: # if the unit is on fire...
-                self.applyFire() # the forest catches fire, removing smoke if there is any
 
 class Tile_Sand(Tile_Base):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
@@ -449,6 +449,7 @@ class Unit(TileUnit_Base):
             self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+        self.removeEffect(Effects.FIRE)
         self.gboard.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
         self.applyEffectUnshielded(Effects.ACID)

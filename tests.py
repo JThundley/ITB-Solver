@@ -268,7 +268,7 @@ def t_UnitLeavesAcidWhenKilled():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 2)].unit.effects == set()
-    b.board[(1, 2)].unit.applyAcid()
+    b.board[(1, 2)].applyAcid()
     b.moveUnit((1, 2), (1, 1))
     b.board[(1, 1)].unit.die()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -575,7 +575,7 @@ def t_UnitSetOnFireThenShieldedNothingWeird():
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
-    b.board[(1, 1)].unit.applyShield()
+    b.board[(1, 1)].applyShield()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 

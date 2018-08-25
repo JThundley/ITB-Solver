@@ -17,7 +17,7 @@
 # TODO
 # change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
 # change takeDamage on units to take into effect ARMORED and ACID.
-# Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable.
+# Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable. If you freeze the dam, both dam tiles catch on fire.
 # implement fire immunity attribute
 ############ IMPORTS ######################
 
@@ -185,13 +185,14 @@ class Tile_Base(TileUnit_Base):
         Damage is an int of how much damage to take.
         returns nothing.
         """
-        isshielded = False
-        if self.unit:
-            if Effects.SHIELD in self.unit.effects:
-                isshielded = True
-            self.unit.takeDamage(damage)
+        try:
+            isshielded = Effects.SHIELD in self.unit.effects
+        except AttributeError: # raised from Effects.SHIELD in None
+            isshielded = False
         if not isshielded:
-            self._tileTakeDamage()
+            self._tileTakeDamage() # Tile takes damage first.
+        if self.gboard.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
+            self.gboard.board[self.square].unit.takeDamage(damage) #  the non-garbage-collected unit that's no longer attached to the gameboard which is a waste.
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
     def applyFire(self):
@@ -207,11 +208,14 @@ class Tile_Base(TileUnit_Base):
         self.removeEffect(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
     def applyIce(self):
-        self.removeEffect(Effects.FIRE)
-        try:
-            self.unit.applyIce()
-        except AttributeError:
-            return
+        "apply ice to the tile and unit."
+        if self.unit: # if there's a unit...
+            if Effects.SHIELD not in self.unit.effects: # that's not shielded...
+                self.removeEffect(Effects.FIRE) # remove fire from the tile
+                self.unit.applyIce() # give the unit ice
+            # nothing happens to the tile or unit if a unit with a shield is present.
+        else: # no unit
+            self.removeEffect(Effects.FIRE) # just remove fire from the tile
     def applyAcid(self):
         try:
             self.unit.applyAcid()
@@ -266,19 +270,24 @@ class Tile_Ground(Tile_Base):
         for effect in Effects.TIMEPOD, Effects.FREEZEMINE, Effects.MINE:
             self.removeEffect(effect)
 
-class Tile_Forest(Tile_Base):
+class Tile_Forest_Sand_Base(Tile_Base):
+    "This is the base class for both Forest and Sand Tiles since they both share the same applyAcid mechanics."
+    def __init__(self, gboard, square=None, type=None, effects=None):
+        super().__init__(gboard, square, type, effects=effects)
+    def applyAcid(self):
+        try:
+            self.unit.applyAcid() # give the unit acid if present
+        except AttributeError:
+            self.gboard.replaceTile(self.square, Tile_Ground(self.gboard, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
+        # The tile doesn't get acid effects if the unit takes it instead.
+
+class Tile_Forest(Tile_Forest_Sand_Base):
     "If damaged, lights on fire."
     def __init__(self, gboard, square=None, type='forest', effects=None):
         super().__init__(gboard, square, type, effects=effects)
     def _tileTakeDamage(self):
         "tile gains the fire effect"
         self.applyFire()
-    def applyAcid(self):
-        try:
-            self.unit.applyAcid()
-        except AttributeError:
-            self.gboard.replaceTile(self.square, Tile_Ground(self.gboard, effects={Effects.ACID}))  # Acid removes the forest and makes it no longer flammable
-        # The tile doesn't get acid effects if the unit takes it instead.
     def _spreadEffects(self):
         "Spread effects from the tile to a unit that newly landed here. Units that are on fire spread fire to a forest."
         if Effects.FIRE in self.unit.effects: # if the unit is on fire...
@@ -287,7 +296,7 @@ class Tile_Forest(Tile_Base):
             if Effects.FIRE in self.effects: # and the tile is on fire...
                 self.unit.applyFire() # spread fire to the unit.
 
-class Tile_Sand(Tile_Base):
+class Tile_Sand(Tile_Forest_Sand_Base):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
     def __init__(self, gboard, square=None, type='sand', effects=None):
         super().__init__(gboard, square, type, effects=effects)
@@ -419,7 +428,7 @@ class Tile_Conveyor(Tile_Base):
 ######################################## UNITS ###############################
 ##############################################################################
 
-class Unit(TileUnit_Base):
+class Unit_Base(TileUnit_Base):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
     def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
         """
@@ -440,7 +449,7 @@ class Unit(TileUnit_Base):
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
     def applyEffectUnshielded(self, effect):
-        "A helper method to check for the presence of a shield before applying certain effects."
+        "A helper method to check for the presence of a shield before applying an effect."
         if Effects.SHIELD not in self.effects:
             self.effects.add(effect)
     def applyFire(self):
@@ -492,7 +501,7 @@ class Unit(TileUnit_Base):
         if self.currenthp > self.maxhp:
             self.currenthp = self.maxhp
 
-class Unit_Mountain_Building_Base(Unit):
+class Unit_Mountain_Building_Base(Unit_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
     def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
         try:
@@ -549,17 +558,17 @@ class Unit_Building_Objective(Unit_Building):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.FRIENDLY
 
-class Unit_Acid_Vat(Unit):
+class Unit_Acid_Vat(Unit_Base):
     def __init__(self, gboard, type='acidvat', currenthp=2, maxhp=2, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, effects={Effects.ACID}, keepeffects=True)) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.gboard.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
-        self.gboard.board[self.square].putUnitHere(None)
 
-class Unit_Rock(Unit):
+class Unit_Rock(Unit_Base):
     def __init__(self, gboard, type='rock', currenthp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
@@ -567,7 +576,7 @@ class Unit_Rock(Unit):
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################
-class Unit_Blobber(Unit):
+class Unit_Blobber(Unit_Base):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
     def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # This script brute forces the best possible single turn in Into The Breach
 ############# NOTES ######################
 # Order of turn operations:
@@ -10,15 +9,9 @@
 #   NPC actions
 #   Enemies emerge
 
-# strange interactions:
-# If a shielded unit is on a forest tile and you attack it, the shield takes the damage and the forest fire does NOT ignite
-# If a unit is shielded and on fire, freezing it does nothing, doesn't even put out the fire.
-
 # TODO
 # change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
-# change takeDamage on units to take into effect ARMORED and ACID.
 # Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable. If you freeze the dam, both dam tiles catch on fire.
-# implement fire immunity attribute
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
@@ -45,7 +38,7 @@ class Effects():
     MINE = 6
     FREEZEMINE = 7
     VEKEMERGE = 8
-    SUBMERGED = 9 # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this water tiles and check for it there.
+    SUBMERGED = 9 # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     SHIELD = 10
     WEB = 11
@@ -198,7 +191,8 @@ class Tile_Base(TileUnit_Base):
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
-        self.removeEffect(Effects.SMOKE) # Fire removes smoke
+        for e in Effects.SMOKE, Effects.ACID:
+            self.removeEffect(e) # Fire removes smoke and acid
         try:
             self.unit.applyFire()
         except AttributeError:
@@ -300,6 +294,10 @@ class Tile_Sand(Tile_Forest_Sand_Base):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
     def __init__(self, gboard, square=None, type='sand', effects=None):
         super().__init__(gboard, square, type, effects=effects)
+    def applyFire(self):
+        "Fire converts the sand tile to a ground tile"
+        self.gboard.replaceTile(self.square, Tile_Ground(self.gboard, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
+        super().applyFire()
     def _tileTakeDamage(self):
         self.applySmoke()
 
@@ -315,8 +313,8 @@ class Tile_Water(Tile_Base):
         except AttributeError:
             return # but not the tile. Fire does NOT remove smoke from a water tile!
     def applyIce(self):
-        self.removeEffect(Effects.ACID) # freezing acid water gets rid of acid
         self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
+        self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile.
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -340,12 +338,15 @@ class Tile_Ice(Tile_Base):
     def _tileTakeDamage(self):
         self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
     def applyFire(self):
-        self.removeEffect(Effects.SMOKE)
+        for e in Effects.SMOKE, Effects.ACID:
+            self.removeEffect(e) # fire always removes smoke and it removes acid from frozen acid tiles
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
         try:
             self.unit.applyFire()
         except AttributeError:
             return
+    def _spreadEffects(self):
+        "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
 
 class Tile_Ice_Damaged(Tile_Ice):
     def __init__(self, gboard, square=None, type='ice_damaged', effects=None):
@@ -427,7 +428,6 @@ class Tile_Conveyor(Tile_Base):
 ##############################################################################
 ######################################## UNITS ###############################
 ##############################################################################
-
 class Unit_Base(TileUnit_Base):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
     def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
@@ -452,6 +452,12 @@ class Unit_Base(TileUnit_Base):
         "A helper method to check for the presence of a shield before applying an effect."
         if Effects.SHIELD not in self.effects:
             self.effects.add(effect)
+    def addAttributes(self, attributes):
+        "A helpter method to add attributes if self.attributes are a set or create a new set if it's None. attributes must be a set, returns nothing."
+        try:
+            attributes.extend(attributes)
+        except AttributeError:
+            attributes = attributes
     def applyFire(self):
         self.removeEffect(Effects.ICE)
         if not Attributes.IMMUNEFIRE in self.attributes:
@@ -501,6 +507,9 @@ class Unit_Base(TileUnit_Base):
         if self.currenthp > self.maxhp:
             self.currenthp = self.maxhp
 
+##############################################################################
+################################### MISC UNITS ###############################
+##############################################################################
 class Unit_Mountain_Building_Base(Unit_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
     def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
@@ -526,7 +535,7 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
-    def __init__(self, gboard, type='mountain_damaged', effects=None):
+    def __init__(self, gboard, type='mountaindamaged', effects=None):
         super().__init__(gboard, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
@@ -554,7 +563,7 @@ class Unit_Building(Unit_Mountain_Building_Base):
         return # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
-    def __init__(self, gboard, type='building_objective', currenthp=1, maxhp=1, effects=None):
+    def __init__(self, gboard, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.FRIENDLY
 
@@ -572,6 +581,18 @@ class Unit_Rock(Unit_Base):
     def __init__(self, gboard, type='rock', currenthp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
+
+class Unit_Mech_Corpse(Unit_Rock):
+    "This is a player mech after it dies. It's invincible but can be pushed around."
+    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        "invulnerable to damage"
+    def applyShield(self):
+        "Mech corpses cannot be shielded."
+    def applyIce(self):
+        "Mech corpses cannot be shielded."
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################

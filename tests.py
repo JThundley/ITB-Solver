@@ -82,7 +82,7 @@ def t_MountainOverkill():
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].putUnitHere(Unit_Mountain(b))
     b.board[(1, 1)].takeDamage(5)
-    assert b.board[(1, 1)].unit.type == 'mountain_damaged'
+    assert b.board[(1, 1)].unit.type == 'mountaindamaged'
     b.board[(1, 1)].takeDamage(5)
     assert b.board[(1, 1)].unit == None
     assert b.board[(1, 1)].effects == set()
@@ -177,17 +177,47 @@ def t_RepairWaterAcidTileDoesntRemoveAcid():
     b.board[(1, 1)].repair()
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
 
-def t_FreezingAcidWaterRemovesAcid():
-    "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed, it becomes a regular water tile. Hence, freezing acid effectively removes it."
+def t_FreezingAcidWaterThenThawingWithFireRemovesAcid():
+    "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by fire, it becomes a regular water tile."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
-    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].type == 'ice'
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].type == 'water'
+
+def t_FreezingAcidWaterThenThawingWithDamageLeavesAcid():
+    "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by damage, it reverts to an acid water tile."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].type == 'ice'
+    b.board[(1, 1)].takeDamage(10) # we only damage it once, it needs 2 hits like a mountain.
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].type == 'ice_damaged'
+    b.board[(1, 1)].takeDamage(10) # now the ice should be gone
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.ACID}
+    assert b.board[(1, 1)].type == 'water'
+
+def t_UnitDoesntGetAcidFromFrozenAcidWater():
+    "If acid is put onto an ice tile, it becomes a frozen acid tile. This means there is no pool of acid on it and a unit can't pick up acid by moving here."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].type == 'ice'
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].type == 'ice'
+    b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit.effects == set()
 
 def t_RepairingInSmokeLeavesSmoke():
     "A unit that repairs in a smoke cloud (because camilla allows actions while smoked) does NOT remove the smoke."
@@ -318,6 +348,22 @@ def t_AcidPutsOutTileFire():
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     b.board[(1, 1)].applyAcid()
     assert b.board[(1, 1)].effects == {Effects.ACID}
+
+def t_AcidFromDeadUnitPutsOutTileFire():
+    "If a tile is on fire and a unit with acid dies on it, Acid pool is left on the tile removing the fire."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
+    b.board[(1, 1)].takeDamage(10)
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
 
 def t_FrozenFlyingUnitDiesInChasm():
     b = GameBoard()
@@ -597,7 +643,7 @@ def t_UnitFireAndShieldMovedToForestSetOnFire():
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
 def t_IceRemovesFireFromUnitAndTile():
-    "Ice puts out fire on unit and tile"
+    "Ice puts out fire on unit and tile."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
     assert b.board[(1, 1)].unit.effects == set()
@@ -719,6 +765,136 @@ def t_IceDoesNothingToLava():
   assert b.board[(1, 1)].unit == None
   assert b.board[(1, 1)].type == 'lava'
 
+def t_FireErasesSandTile():
+  "A sand tile being set on fire converts the sand tile to a ground tile on fire."
+  b = GameBoard()
+  b.replaceTile((1, 1), Tile_Sand(b))
+  assert b.board[(1, 1)].effects == set()
+  b.board[(1, 1)].applyFire()
+  assert b.board[(1, 1)].effects == {Effects.FIRE}
+  assert b.board[(1, 1)].unit == None
+  assert b.board[(1, 1)].type == 'ground'
+
+def t_FireRemovesAcidPool():
+  "If there's an acid pool on a tile, setting it on fire removes the acid pool."
+  b = GameBoard()
+  assert b.board[(1, 1)].effects == set()
+  b.board[(1, 1)].applyAcid()
+  assert b.board[(1, 1)].effects == {Effects.ACID}
+  b.board[(1, 1)].applyFire()
+  assert b.board[(1, 1)].effects == {Effects.FIRE}
+  assert b.board[(1, 1)].unit == None
+  assert b.board[(1, 1)].type == 'ground'
+
+def t_FireImmuneUnitDoesntCatchFire():
+    "A unit with fire immunity doesn't catch fire, duh."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Hornet(b, attributes={Attributes.IMMUNEFIRE}))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.IMMUNEFIRE, Attributes.FLYING}
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE} # tile on fire
+    assert b.board[(1, 1)].unit.effects == set() # unit is not
+
+def t_MechCorpsePush():
+    "Dead mechs are not stable and can be pushed around."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    b.push((1, 1), Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.attributes == set()
+
+def t_MechCorpsePushIntoChasm():
+    "Dead mechs disappear into chasms. They have the flying attribute ingame for some reason but are clearly not flying."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    b.replaceTile((2, 1), Tile_Chasm(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit ==  None
+    b.push((1, 1), Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit == None
+
+def t_MechCorpseCantBeShielded():
+    "Mech corpses cannot be shielded."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    b.board[(1, 1)].applyShield()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+
+def t_MechCorpseCantBeFrozen():
+    "Mech corpses cannot be frozen."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+
+def t_MechCorpseSpreadsFire():
+    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
+    b = GameBoard()
+    b.replaceTile((2, 1), Tile_Forest(b))
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    b.push((1, 1), Direction.RIGHT)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+
+def t_MechCorpseSpreadsAcid():
+    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
+    b = GameBoard()
+    b.replaceTile((2, 1), Tile_Water(b))
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(2, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit == None
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID}
+    assert b.board[(2, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit == None
+    b.push((1, 1), Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == {Effects.SUBMERGED, Effects.ACID}
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}
+
+def t_MechCorpseInvulnerable():
+    "Dead mechs can't be killed by damage."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == set()
+    b.board[(1, 1)].takeDamage(100)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    b.board[(1, 1)].takeDamage(100)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID}
+
 # Dams
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
@@ -730,18 +906,20 @@ def t_IceDoesNothingToLava():
 # Shield protects you from being frozen by ice storm.
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
 # A unit leaves effects where its body lands. For example, if you punch a unit with acid on a sand tile, the sand tile creates smoke, the unit dies, and the tile that the unit was pushed to (with no health) gets the acid pool.
+# Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
 
 ########## Research these:
 # Confirm that ice on lava does nothing
-# Are dead mechs stable?
 # wait so does fire erase smoke but not catch the tile on fire if there's an acid pool there?
+# What happens when a damaged ice tile is hit with ice? Is it made into a solid ice tile again?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 # Timepods can only be on ground tiles, they convert sand to ground upon landing.
 
 ######### Envinronmental actions:
-# Ice storm, air strike, tsunami, chasms appearing, conveyor belts, falling rocks, tentacles, lighting.
+# Ice storm, air strike, tsunami, cataclysm, conveyor belts, falling rocks, tentacles, lighting.
+
 if __name__ == '__main__':
     g = sorted(globals())
     testsrun = 0

@@ -78,6 +78,14 @@ class Events():
 ############### FUNCTIONS #################
 
 ############### CLASSES #################
+class MissingCompanionTile(Exception):
+    "This is raised when something fails due to a missing companion tile."
+    def __init__(self, type, square):
+        super().__init__()
+        self.message = "No companion tile specified for %s on %s" % (type, square)
+    def __str__(self):
+        return self.message
+
 class GameBoard():
     "This represents the game board and some of the most basic rules of the game."
     def __init__(self, board=None, powergrid_hp=7):
@@ -90,27 +98,6 @@ class GameBoard():
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-    def push(self, square, direction):
-        """push unit on square direction.
-        square is a tuple of (x, y) coordinates
-        direction is a Direction.UP direction
-        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same turn.
-        returns nothing"""
-        try:
-            if Attributes.STABLE in self.board[square].unit.attributes:
-                return # stable units can't be pushed
-        except AttributeError:
-            return # There was no unit to push
-        else: # push the unit
-            destinationsquare = self.getRelTile(square, direction, 1)
-            try:
-                self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
-            except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
-                self.moveUnit(square, destinationsquare) # move the unit from square to destination square
-            except KeyError:
-                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
-            else:
-                self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
     def replaceTile(self, square, newtile, keepeffects=True):
         "replace tile in square with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
         unit = self.board[square].unit
@@ -123,7 +110,7 @@ class GameBoard():
         except AttributeError: # raised by None.putUnitHere()
             return
     def moveUnit(self, srcsquare, destsquare):
-        "Move a unit from srcsquare to destsquare, keeping the effects. returns nothing."
+        "Move a unit from srcsquare to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
         self.board[srcsquare].putUnitHere(None)
     def getRelTile(self, square, direction, distance):
@@ -147,6 +134,34 @@ class GameBoard():
         except KeyError:
             return False
         return destinationsquare
+    # The following can all be considered weapon mechanics
+    def push(self, square, direction):
+        """push unit on square direction.
+        square is a tuple of (x, y) coordinates
+        direction is a Direction.UP direction
+        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same turn.
+        returns nothing"""
+        try:
+            if Attributes.STABLE in self.board[square].unit.attributes:
+                return # stable units can't be pushed
+        except AttributeError:
+            return # There was no unit to push
+        else: # push the unit
+            destinationsquare = self.getRelTile(square, direction, 1)
+            try:
+                self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
+            except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
+                self.moveUnit(square, destinationsquare) # move the unit from square to destination square
+            except KeyError:
+                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
+            else:
+                self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
+    def teleport(self, srcsquare, destsquare):
+        "Teleport srcsquare to destsquare, swapping units if there is one on destsquare."
+        unitfromdest = self.board[destsquare].unit  # grab the unit that's about to be overwritten on the destination
+        self.moveUnit(srcsquare, destsquare) # move unit from this square to destination
+        self.board[srcsquare].putUnitHere(unitfromdest)
+
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -439,19 +454,21 @@ class Tile_Teleporter(Tile_Base):
     "End movement here to warp to the matching pad. Swap with any present unit."
     def __init__(self, gboard, square=None, type='teleporter', effects=None, companion=None):
         "companion is the square of the other tile linked to this one."
+        # teleporters can have smoke, fire and acid just like a normal ground tile.
         super().__init__(gboard, square, type, effects=effects)
         self.companion = companion
+        self.suppressteleport = False # this is set true when in the process of teleporting so we don't then teleport the unit back and fourth in an infinite loop.
     def _spreadEffects(self):
         "Spread effects like normal but teleport the unit to the companion tile afterward."
         super()._spreadEffects()
-        try:
-            self.gboard.moveUnit(self.square, self.companion)
-        except KeyError:
-            print("No companion tile specified for teleporter on", self.square)
-            raise
-    # teleporters can have smoke
-    # and fire
-    # and acid!
+        if not self.suppressteleport:
+            self.suppressteleport = True # suppress further teleports here until this finishes
+            try:
+                self.gboard.board[self.companion].suppressteleport = True # suppress teleport on the companion too
+            except KeyError:
+                raise MissingCompanionTile(self.type, self.square)
+            self.gboard.teleport(self.square, self.companion)
+        self.suppressteleport = False
 
 class Tile_Conveyor(Tile_Base):
     "This tile will push any unit in the direction marked on the belt at the end of your turn."

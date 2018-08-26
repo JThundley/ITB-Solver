@@ -947,14 +947,67 @@ def t_DamagedIceBecomesIceWhenFrozen():
     print(b.board[(1, 1)].type)
     assert b.board[(1, 1)].type == 'ice'
 
-def t_TeleporterTeleports():
-    "Just make sure the teleporter works lol"
+def t_BrokenTeleporter():
+    "Make sure an exception is raised if a unit moves onto a teleporter tile that doesn't have a companion."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Teleporter(b))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
+    try:
+        b.moveUnit((2, 1), (1, 1))
+    except MissingCompanionTile:
+        pass
+    else:
+        assert False # The expected exception wasn't raised!
+
+def t_WorkingTeleporter():
+    "Make sure a unit can teleport back and fourth between 2 teleporters."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
     b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit.effects == set() # unit is on far teleporter
+    b.moveUnit((8, 8), (7, 8)) # move it off teleporter
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(7, 8)].unit.effects == set() # unit is here
+    b.moveUnit((7, 8), (8, 8)) # move it back to far teleporter
+    assert b.board[(1, 1)].unit.effects == set() # unit is here
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(7, 8)].unit == None
+
+def t_TeleporterSwaps2Units():
+    "If a unit is on a teleporter when another unit moves to its companion, the units will swap places."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Scarab(b)) # put scarab next to near teleporter
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.moveUnit((2, 1), (1, 1)) # move scarab to near teleporter
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit.type == 'scarab' # unit is on far teleporter
+    b.board[(1, 1)].putUnitHere(Unit_Hornet_Leader(b)) # they instantly swap
+    assert b.board[(1, 1)].unit.type == 'scarab' # is hornetleader
+    assert b.board[(8, 8)].unit.type == 'hornetleader'
 
 # a unit that is pushed onto an on fire teleporter also catches fire and is then teleported.
+# if there's an acid pool on a teleporter, it's picked up by the unit that moves there and then the unit is teleported.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later

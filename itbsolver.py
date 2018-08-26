@@ -323,7 +323,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
             return
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
-    def repair(self): #
+    def repair(self):
         "acid cannot be removed from water or ice by repairing it. There can't be any fire to repair either."
 
 class Tile_Water(Tile_Water_Ice_Damaged_Base):
@@ -396,6 +396,8 @@ class Tile_Chasm(Tile_Base):
         else:
             self.unit.die()
         # no need to super()._spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
+    def repair(self):
+        "There can't be any fire to repair"
 
 class Tile_Lava(Tile_Water):
     def __init__(self, gboard, square=None, type='lava', effects=None):

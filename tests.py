@@ -1026,6 +1026,7 @@ def t_TeleporterSwaps2Units():
 # do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
 # Does Lava remove acid from a unit like water does?
+# Double check if mech corpses can get shield. It might be invisible. test it by seeing if the tile it's on can pick up bad effects.
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

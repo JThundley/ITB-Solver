@@ -306,14 +306,16 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
     def __init__(self, gboard, square=None, type=None, effects=None):
         super().__init__(gboard, square, type, effects=effects)
     def applyIce(self):
+        "replace the tile with ice and give ice to the unit if present."
         self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
         try:
             self.unit.applyIce()
         except AttributeError:
             return
     def applyFire(self):
+        "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
-            self.removeEffect(e) # fire always removes smoke and it removes acid from frozen acid tiles
+            self.removeEffect(e)
         self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
         try:
             self.unit.applyFire()
@@ -321,6 +323,8 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
             return
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
+    def repair(self): #
+        "acid cannot be removed from water or ice by repairing it. There can't be any fire to repair either."
 
 class Tile_Water(Tile_Water_Ice_Damaged_Base):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
@@ -336,8 +340,6 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
     def applyIce(self):
         super().applyIce()
         self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile.
-    def repair(self): # acid cannot be removed from water by repairing it.
-        pass # fire can't be removed from water
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -530,7 +532,7 @@ class Unit_Mountain_Building_Base(Unit_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
     def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.attributes.add(Attributes.STABLE)
+        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
     def applyFire(self):
         raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
 

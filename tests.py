@@ -947,6 +947,14 @@ def t_DamagedIceBecomesIceWhenFrozen():
     print(b.board[(1, 1)].type)
     assert b.board[(1, 1)].type == 'ice'
 
+def t_TeleporterTeleports():
+    "Just make sure the teleporter works lol"
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b))
+    b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
+    b.moveUnit((2, 1), (1, 1))
+
+# a unit that is pushed onto an on fire teleporter also catches fire and is then teleported.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later

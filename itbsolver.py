@@ -437,14 +437,29 @@ class Tile_Terraformed(Tile_Base):
 
 class Tile_Teleporter(Tile_Base):
     "End movement here to warp to the matching pad. Swap with any present unit."
-    def __init__(self, gboard, square=None, type='teleporter', effects=None):
+    def __init__(self, gboard, square=None, type='teleporter', effects=None, companion=None):
+        "companion is the square of the other tile linked to this one."
         super().__init__(gboard, square, type, effects=effects)
-        # TODO: implement this
+        self.companion = companion
+    def _spreadEffects(self):
+        "Spread effects like normal but teleport the unit to the companion tile afterward."
+        super()._spreadEffects()
+        try:
+            self.gboard.moveUnit(self.square, self.companion)
+        except KeyError:
+            print("No companion tile specified for teleporter on", self.square)
+            raise
+    # teleporters can have smoke
+    # and fire
+    # and acid!
 
 class Tile_Conveyor(Tile_Base):
-    "This tile will push any unit in the direction marked on the belt."
+    "This tile will push any unit in the direction marked on the belt at the end of your turn."
+    # Conveyer belts can have acid on them.
+    # Conveyer belts can have fire on them.
+    # Conveyer belts can have smoke on them.
+    # acid, fire and smoke are not moved by conveyer belts, they stay on the tile.
 
-# LICK MY SCROTE
 ##############################################################################
 ######################################## UNITS ###############################
 ##############################################################################

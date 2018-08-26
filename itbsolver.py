@@ -515,20 +515,13 @@ class Unit_Base(TileUnit_Base):
 class Unit_Mountain_Building_Base(Unit_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
     def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
-        try:
-            attributes.add(Attributes.STABLE)
-        except AttributeError:
-            attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.attributes.add(Attributes.STABLE)
     def applyFire(self):
         raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
 
 class Unit_Mountain(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='mountain', attributes=None, effects=None):
-        try:
-            attributes.add(Attributes.STABLE)
-        except AttributeError:
-            attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyAcid(self):
@@ -553,10 +546,6 @@ class Unit_Volcano(Unit_Mountain):
 
 class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
-        try:
-            attributes.add(Attributes.STABLE)
-        except AttributeError:
-            attributes = {Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.FRIENDLY
     def applyAcid(self):
@@ -680,11 +669,8 @@ class Unit_Alpha_Digger(Unit_Blobber):
 
 class Unit_Hornet(Unit_Blobber): # this is the base class for flying units
     def __init__(self, gboard, type='hornet', currenthp=2, maxhp=2, effects=None, attributes=None):
-        try:
-            attributes.add(Attributes.FLYING)
-        except AttributeError:
-            attributes = {Attributes.FLYING}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.FLYING)
 
 class Unit_Acid_Hornet(Unit_Hornet):
     def __init__(self, gboard, type='acidhornet', currenthp=3, maxhp=3, effects=None, attributes=None):
@@ -724,11 +710,8 @@ class Unit_Alpha_Spider(Unit_Blobber):
 
 class Unit_Burrower(Unit_Blobber): # Base unit for burrowers
     def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
-        try:
-            attributes.update((Attributes.BURROWER, Attributes.STABLE))
-        except AttributeError:
-            attributes = {Attributes.BURROWER, Attributes.STABLE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        attributes.update((Attributes.BURROWER, Attributes.STABLE))
 
 class Unit_Alpha_Burrower(Unit_Burrower):
     def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes=None):
@@ -736,11 +719,8 @@ class Unit_Alpha_Burrower(Unit_Burrower):
 
 class Unit_Beetle_Leader(Unit_Blobber): # Base unit for massive bosses
     def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        try:
-            attributes.add(Attributes.MASSIVE)
-        except AttributeError:
-            attributes = {Attributes.MASSIVE}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.MASSIVE)
 
 class Unit_Large_Goo(Unit_Beetle_Leader):
     def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes=None):
@@ -756,11 +736,8 @@ class Unit_Small_Goo(Unit_Beetle_Leader):
 
 class Unit_Hornet_Leader(Unit_Beetle_Leader): # base class for flying and massive units
     def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        try:
-            attributes.add(Attributes.FLYING)
-        except AttributeError:
-            attributes = {Attributes.FLYING}
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.FLYING)
 
 class Unit_Psion_Abomination(Unit_Hornet_Leader):
     def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes=None):

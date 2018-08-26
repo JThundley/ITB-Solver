@@ -935,6 +935,7 @@ def t_MechCorpseInvulnerable():
 # Confirm that ice on lava does nothing
 # wait so does fire erase smoke but not catch the tile on fire if there's an acid pool there?
 # What happens when a damaged ice tile is hit with ice? Is it made into a solid ice tile again?
+# Does Lava remove acid from a unit like water does?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

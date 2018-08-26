@@ -327,8 +327,10 @@ class Tile_Water(Tile_Base):
         else: # the unit lived
             if Attributes.FLYING not in self.unit.attributes:
                 self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
-                if Effects.ACID in self.effects: # spread acid but don't remove it from the tile
+                if Effects.ACID in self.effects: # spread acid from tile to unit but don't remove it from the tile
                     self.unit.applyAcid()
+                if Effects.ACID in self.unit.effects: # if the unit has acid and is massive but not flying, spread acid from unit to tile
+                    self.effects.add(Effects.ACID) # don't call self.applyAcid() here or it'll give it to the unit and not the tile.
             self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
 
 class Tile_Ice(Tile_Base):
@@ -586,7 +588,7 @@ class Unit_Mech_Corpse(Unit_Rock):
     "This is a player mech after it dies. It's invincible but can be pushed around."
     def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
-
+        self.attributes.add(Attributes.MASSIVE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
     def applyShield(self):

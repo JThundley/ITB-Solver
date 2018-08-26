@@ -391,8 +391,8 @@ def t_UnitsOnFireDontLightTileOnDeath():
     assert b.board[(2, 1)].effects == set()
     assert b.board[(2, 1)].unit == None
 
-def t_GroundUnitBringsAcidIntoWater():
-    "a ground unit with acid is pushed into water: tile becomes an acid water tile"
+def t_SmallGroundUnitBringsAcidIntoWater():
+    "a non-massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit dies"
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
@@ -405,7 +405,28 @@ def t_GroundUnitBringsAcidIntoWater():
     b.moveUnit((2, 1), (1, 1))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(2, 1)].effects == set()
-    assert b.board[(1, 1)].unit == None
+    assert b.board[(1, 1)].unit == None # unit wasn't massive so it died.
+
+def t_MassiveGroundUnitBringsAcidIntoWater():
+    "a massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit survives"
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(2, 1)].putUnitHere(Unit_Large_Goo(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.attributes == {Attributes.MASSIVE}
+    b.board[(2, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID} # unit is massive so it survived.
+    b.moveUnit((1, 1), (2, 1)) # the unit moves out and still has acid
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}  # unit still has acid
 
 def t_GroundUnitWithAcidAndFireDies():
     "a ground unit with acid and fire dies on a normal tile: acid pool is left on the tile."
@@ -801,11 +822,11 @@ def t_MechCorpsePush():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     b.push((1, 1), Direction.RIGHT)
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit == None
-    assert b.board[(2, 1)].unit.attributes == set()
+    assert b.board[(2, 1)].unit.attributes == {Attributes.MASSIVE}
 
 def t_MechCorpsePushIntoChasm():
     "Dead mechs disappear into chasms. They have the flying attribute ingame for some reason but are clearly not flying."
@@ -813,7 +834,7 @@ def t_MechCorpsePushIntoChasm():
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     b.replaceTile((2, 1), Tile_Chasm(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert b.board[(2, 1)].effects == set()
     assert b.board[(2, 1)].unit ==  None
     b.push((1, 1), Direction.RIGHT)
@@ -826,7 +847,7 @@ def t_MechCorpseCantBeShielded():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     b.board[(1, 1)].applyShield()
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -836,7 +857,7 @@ def t_MechCorpseCantBeFrozen():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -847,7 +868,7 @@ def t_MechCorpseSpreadsFire():
     b.replaceTile((2, 1), Tile_Forest(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert b.board[(2, 1)].effects == set()
     assert b.board[(2, 1)].unit == None
     b.board[(1, 1)].applyFire()
@@ -867,7 +888,7 @@ def t_MechCorpseSpreadsAcid():
     b.replaceTile((2, 1), Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert b.board[(2, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit == None
     b.board[(1, 1)].applyAcid()
@@ -886,7 +907,7 @@ def t_MechCorpseInvulnerable():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     b.board[(1, 1)].takeDamage(100)
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -895,7 +916,7 @@ def t_MechCorpseInvulnerable():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ACID}
 
-# Dams
+# If a massive unit gets acid and walks into water, it becomes acid water. When the unit moves out, it still has acid.
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later

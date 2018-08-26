@@ -408,7 +408,7 @@ def t_SmallGroundUnitBringsAcidIntoWater():
     assert b.board[(1, 1)].unit == None # unit wasn't massive so it died.
 
 def t_MassiveGroundUnitBringsAcidIntoWater():
-    "a massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit survives"
+    "a massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit survives. It then walks out and still has acid."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Large_Goo(b))
@@ -916,7 +916,7 @@ def t_MechCorpseInvulnerable():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ACID}
 
-# If a massive unit gets acid and walks into water, it becomes acid water. When the unit moves out, it still has acid.
+
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later
@@ -928,6 +928,8 @@ def t_MechCorpseInvulnerable():
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
 # A unit leaves effects where its body lands. For example, if you punch a unit with acid on a sand tile, the sand tile creates smoke, the unit dies, and the tile that the unit was pushed to (with no health) gets the acid pool.
 # Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
+# If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
+# if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
 
 ########## Research these:
 # Confirm that ice on lava does nothing

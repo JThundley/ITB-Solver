@@ -301,7 +301,28 @@ class Tile_Sand(Tile_Forest_Sand_Base):
     def _tileTakeDamage(self):
         self.applySmoke()
 
-class Tile_Water(Tile_Base):
+class Tile_Water_Ice_Damaged_Base(Tile_Base):
+    "This is the base unit for Water tiles, Ice tiles, and Ice_Damaged tiles."
+    def __init__(self, gboard, square=None, type=None, effects=None):
+        super().__init__(gboard, square, type, effects=effects)
+    def applyIce(self):
+        self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
+        try:
+            self.unit.applyIce()
+        except AttributeError:
+            return
+    def applyFire(self):
+        for e in Effects.SMOKE, Effects.ACID:
+            self.removeEffect(e) # fire always removes smoke and it removes acid from frozen acid tiles
+        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+        try:
+            self.unit.applyFire()
+        except AttributeError:
+            return
+    def _spreadEffects(self):
+        "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
+
+class Tile_Water(Tile_Water_Ice_Damaged_Base):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
     def __init__(self, gboard, square=None, type='water', effects=None):
         super().__init__(gboard, square, type, effects=effects)
@@ -313,12 +334,8 @@ class Tile_Water(Tile_Base):
         except AttributeError:
             return # but not the tile. Fire does NOT remove smoke from a water tile!
     def applyIce(self):
-        self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
+        super().applyIce()
         self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile.
-        try:
-            self.unit.applyIce()
-        except AttributeError:
-            return
     def repair(self): # acid cannot be removed from water by repairing it.
         pass # fire can't be removed from water
     def _spreadEffects(self):
@@ -333,24 +350,20 @@ class Tile_Water(Tile_Base):
                     self.effects.add(Effects.ACID) # don't call self.applyAcid() here or it'll give it to the unit and not the tile.
             self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
 
-class Tile_Ice(Tile_Base):
+class Tile_Ice(Tile_Water_Ice_Damaged_Base):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
     def __init__(self, gboard, square=None, type='ice', effects=None):
         super().__init__(gboard, square, type, effects=effects)
-    def _tileTakeDamage(self):
-        self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
-    def applyFire(self):
-        for e in Effects.SMOKE, Effects.ACID:
-            self.removeEffect(e) # fire always removes smoke and it removes acid from frozen acid tiles
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+    def applyIce(self):
+        "Nothing happens when ice is frozen again"
         try:
-            self.unit.applyFire()
+            self.unit.applyIce()
         except AttributeError:
             return
-    def _spreadEffects(self):
-        "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
+    def _tileTakeDamage(self):
+        self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
 
-class Tile_Ice_Damaged(Tile_Ice):
+class Tile_Ice_Damaged(Tile_Water_Ice_Damaged_Base):
     def __init__(self, gboard, square=None, type='ice_damaged', effects=None):
         super().__init__(gboard, square, type, effects=effects)
     def _tileTakeDamage(self):
@@ -427,6 +440,7 @@ class Tile_Teleporter(Tile_Base):
 class Tile_Conveyor(Tile_Base):
     "This tile will push any unit in the direction marked on the belt."
 
+# LICK MY SCROTE
 ##############################################################################
 ######################################## UNITS ###############################
 ##############################################################################

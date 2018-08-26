@@ -916,7 +916,38 @@ def t_MechCorpseInvulnerable():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ACID}
 
+def t_UnitWithAcidKilledOnSandThenSetOnFire():
+    "A unit with acid is killed on a sand tile, tile now has smoke and acid and is no longer a sand tile. Setting it on fire gets rid of smoke and acid."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Sand(b))
+    b.board[(1, 1)].putUnitHere(Unit_Scarab(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID}
+    b.board[(1, 1)].takeDamage(10)
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SMOKE}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(1, 1)].type == 'ground'
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(1, 1)].type == 'ground'
 
+def t_DamagedIceBecomesIceWhenFrozen():
+    "If a damaged ice tile is hit with ice, it becomes an ice tile."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].type == 'ice'
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].type == 'ice_damaged'
+    b.board[(1, 1)].applyIce()
+    print(b.board[(1, 1)].type)
+    assert b.board[(1, 1)].type == 'ice'
+
+# fire does not remove smoke over water
 # Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Weapons stuff for later
@@ -932,9 +963,8 @@ def t_MechCorpseInvulnerable():
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
 
 ########## Research these:
+# do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
-# wait so does fire erase smoke but not catch the tile on fire if there's an acid pool there?
-# What happens when a damaged ice tile is hit with ice? Is it made into a solid ice tile again?
 # Does Lava remove acid from a unit like water does?
 
 ########## Do these ones even matter?
@@ -950,4 +980,4 @@ if __name__ == '__main__':
     for test in [x for x in g if x.startswith('t_')]:
         runTest(test)
         testsrun += 1
-    print(testsrun, "tests run.")
+    print(testsrun, "tests run successfully.")

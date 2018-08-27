@@ -916,6 +916,18 @@ def t_MechCorpseInvulnerable():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ACID}
 
+def t_MechCorpseCantBeShielded():
+    "Mech corpses cannot be shielded even though the game implies that it can be."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyShield()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert b.board[(1, 1)].unit.effects == set()
+
 def t_UnitWithAcidKilledOnSandThenSetOnFire():
     "A unit with acid is killed on a sand tile, tile now has smoke and acid and is no longer a sand tile. Setting it on fire gets rid of smoke and acid."
     b = GameBoard()
@@ -1006,9 +1018,44 @@ def t_TeleporterSwaps2Units():
     assert b.board[(1, 1)].unit.type == 'scarab' # is hornetleader
     assert b.board[(8, 8)].unit.type == 'hornetleader'
 
-# a unit that is pushed onto an on fire teleporter also catches fire and is then teleported.
-# if there's an acid pool on a teleporter, it's picked up by the unit that moves there and then the unit is teleported.
-# Teleporters: A live unit entering one of these tiles will swap position to the corresponding other tile. If there was a unit already there, it too is teleported. Fire or smoke will not be teleported. This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
+def t_TeleporterWithFire():
+    "A unit that is pushed onto an on fire teleporter also catches fire and is then teleported."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, effects={Effects.FIRE}, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit.effects == {Effects.FIRE} # unit is on far teleporter
+
+def t_TeleporterWithAcid():
+    "If there's an acid pool on a teleporter, it's picked up by the unit that moves there and then the unit is teleported."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, effects={Effects.ACID}, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit.effects == {Effects.ACID} # unit is on far teleporter
+
+# mech corpses carry acid into water
+# when the dam replaces tile with water, the effects spread from ground to water.
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
@@ -1021,19 +1068,20 @@ def t_TeleporterSwaps2Units():
 # Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
 # If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
+# Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 
 ########## Research these:
 # do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
 # Does Lava remove acid from a unit like water does?
-# Double check if mech corpses can get shield. It might be invisible. test it by seeing if the tile it's on can pick up bad effects.
+
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 # Timepods can only be on ground tiles, they convert sand to ground upon landing.
 
 ######### Envinronmental actions:
-# Ice storm, air strike, tsunami, cataclysm, conveyor belts, falling rocks, tentacles, lighting.
+# Ice storm, air strike, tsunami, cataclysm, conveyor belts, falling rocks, tentacles, tiles turning to lava, lighting.
 
 if __name__ == '__main__':
     g = sorted(globals())

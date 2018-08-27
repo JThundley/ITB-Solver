@@ -10,6 +10,7 @@
 #   Enemies emerge
 
 # TODO
+# get rid of def addAttributes?
 # change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
 # Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable. If you freeze the dam, both dam tiles catch on fire.
 ############ IMPORTS ######################
@@ -634,6 +635,80 @@ class Unit_Mech_Corpse(Unit_Rock):
         "Mech corpses cannot be shielded."
     def applyIce(self):
         "Mech corpses cannot be shielded."
+##############################################################################
+################################# OBJECTIVE UNITS ############################
+##############################################################################
+class Unit_Dam(Unit_Base):
+    "The dam is a special 2 tile unit. Effects and damage to one also happens to the other."
+    def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
+        if self.square[1] == 4: # set the companion tile without user intervention since the dam is always on the same 2 tiles.
+            self.companion = (8, 3)
+        else:
+            self.companion = (8, 4)
+        self.companionsuppressed = False # When this is true, we don't replicate actions to the other companion unit to avoid an infinite loop.
+    def suppressCompanion(self):
+        "A helper method to set suppresscompanion = True on the companion tile when apply effects."
+        self.gboard.board[self.companion].companionsuppressed = True
+    def unsuppressCompanion(self):
+        "A helper method to set suppresscompanion = False on the companion tile when apply effects."
+        self.gboard.board[self.companion].companionsuppressed = False
+    def applyFire(self):
+        "Dam cannot be set on fire."
+    def applyIce(self):
+        self.applyEffectUnshielded(Effects.ICE)
+        if not self.companionsuppressed:
+            self.suppressCompanion()
+            self.gboard.board[self.companion].applyIce()
+        else:
+            self.unsuppressCompanion()
+    def applyAcid(self):
+        super().applyAcid()
+        if not self.suppresscompanion:
+            self.suppressCompanion()
+            self.gboard.board[self.companion].applyAcid()
+    def applyShield(self):
+        super().applyShield()
+        if not self.companionsuppressed:
+            self.suppressCompanion()
+            self.gboard.board[self.companion].applyShield()
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is a copy and paste from the base, but we don't need to check for armored here."
+        for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
+            try:
+                self.effects.remove(effect)
+            except KeyError:
+                pass
+            else:
+                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
+                return # and then stop processing things, the shield or ice took the damage.
+        if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
+            damage *= 2
+        self.currenthp -= damage # the unit takes the damage
+        self.damage_taken += damage
+        if self.currenthp <= 0: # if the unit has no more HP
+            self.damage_taken += self.currenthp # currenthp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
+            self.die()
+        if not self.companionsuppressed:
+            self.suppressCompanion()
+            self.gboard.board[self.companion].takeDamage(damage, ignorearmor=False, ignoreacid=ignoreacid)
+    def die(self):
+        "Make the unit die."
+        self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+        # we also don't care about spreading acid back to the tile
+        for x in range(1, 7):
+            self.gboard.replaceTile((x, self.square[1]), Tile_Water(b))
+        if not self.companionsuppressed:
+            self.suppressCompanion()
+            self.gboard.board[self.companion].die()
+    def repairHP(self, hp=1):
+        "Dams can't be repaired."
+# Damn can have acid
+# can be shielded
+# when it dies all tiles to the left of it become water.
+# (8, 4), (8, 3)
+# when it dies it leaves an invulnerable unit on it.
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################

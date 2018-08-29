@@ -554,6 +554,12 @@ class Unit_Base(TileUnit_Base):
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
+
+
+class Repairable_Unit_Base(Unit_Base):
+    "The base class of all mechs and vek."
+    def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
+        super().__init__(gboard=gboard, type=type, effects=effects)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -601,8 +607,6 @@ class Unit_Building(Unit_Mountain_Building_Base):
         self.alliance = Alliance.FRIENDLY
     def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
-    def repairHP(self, hp):
-        return # buildings can't repair, dream on
 
 class Unit_Building_Objective(Unit_Building):
     def __init__(self, gboard, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
@@ -647,32 +651,28 @@ class Unit_Dam(Unit_Base):
             self.companion = (8, 3)
         else:
             self.companion = (8, 4)
-        self.companionsuppressed = False # When this is true, we don't replicate actions to the other companion unit to avoid an infinite loop.
-    def suppressCompanion(self):
-        "A helper method to set suppresscompanion = True on the companion tile when apply effects."
-        self.gboard.board[self.companion].companionsuppressed = True
-    def unsuppressCompanion(self):
-        "A helper method to set suppresscompanion = False on the companion tile when apply effects."
-        self.gboard.board[self.companion].companionsuppressed = False
+        self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
+        self.dead = False # Set this true when the unit has died. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
     def applyFire(self):
         "Dam cannot be set on fire."
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE)
-        if not self.companionsuppressed:
-            self.suppressCompanion()
+        if self.replicate:
+            self.gboard.board[self.companion].replicate = False
             self.gboard.board[self.companion].applyIce()
-        else:
-            self.unsuppressCompanion()
+            self.gboard.board[self.companion].replicate = True
     def applyAcid(self):
         super().applyAcid()
-        if not self.suppresscompanion:
-            self.suppressCompanion()
+        if not self.replicate:
+            self.gboard.board[self.companion].replicate = False
             self.gboard.board[self.companion].applyAcid()
+            self.gboard.board[self.companion].replicate = True
     def applyShield(self):
         super().applyShield()
-        if not self.companionsuppressed:
-            self.suppressCompanion()
+        if self.replicate:
+            self.gboard.board[self.companion].replicate = False
             self.gboard.board[self.companion].applyShield()
+            self.gboard.board[self.companion].replicate = True
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is a copy and paste from the base, but we don't need to check for armored here."
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
@@ -690,20 +690,22 @@ class Unit_Dam(Unit_Base):
         if self.currenthp <= 0: # if the unit has no more HP
             self.damage_taken += self.currenthp # currenthp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
             self.die()
-        if not self.companionsuppressed:
-            self.suppressCompanion()
+        if self.replicate:
+            self.gboard.board[self.companion].replicate = False
             self.gboard.board[self.companion].takeDamage(damage, ignorearmor=False, ignoreacid=ignoreacid)
+            self.gboard.board[self.companion].replicate = True
     def die(self):
         "Make the unit die."
-        self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
-        # we also don't care about spreading acid back to the tile
-        for x in range(1, 7):
-            self.gboard.replaceTile((x, self.square[1]), Tile_Water(b))
-        if not self.companionsuppressed:
-            self.suppressCompanion()
-            self.gboard.board[self.companion].die()
-    def repairHP(self, hp=1):
-        "Dams can't be repaired."
+        if not self.dead:
+            self.dead = True
+            self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+            # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
+            for x in range(1, 7):
+                self.gboard.replaceTile((x, self.square[1]), Tile_Water(b))
+            if self.replicate:
+                self.gboard.board[self.companion].replicate = False
+                self.gboard.board[self.companion].die()
+                self.gboard.board[self.companion].replicate = True
 # Damn can have acid
 # can be shielded
 # when it dies all tiles to the left of it become water.
@@ -713,7 +715,7 @@ class Unit_Dam(Unit_Base):
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################
-class Unit_Blobber(Unit_Base):
+class Unit_Blobber(Repairable_Unit_Base):
     "This can be considered the base unit of Vek since the Blobber doesn't have a direct attack or effect. The units it spawns are separate units that happens after the simulation's turn."
     def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)

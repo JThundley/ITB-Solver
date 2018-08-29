@@ -1054,6 +1054,17 @@ def t_TeleporterWithAcid():
     assert b.board[(2, 1)].unit == None
     assert b.board[(8, 8)].unit.effects == {Effects.ACID} # unit is on far teleporter
 
+def t_DamDies():
+    "The Dam is a special 2-tile unit. In this program, it's treated as 2 separate units that replicate actions to each other. In this test, we kill one and make sure they both die and flood the map."
+    b = GameBoard()
+    b.board[(8, 3)].putUnitHere(Unit_Dam(b))
+    b.board[(8, 4)].putUnitHere(Unit_Dam(b))
+    assert b.board[(8, 3)].effects == set()
+    assert b.board[(8, 4)].effects == set()
+    assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
+    assert b.board[(7, 4)].effects == set()
+    #assert False # XXX TODO!
+    b.board[(8, 3)].takeDamage
 # mech corpses carry acid into water
 # when the dam replaces tile with water, the effects spread from ground to water.
 
@@ -1069,12 +1080,12 @@ def t_TeleporterWithAcid():
 # If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
 # Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
+# If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
 
 ########## Research these:
 # do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
 # Does Lava remove acid from a unit like water does?
-
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

@@ -559,7 +559,7 @@ class Unit_Base(TileUnit_Base):
 class Repairable_Unit_Base(Unit_Base):
     "The base class of all mechs and vek."
     def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
-        super().__init__(gboard=gboard, type=type, effects=effects)
+        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -647,32 +647,32 @@ class Unit_Dam(Unit_Base):
     def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
-        if self.square[1] == 4: # set the companion tile without user intervention since the dam is always on the same 2 tiles.
-            self.companion = (8, 3)
-        else:
-            self.companion = (8, 4)
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
         self.dead = False # Set this true when the unit has died. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
+    def _replicate(self, meth, *args):
+        "Replicate an action from this unit to the other. meth is a string of the method to run. Returns nothing."
+        if self.replicate:
+            try: # Set the companion tile
+                self.companion
+            except NameError: # only once
+                if self.square[1] == 4:  # set the companion tile without user intervention since the dam is always on the same 2 tiles.
+                    self.companion = (8, 3)
+                else:
+                    self.companion = (8, 4)
+            self.gboard.board[self.companion].unit.replicate = False
+            getattr(self.gboard.board[self.companion].unit, meth)(args)
+            self.gboard.board[self.companion].unit.replicate = True
     def applyFire(self):
         "Dam cannot be set on fire."
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE)
-        if self.replicate:
-            self.gboard.board[self.companion].replicate = False
-            self.gboard.board[self.companion].applyIce()
-            self.gboard.board[self.companion].replicate = True
+        self._replicate('applyIce')
     def applyAcid(self):
         super().applyAcid()
-        if not self.replicate:
-            self.gboard.board[self.companion].replicate = False
-            self.gboard.board[self.companion].applyAcid()
-            self.gboard.board[self.companion].replicate = True
+        self._replicate('applyAcid')
     def applyShield(self):
         super().applyShield()
-        if self.replicate:
-            self.gboard.board[self.companion].replicate = False
-            self.gboard.board[self.companion].applyShield()
-            self.gboard.board[self.companion].replicate = True
+        self._replicate('applyShield')
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is a copy and paste from the base, but we don't need to check for armored here."
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
@@ -690,10 +690,7 @@ class Unit_Dam(Unit_Base):
         if self.currenthp <= 0: # if the unit has no more HP
             self.damage_taken += self.currenthp # currenthp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
             self.die()
-        if self.replicate:
-            self.gboard.board[self.companion].replicate = False
-            self.gboard.board[self.companion].takeDamage(damage, ignorearmor=False, ignoreacid=ignoreacid)
-            self.gboard.board[self.companion].replicate = True
+        self._replicate('TakeDamage', damage, ignorearmor, ignoreacid)
     def die(self):
         "Make the unit die."
         if not self.dead:

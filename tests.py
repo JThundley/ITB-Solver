@@ -1063,10 +1063,19 @@ def t_DamDies():
     assert b.board[(8, 4)].effects == set()
     assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
     assert b.board[(7, 4)].effects == set()
-    #assert False # XXX TODO!
-    b.board[(8, 3)].takeDamage
-# mech corpses carry acid into water
+    b.board[(8, 3)].takeDamage(1)
+    assert b.board[(8, 3)].currenthp == 1
+    assert b.board[(8, 4)].currenthp == 1
+    b.board[(8, 4)].takeDamage(1)
+    assert b.board[(8, 3)].type == 'volcano'
+    assert b.board[(8, 4)].type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 7):
+            assert b.board[(x, y)].type == 'water'
+
+
 # when the dam replaces tile with water, the effects spread from ground to water.
+# mech corpses carry acid into water
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
@@ -1081,6 +1090,7 @@ def t_DamDies():
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
 # Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
+# If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 
 ########## Research these:
 # do burrowers leave acid when they die?

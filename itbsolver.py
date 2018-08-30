@@ -106,10 +106,12 @@ class GameBoard():
             newtile.effects.update(self.board[square].effects)
         self.board[square] = newtile
         self.board[square].square = square
-        try:
-            self.board[square].putUnitHere(unit)
-        except AttributeError: # raised by None.putUnitHere()
-            return
+        # I'm not sure how tf None.putUnitHere() would ever happen, why did I write this?
+        # try:
+        #     self.board[square].putUnitHere(unit)
+        # except AttributeError: # raised by None.putUnitHere()
+        #     return
+        self.board[square].putUnitHere(unit)
     def moveUnit(self, srcsquare, destsquare):
         "Move a unit from srcsquare to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
@@ -259,6 +261,8 @@ class Tile_Base(TileUnit_Base):
             if Effects.ACID in self.effects: # same with acid, but also remove it from the tile.
                 self.unit.applyAcid()
                 self.removeEffect(Effects.ACID)
+    def __str__(self):
+        return "%s on %s. Effects: %s" % (self.type, self.square, self.effects)
 
 class Tile_Ground(Tile_Base):
     "This is a normal ground tile."
@@ -554,12 +558,13 @@ class Unit_Base(TileUnit_Base):
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
-
+    def __str__(self):
+        return "%s on %s. %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.square, self.currenthp, self.maxhp, self.effects, self.attributes)
 
 class Repairable_Unit_Base(Unit_Base):
     "The base class of all mechs and vek."
     def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
-        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -596,10 +601,12 @@ class Unit_Mountain_Damaged(Unit_Mountain):
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
     def __init__(self, gboard, type='volcano', effects=None):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, effects=effects)
+        super().__init__(gboard, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage=1):
         return # what part of indestructible do you not understand?!
+    def die(self):
+        return # indestructible!
 
 class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
@@ -646,21 +653,24 @@ class Unit_Dam(Unit_Base):
     "The dam is a special 2 tile unit. Effects and damage to one also happens to the other."
     def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
+        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.MASSIVE))
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
-        self.dead = False # Set this true when the unit has died. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
-    def _replicate(self, meth, *args):
+        self.deadfromdamage = False # Set this true when the unit has died from damage. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
+    def _replicate(self, meth, **kwargs):
         "Replicate an action from this unit to the other. meth is a string of the method to run. Returns nothing."
         if self.replicate:
             try: # Set the companion tile
                 self.companion
-            except NameError: # only once
+            except AttributeError: # only once
                 if self.square[1] == 4:  # set the companion tile without user intervention since the dam is always on the same 2 tiles.
                     self.companion = (8, 3)
                 else:
                     self.companion = (8, 4)
             self.gboard.board[self.companion].unit.replicate = False
-            getattr(self.gboard.board[self.companion].unit, meth)(args)
+            try: # try running the companions method as die() with keyword arguments
+                getattr(self.gboard.board[self.companion].unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
+            except KeyError: # else it's an applySomething() method with no args
+                getattr(self.gboard.board[self.companion].unit, meth)()
             self.gboard.board[self.companion].unit.replicate = True
     def applyFire(self):
         "Dam cannot be set on fire."
@@ -681,7 +691,7 @@ class Unit_Dam(Unit_Base):
             except KeyError:
                 pass
             else:
-                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
+                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading. TODO: is this needed? Fire can't spread, acid maybe not either.
                 return # and then stop processing things, the shield or ice took the damage.
         if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
@@ -689,25 +699,17 @@ class Unit_Dam(Unit_Base):
         self.damage_taken += damage
         if self.currenthp <= 0: # if the unit has no more HP
             self.damage_taken += self.currenthp # currenthp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
+            self.deadfromdamage = True
             self.die()
-        self._replicate('TakeDamage', damage, ignorearmor, ignoreacid)
+        self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
     def die(self):
         "Make the unit die."
-        if not self.dead:
-            self.dead = True
-            self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
-            # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
-            for x in range(1, 7):
-                self.gboard.replaceTile((x, self.square[1]), Tile_Water(b))
-            if self.replicate:
-                self.gboard.board[self.companion].replicate = False
-                self.gboard.board[self.companion].die()
-                self.gboard.board[self.companion].replicate = True
-# Damn can have acid
-# can be shielded
-# when it dies all tiles to the left of it become water.
-# (8, 4), (8, 3)
-# when it dies it leaves an invulnerable unit on it.
+        self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+        # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
+        for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
+            self.gboard.replaceTile((x, self.square[1]), Tile_Water(self.gboard))
+        if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
+            self._replicate('die')
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################

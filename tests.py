@@ -812,6 +812,7 @@ def t_FireImmuneUnitDoesntCatchFire():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b, attributes={Attributes.IMMUNEFIRE}))
     assert b.board[(1, 1)].effects == set()
+    print(b.board[(1, 1)].unit.attributes)
     assert b.board[(1, 1)].unit.attributes == {Attributes.IMMUNEFIRE, Attributes.FLYING}
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE} # tile on fire
@@ -1064,18 +1065,65 @@ def t_DamDies():
     assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
     assert b.board[(7, 4)].effects == set()
     b.board[(8, 3)].takeDamage(1)
-    assert b.board[(8, 3)].currenthp == 1
-    assert b.board[(8, 4)].currenthp == 1
+    assert b.board[(8, 3)].unit.currenthp == 1
+    assert b.board[(8, 4)].unit.currenthp == 1
     b.board[(8, 4)].takeDamage(1)
-    assert b.board[(8, 3)].type == 'volcano'
-    assert b.board[(8, 4)].type == 'volcano'
+    assert b.board[(8, 3)].unit.type == 'volcano'
+    assert b.board[(8, 4)].unit.type == 'volcano'
     for y in (3, 4):
         for x in range(1, 7):
             assert b.board[(x, y)].type == 'water'
 
+def t_DamDiesWithAcidUnits():
+    "In this test, we kill one and make sure that a unit with acid dies and leaves acid in the new water. Also a flying unit will survive the flood."
+    b = GameBoard()
+    b.board[(8, 3)].putUnitHere(Unit_Dam(b))
+    b.board[(8, 4)].putUnitHere(Unit_Dam(b))
+    b.board[(7, 3)].putUnitHere(Unit_Blobber(b, effects={Effects.ACID}))
+    b.board[(7, 4)].putUnitHere(Unit_Hornet(b, effects={Effects.ACID}))
+    assert b.board[(8, 3)].effects == set()
+    assert b.board[(8, 4)].effects == set()
+    assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
+    assert b.board[(7, 4)].effects == set()
+    assert b.board[(7, 3)].unit.effects == {Effects.ACID}  # the units next to the dam have acid
+    assert b.board[(7, 4)].unit.effects == {Effects.ACID}
+    b.board[(8, 3)].takeDamage(1)
+    assert b.board[(8, 3)].unit.currenthp == 1
+    assert b.board[(8, 4)].unit.currenthp == 1
+    b.board[(8, 4)].takeDamage(1)
+    assert b.board[(8, 3)].unit.type == 'volcano'
+    assert b.board[(8, 4)].unit.type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 8):
+            assert b.board[(x, y)].type == 'water'
+    assert b.board[(7, 3)].unit == None # the blobber died
+    assert b.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the blobber left acid in the water
+    assert b.board[(7, 4)].unit.type == 'hornet' # the hornet survived
+    assert b.board[(7, 4)].effects == {Effects.SUBMERGED}  # the acid is still on the hornet and not the water
 
-# when the dam replaces tile with water, the effects spread from ground to water.
-# mech corpses carry acid into water
+def t_DamDiesWithAcidOnGround():
+    "In this test, we kill one and make sure that a ground tile with acid leaves acid in the new water tile."
+    b = GameBoard()
+    b.board[(8, 3)].putUnitHere(Unit_Dam(b))
+    b.board[(8, 4)].putUnitHere(Unit_Dam(b))
+    b.board[(7, 3)].applyAcid()
+    assert b.board[(8, 3)].effects == set()
+    assert b.board[(8, 4)].effects == set()
+    assert b.board[(7, 3)].effects == {Effects.ACID} # the tile next to the dam has acid
+    assert b.board[(7, 4)].effects == set()
+    b.board[(8, 3)].takeDamage(1)
+    assert b.board[(8, 3)].unit.currenthp == 1
+    assert b.board[(8, 4)].unit.currenthp == 1
+    b.board[(8, 4)].takeDamage(1)
+    assert b.board[(8, 3)].unit.type == 'volcano'
+    assert b.board[(8, 4)].unit.type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 8):
+            assert b.board[(x, y)].type == 'water'
+    assert b.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the acid on the ground left acid in the water
+    assert b.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
+
+# If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
@@ -1090,16 +1138,18 @@ def t_DamDies():
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
 # Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
-# If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
+# if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
+
 
 ########## Research these:
 # do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
 # Does Lava remove acid from a unit like water does?
+# If you shield the dam and then hit it with acid, and then attack it to get rid of the shield, does the acid spread from the water tile to the dam?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
-# Timepods can only be on ground tiles, they convert sand to ground upon landing.
+# Timepods can only be on ground tiles, they convert sand and forest to ground upon landing.
 
 ######### Envinronmental actions:
 # Ice storm, air strike, tsunami, cataclysm, conveyor belts, falling rocks, tentacles, tiles turning to lava, lighting.

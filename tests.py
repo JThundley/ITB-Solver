@@ -1058,10 +1058,12 @@ def t_TeleporterWithAcid():
 def t_DamDies():
     "The Dam is a special 2-tile unit. In this program, it's treated as 2 separate units that replicate actions to each other. In this test, we kill one and make sure they both die and flood the map."
     b = GameBoard()
+    b.replaceTile((8, 3), Tile_Water(b))
+    b.replaceTile((8, 4), Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
-    assert b.board[(8, 3)].effects == set()
-    assert b.board[(8, 4)].effects == set()
+    assert b.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert b.board[(8, 4)].effects == {Effects.SUBMERGED}
     assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
     assert b.board[(7, 4)].effects == set()
     b.board[(8, 3)].takeDamage(1)
@@ -1077,12 +1079,14 @@ def t_DamDies():
 def t_DamDiesWithAcidUnits():
     "In this test, we kill one and make sure that a unit with acid dies and leaves acid in the new water. Also a flying unit will survive the flood."
     b = GameBoard()
+    b.replaceTile((8, 3), Tile_Water(b))
+    b.replaceTile((8, 4), Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     b.board[(7, 3)].putUnitHere(Unit_Blobber(b, effects={Effects.ACID}))
     b.board[(7, 4)].putUnitHere(Unit_Hornet(b, effects={Effects.ACID}))
-    assert b.board[(8, 3)].effects == set()
-    assert b.board[(8, 4)].effects == set()
+    assert b.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert b.board[(8, 4)].effects == {Effects.SUBMERGED}
     assert b.board[(7, 3)].effects == set() # the tiles next to the dam are normal
     assert b.board[(7, 4)].effects == set()
     assert b.board[(7, 3)].unit.effects == {Effects.ACID}  # the units next to the dam have acid
@@ -1104,11 +1108,13 @@ def t_DamDiesWithAcidUnits():
 def t_DamDiesWithAcidOnGround():
     "In this test, we kill one and make sure that a ground tile with acid leaves acid in the new water tile."
     b = GameBoard()
+    b.replaceTile((8, 3), Tile_Water(b))
+    b.replaceTile((8, 4), Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     b.board[(7, 3)].applyAcid()
-    assert b.board[(8, 3)].effects == set()
-    assert b.board[(8, 4)].effects == set()
+    assert b.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert b.board[(8, 4)].effects == {Effects.SUBMERGED}
     assert b.board[(7, 3)].effects == {Effects.ACID} # the tile next to the dam has acid
     assert b.board[(7, 4)].effects == set()
     b.board[(8, 3)].takeDamage(1)
@@ -1123,7 +1129,95 @@ def t_DamDiesWithAcidOnGround():
     assert b.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the acid on the ground left acid in the water
     assert b.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
 
+def t_ShieldedDamHitWithAcidGetsAcid():
+    "If the dam is shielded and then hit with acid, it's immediately inflicted with acid."
+    b = GameBoard()
+    b.replaceTile((8, 3), Tile_Water(b))
+    b.replaceTile((8, 4), Tile_Water(b))
+    b.board[(8, 3)].putUnitHere(Unit_Dam(b))
+    b.board[(8, 4)].putUnitHere(Unit_Dam(b))
+    b.board[(8, 4)].applyShield()
+    assert b.board[(8, 3)].unit.effects == {Effects.SHIELD}
+    assert b.board[(8, 4)].unit.effects == {Effects.SHIELD}
+    b.board[(8, 3)].applyAcid()
+    assert b.board[(8, 3)].unit.effects == {Effects.SHIELD, Effects.ACID}
+    assert b.board[(8, 4)].unit.effects == {Effects.SHIELD, Effects.ACID}
+
+def t_ShieldedUnitDoesntGetAcidFromGround():
+    "a shielded unit does not pick up acid from the ground."
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyShield()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID} # still acid on the ground
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD} # still shielded only
+    assert b.board[(2, 1)].effects == set() # nothing on that tile
+    assert b.board[(2, 1)].unit == None  # nothing on that tile
+
+def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
+    "if a shielded unit repairs on an acid pool, the acid pool remains."
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyShield()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID} # still acid on the ground
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD} # still shielded only
+    assert b.board[(2, 1)].effects == set() # nothing on that tile
+    assert b.board[(2, 1)].unit == None  # nothing on that tile
+    b.board[(1, 1)].repair()
+    assert b.board[(1, 1)].effects == {Effects.ACID}  # still acid on the ground
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}  # still shielded only
+    assert b.board[(2, 1)].effects == set()  # nothing on that tile
+    assert b.board[(2, 1)].unit == None  # nothing on that tile
+
+def t_ShieldedUnitGetsAcidFromWater():
+    "if a non-flying shielded unit goes into acid water, it gets acid!"
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(2, 1)].putUnitHere(Unit_Scorpion_Leader(b))
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].applyShield()
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED} # still acid in the water
+    print("\n", b.board[(1, 1)].unit)
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD, Effects.ACID} # Shielded and acid!
+    assert b.board[(2, 1)].effects == set() # nothing on that tile
+    assert b.board[(2, 1)].unit == None  # nothing on that tile
+
 # If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
+# replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the damn replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
+
+########## special objective units:
+# Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
+# Train: 1 hp, Fire immune, smoke immune, stable, "choo choo" weapon move forward 2 spaces but will be destroyed if blocked. kills whatever unit it runs into, stops dead on the tile before that unit. It is multi-tile, shielding one tile shields both.
+    # when attacked and killed, becomes a "damaged train" that is also stable and fire immune. When that is damaged again, it becomes a damaged train corpse that can't be shielded, is no longer fire immune, and is flying like a normal corpse.
+    # units can bump into the corpse
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
@@ -1139,7 +1233,10 @@ def t_DamDiesWithAcidOnGround():
 # Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
+# if you shoot your mechs withe acid gun and they have a shield, they get acid anyway! wtf!
+# if a non-flying shielded unit is in water and is hit by the acid gun, it's pushed first and then acid goes to the tile where it lands, and does give it acid!
 
+# buildings do block mech movement
 
 ########## Research these:
 # do burrowers leave acid when they die?

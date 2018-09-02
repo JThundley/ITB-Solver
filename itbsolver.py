@@ -18,64 +18,87 @@
 ############### GLOBALS ###################
 DEBUG=True
 
-# def ConstantCounter(): # use this later when we're not debugging.
-#     "yields ints starting at 1"
-#     num = 0
-#     while True:
-#         num += 1
-#         yield num
-#
-# CC = ConstantCounter()
+# this generator and class are out of place and separate from the others, sue me
+def numGen():
+    "A simple generator to count up from 0."
+    num = 0
+    while True:
+        num += 1
+        yield num
+thegen = numGen()
 
-class Effects():
-    "These are effects that can be applied to tiles and units."
-    # These effects can be applied to both tiles and units:
-    FIRE = 1
-    ICE = 2 # if applied to a unit, the unit is frozen
-    ACID = 3
-    # These effects can only be applied to tiles:
-    SMOKE = 4
-    TIMEPOD = 5
-    MINE = 6
-    FREEZEMINE = 7
-    VEKEMERGE = 8
-    SUBMERGED = 9 # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
-    # These effects can only be applied to units:
-    SHIELD = 10
-    WEB = 11
-    EXPLOSIVE = 12
+class Constant():
+    "An object for building global constants."
+    def __init__(self, numgen, names):
+        "names is a tuple of strings, these are the constants to set. numgen is the number generator to continue from"
+        self.value2name = {}
+        for n in names:
+            num = next(numgen)
+            setattr(self, n, num)
+            self.value2name[num] = n
+    def pprint(self, iter):
+        "return a list of iter converted to readable names."
+        return [self.value2name[x] for x in iter]
 
-class Attributes():
-    "These are attributes that are applied to units."
-    MASSIVE = 1 # prevents drowning in water
-    STABLE = 2 # prevents units from being pushed
-    FLYING = 3 # prevents drowning in water and allows movement through other units
-    ARMORED = 4 # all attacks are reduced by 1
-    BURROWER = 5 # unit burrows after taking any damage
-    UNPOWERED = 6 # this is for friendly tanks that you can't control until later
-    IMMUNEFIRE = 7 # you are immune from fire if you have this attribute, you can't catch fire.
-
-class Direction():
-    "These are up/down/left/right directions with a function to get the opposite direction."
-    UP = 1
-    RIGHT = 2
-    DOWN = 3
-    LEFT = 4
-    def opposite(dir):
+class DirectionConst(Constant):
+    def opposite(self, dir):
         "return the opposite of the direction provided as dir."
         dir += 2
         if dir > 4:
             dir -= 4
         return dir
 
-class Alliance():
-    FRIENDLY = 1
-    ENEMY = 2
-    NEUTRAL = 3
+# These are up/down/left/right directions with a method to get the opposite direction. THIS SET OF CONSTANTS MUST BE FIRST SO IT GETS THE FIRST 4 NUMBERS!
+Direction = DirectionConst(thegen, (
+    'UP',
+    'RIGHT',
+    'DOWN',
+    'LEFT'))
+assert Direction.UP == 1
+assert Direction.RIGHT == 2
+assert Direction.DOWN == 3
+assert Direction.LEFT == 4
 
-class Events():
-    "This is a list of all the events that count towards or against your score."
-    # TODO
+# These are effects that can be applied to tiles and units.
+Effects = Constant(thegen,
+    # These effects can be applied to both tiles and units:
+    ('FIRE',
+    'ICE', # if applied to a unit, the unit is frozen
+    'ACID',
+    # These effects can only be applied to tiles:
+    'SMOKE',
+    'TIMEPOD',
+    'MINE',
+    'FREEZEMINE',
+    'VEKEMERGE',
+    'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
+    # These effects can only be applied to units:
+    'SHIELD',
+    'WEB',
+    'EXPLOSIVE'))
+
+# These are attributes that are applied to units.
+Attributes = Constant(thegen, (
+    'MASSIVE', # prevents drowning in water
+    'STABLE', # prevents units from being pushed
+    'FLYING', # prevents drowning in water and allows movement through other units
+    'ARMORED', # all attacks are reduced by 1
+    'BURROWER', # unit burrows after taking any damage
+    'UNPOWERED', # this is for friendly tanks that you can't control until later
+    'IMMUNEFIRE', # you are immune from fire if you have this attribute, you can't catch fire.
+    'IMMUNESMOKE')) # you are immune from smoke, you can fire weapons when clouded by smoke
+
+Alliance = Constant(thegen, (
+    'FRIENDLY', # your mechs can move through these
+    'ENEMY', # but not these
+    'NEUTRAL')) # not these either
+
+# don't need these anymore
+del Constant
+del numGen
+del thegen
+del DirectionConst
+
 ############### FUNCTIONS #################
 
 ############### CLASSES #################
@@ -262,7 +285,7 @@ class Tile_Base(TileUnit_Base):
                 self.unit.applyAcid()
                 self.removeEffect(Effects.ACID)
     def __str__(self):
-        return "%s on %s. Effects: %s" % (self.type, self.square, self.effects)
+        return "%s on %s. Effects: %s" % (self.type, self.square, set(Effects.pprint(self.effects)))
 
 class Tile_Ground(Tile_Base):
     "This is a normal ground tile."
@@ -360,6 +383,12 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
     def applyIce(self):
         super().applyIce()
         self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile.
+    def applyAcid(self):
+        try:
+            self.unit.applyAcid()
+        except AttributeError:
+            pass
+        self.effects.add(Effects.ACID) # water gets acid regardless of a unit being there or not
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -367,7 +396,7 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
             if Attributes.FLYING not in self.unit.attributes:
                 self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
                 if Effects.ACID in self.effects: # spread acid from tile to unit but don't remove it from the tile
-                    self.unit.applyAcid()
+                    self.unit.effects.add(Effects.ACID) # do not use applyAcid() here. Shielded units get acid from water even though the shield usually blocks acid.
                 if Effects.ACID in self.unit.effects: # if the unit has acid and is massive but not flying, spread acid from unit to tile
                     self.effects.add(Effects.ACID) # don't call self.applyAcid() here or it'll give it to the unit and not the tile.
             self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
@@ -524,7 +553,10 @@ class Unit_Base(TileUnit_Base):
         self.removeEffect(Effects.FIRE)
         self.gboard.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
-        self.applyEffectUnshielded(Effects.ACID)
+        if Effects.SUBMERGED in self.gboard.board[self.square].effects: # if we're in some kind of water...
+            self.effects.add(Effects.ACID) # you get acid regardless of shield
+        else:
+            self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
@@ -559,7 +591,7 @@ class Unit_Base(TileUnit_Base):
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
     def __str__(self):
-        return "%s on %s. %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.square, self.currenthp, self.maxhp, self.effects, self.attributes)
+        return "%s on %s. %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.square, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
 class Repairable_Unit_Base(Unit_Base):
     "The base class of all mechs and vek."
@@ -637,8 +669,9 @@ class Unit_Rock(Unit_Base):
 
 class Unit_Mech_Corpse(Unit_Rock):
     "This is a player mech after it dies. It's invincible but can be pushed around."
-    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, attributes=None, effects=None):
+    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, oldunit=None, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+        self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
         self.attributes.add(Attributes.MASSIVE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
@@ -649,11 +682,11 @@ class Unit_Mech_Corpse(Unit_Rock):
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
-class Unit_Dam(Unit_Base):
-    "The dam is a special 2 tile unit. Effects and damage to one also happens to the other."
-    def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
+class Unit_MultiTile_Base(Unit_Base):
+    "This is the base class for multi-tile units such as the Dam and Train. Effects and damage to one unit also happens to the other."
+    def __init__(self, gboard, type, currenthp, maxhp, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.MASSIVE))
+        self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE)) # these attributes are shared by the dam and train
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
         self.deadfromdamage = False # Set this true when the unit has died from damage. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
     def _replicate(self, meth, **kwargs):
@@ -662,18 +695,14 @@ class Unit_Dam(Unit_Base):
             try: # Set the companion tile
                 self.companion
             except AttributeError: # only once
-                if self.square[1] == 4:  # set the companion tile without user intervention since the dam is always on the same 2 tiles.
-                    self.companion = (8, 3)
-                else:
-                    self.companion = (8, 4)
+                self._setCompanion()
             self.gboard.board[self.companion].unit.replicate = False
-            try: # try running the companions method as die() with keyword arguments
+            try: # try running the companion's method as takeDamage() with keyword arguments
                 getattr(self.gboard.board[self.companion].unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
             except KeyError: # else it's an applySomething() method with no args
-                getattr(self.gboard.board[self.companion].unit, meth)()
+                #getattr(self.gboard.board[self.companion].unit, meth)() # this is how we used to run the companion unit's method instead of the tile's
+                getattr(self.gboard.board[self.companion], meth)()
             self.gboard.board[self.companion].unit.replicate = True
-    def applyFire(self):
-        "Dam cannot be set on fire."
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE)
         self._replicate('applyIce')
@@ -702,6 +731,18 @@ class Unit_Dam(Unit_Base):
             self.deadfromdamage = True
             self.die()
         self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+
+class Unit_Dam(Unit_MultiTile_Base):
+    "When the Dam dies, it floods the middle of the map."
+    def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.attributes.add(Attributes.MASSIVE)
+    def _setCompanion(self):
+        "Set self.companion to the square of this unit's companion."
+        if self.square[1] == 4:  # set the companion tile without user intervention since the dam is always on the same 2 tiles.
+            self.companion = (8, 3)
+        else:
+            self.companion = (8, 4)
     def die(self):
         "Make the unit die."
         self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
@@ -710,6 +751,15 @@ class Unit_Dam(Unit_Base):
             self.gboard.replaceTile((x, self.square[1]), Tile_Water(self.gboard))
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
+
+class Unit_Train(Unit_MultiTile_Base):
+    def __init__(self, gboard, type='train', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def _setCompanion(self):
+        "Set the train's companion tile. This has to be run each time it moves forward."
+        for xoffset in -1, 1: # check the tiles ahead of and behind this one on the X axis for another train unit.
+            if self.gboard.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
+                self.companion = (self.square[0]+xoffset, self.square[1])
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
@@ -869,7 +919,7 @@ class Unit_Psion_Abomination(Unit_Hornet_Leader):
     def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Scorpion_Leader(Unit_Hornet_Leader):
+class Unit_Scorpion_Leader(Unit_Beetle_Leader):
     def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
@@ -877,7 +927,7 @@ class Unit_Firefly_Leader(Unit_Hornet_Leader):
     def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Spider_Leader(Unit_Hornet_Leader):
+class Unit_Spider_Leader(Unit_Beetle_Leader):
     def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
@@ -900,6 +950,23 @@ class Unit_Spiderling(Unit_Blobber):
 class Unit_Alpha_Spiderling(Unit_Blobber):
     def __init__(self, gboard, type='alphaspiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+############################################################################################################################
+##################################################### FRIENDLY MECHS #######################################################
+############################################################################################################################
+class Unit_Mech_Base(Repairable_Unit_Base):
+    "This is the base unit of Mechs."
+    def __init__(self, gboard, type, currenthp, maxhp, moves, pilot, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.moves = moves # how many moves the mech has
+        self.pilot = pilot # the pilot in this mech that might provide bonuses or extra abilities
+        self.attributes.add(Attributes.MASSIVE) # all mechs are massive
+        self.alliance = Alliance.FRIENDLY # and friendly, duh
+
+class Unit_Combat_Mech(Unit_Mech_Base):
+    def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+
+
 ############## PROGRAM FLOW FUNCTIONS ###############
 
 ############## MAIN ########################

@@ -1210,8 +1210,55 @@ def t_ShieldedUnitGetsAcidFromWater():
     assert b.board[(2, 1)].effects == set() # nothing on that tile
     assert b.board[(2, 1)].unit == None  # nothing on that tile
 
+def t_MechRepairsRemovesBadEffectsTileAndUnit():
+    "A mech and its forest tile are set on fire and then hit with acid and repaired."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.currenthp == 2
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
+    assert b.board[(1, 1)].unit.currenthp == 2
+    b.board[(1, 1)].unit.repair(1)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+
+def t_MechRepairsRemovesIceFromUnit():
+    "A mech and its water tile are frozen and then hit with acid and repaired."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].type == 'ice'
+    assert b.board[(1, 1)].unit.effects == {Effects.ICE}
+    assert b.board[(1, 1)].unit.currenthp == 2
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit.effects == {Effects.ICE, Effects.ACID}
+    assert b.board[(1, 1)].unit.currenthp == 2
+    b.board[(1, 1)].unit.repair(1)
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+
+
 # If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the damn replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
+# do a test of each unit to verify they have the proper attributes by default.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.

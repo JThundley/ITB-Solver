@@ -257,9 +257,6 @@ class Tile_Base(TileUnit_Base):
         except AttributeError: # the tile doesn't get acid if a unit is present to take it instead
             self.effects.add(Effects.ACID)
             self.removeEffect(Effects.FIRE)
-            self.removeEffect(Effects.TIMEPOD)
-            self.removeEffect(Effects.MINE)
-            self.removeEffect(Effects.FREEZEMINE)
     def applyShield(self):
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
@@ -291,6 +288,11 @@ class Tile_Ground(Tile_Base):
     "This is a normal ground tile."
     def __init__(self, gboard, square=None, type='ground', effects=None):
         super().__init__(gboard, square, type, effects=effects)
+    def applyAcid(self):
+        super().applyAcid()
+        if not self.unit:
+            for e in Effects.TIMEPOD, Effects.MINE, Effects.FREEZEMINE:
+                self.removeEffect(e)
     def applyFire(self):
         self._tileTakeDamage() # fire removes timepods and mines just like damage does
         super().applyFire()
@@ -881,7 +883,7 @@ class Unit_Alpha_Spider(Unit_Blobber):
 class Unit_Burrower(Unit_Blobber): # Base unit for burrowers
     def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
-        attributes.update((Attributes.BURROWER, Attributes.STABLE))
+        self.attributes.update((Attributes.BURROWER, Attributes.STABLE))
 
 class Unit_Alpha_Burrower(Unit_Burrower):
     def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes=None):

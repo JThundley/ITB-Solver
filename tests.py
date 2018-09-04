@@ -126,7 +126,7 @@ def t_FlyingUnitIcedOverWater():
     assert b.board[(1, 1)].type == 'ice'
     assert b.board[(1, 1)].unit.effects == {Effects.ICE}
 
-def t_WaterUnfreezesUnit():
+def t_WaterRemovesIceFromUnit():
     "A flying unit or ground unit that is frozen and is then moved onto a water tile is unfrozen."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b)) # make water tiles
@@ -148,7 +148,7 @@ def t_WaterUnfreezesUnit():
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 2)].unit == None # the ground unit didn't survive the water
 
-def t_WaterTileTurnsToIceWhenFrozen():
+def t_WaterTileTurnsToIceWhenIce():
     "A water tile that is hit with ice becomes an ice tile"
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
@@ -177,7 +177,7 @@ def t_RepairWaterAcidTileDoesntRemoveAcid():
     b.board[(1, 1)].repair()
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
 
-def t_FreezingAcidWaterThenThawingWithFireRemovesAcid():
+def t_IceAcidWaterThenThawingWithFireRemovesAcid():
     "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by fire, it becomes a regular water tile."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
@@ -189,7 +189,7 @@ def t_FreezingAcidWaterThenThawingWithFireRemovesAcid():
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].type == 'water'
 
-def t_FreezingAcidWaterThenThawingWithDamageLeavesAcid():
+def t_IceAcidWaterThenThawingWithDamageLeavesAcid():
     "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by damage, it reverts to an acid water tile."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
@@ -204,7 +204,7 @@ def t_FreezingAcidWaterThenThawingWithDamageLeavesAcid():
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.ACID}
     assert b.board[(1, 1)].type == 'water'
 
-def t_UnitDoesntGetAcidFromFrozenAcidWater():
+def t_UnitDoesntGetAcidFromIcedAcidWater():
     "If acid is put onto an ice tile, it becomes a frozen acid tile. This means there is no pool of acid on it and a unit can't pick up acid by moving here."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
@@ -238,16 +238,6 @@ def t_FlyingDoesntGetAcidFromAcidWater():
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
 
-def t_AcidRemovesForest():
-    "If a forest tile gets acid on it, the forest is removed and it is no longer flammable from damage."
-    b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
-    assert b.board[(1, 1)].type == "forest"
-    assert b.board[(1, 1)].effects == set()
-    b.board[(1, 1)].applyAcid()
-    assert b.board[(1, 1)].type == "ground"
-    assert b.board[(1, 1)].effects == {Effects.ACID}
-
 def t_IceDoesntEffectAcidPool():
   "If a tile with acid on it is frozen, nothing happens. The acid remains."
   b = GameBoard()
@@ -256,7 +246,7 @@ def t_IceDoesntEffectAcidPool():
   b.board[(1, 1)].applyIce()
   assert b.board[(1, 1)].effects == {Effects.ACID}
 
-def t_LavaCantBeFrozen():
+def t_IceDoesNothingToLava():
     "Lava is unfreezable."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Lava(b))
@@ -314,7 +304,7 @@ def t_MountainTileCantGainAcid():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
 
-def t_FrozenGroundUnitDiesInChasm():
+def t_IceGroundUnitDiesInChasm():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Chasm(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
@@ -328,7 +318,8 @@ def t_FrozenGroundUnitDiesInChasm():
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 1)].unit == None
 
-def t_FrozenFlyingUnitDiesInChasm():
+def t_IceFlyingUnitDiesInChasm():
+    "when a flying unit is frozen with ice and then moved to a chasm, it does because it's not really flying anymore."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Chasm(b))
     b.board[(1, 2)].putUnitHere(Unit_Hornet(b))
@@ -341,6 +332,7 @@ def t_FrozenFlyingUnitDiesInChasm():
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
     assert b.board[(1, 1)].unit == None
+    assert b.board[(1, 2)].unit == None
 
 def t_AcidPutsOutTileFire():
     b = GameBoard()
@@ -365,7 +357,7 @@ def t_AcidFromDeadUnitPutsOutTileFire():
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].unit == None
 
-def t_FrozenFlyingUnitDiesInChasm():
+def t_RockWithAcidLeavesAcidWhenKilled():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Rock(b))
     assert b.board[(1, 1)].effects == set()
@@ -559,7 +551,7 @@ def t_FlyingUnitWithAcidDiesInWater():
     assert b.board[(1, 1)].unit == None
     assert b.board[(2, 1)].unit == None
 
-def t_FlyingUnitWithAcidDiesInWater():
+def t_IceGroundUnitWithAcidDiesInWater():
     "frozen with acid units pushed into water make the water into acid water."
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b))
@@ -577,7 +569,7 @@ def t_FlyingUnitWithAcidDiesInWater():
     assert b.board[(1, 1)].unit == None
     assert b.board[(2, 1)].unit == None
 
-def t_FreezingFlyingUnitOverChasmKillsIt():
+def t_IceFlyingUnitOverChasmKillsIt():
     "if you freeze a flying unit over a chasm it dies"
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Chasm(b))
@@ -776,16 +768,6 @@ def t_AcidDoesNothingToLava():
   assert b.board[(1, 1)].unit == None
   assert b.board[(1, 1)].type == 'lava'
 
-def t_IceDoesNothingToLava():
-  "Nothing happens when acid hits lava."
-  b = GameBoard()
-  b.replaceTile((1, 1), Tile_Lava(b))
-  assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
-  b.board[(1, 1)].applyIce()
-  assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
-  assert b.board[(1, 1)].unit == None
-  assert b.board[(1, 1)].type == 'lava'
-
 def t_FireErasesSandTile():
   "A sand tile being set on fire converts the sand tile to a ground tile on fire."
   b = GameBoard()
@@ -843,17 +825,7 @@ def t_MechCorpsePushIntoChasm():
     assert b.board[(1, 1)].unit == None
     assert b.board[(2, 1)].unit == None
 
-def t_MechCorpseCantBeShielded():
-    "Mech corpses cannot be shielded."
-    b = GameBoard()
-    b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
-    assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    b.board[(1, 1)].applyShield()
-    assert b.board[(1, 1)].effects == set()
-    assert b.board[(1, 1)].unit.effects == set()
-
-def t_MechCorpseCantBeFrozen():
+def t_MechCorpseCantBeIced():
     "Mech corpses cannot be frozen."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
@@ -1248,24 +1220,76 @@ def t_MechRepairsRemovesIceFromUnit():
     assert b.board[(1, 1)].unit.currenthp == 2
     b.board[(1, 1)].applyAcid()
     print(b.board[(1, 1)])
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ICE, Effects.ACID}
     assert b.board[(1, 1)].unit.currenthp == 2
     b.board[(1, 1)].unit.repair(1)
-    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.currenthp == 3
 
+def t_BurrowerWithAcidLeavesItWhenKilled():
+    "Do burrowers leave acid when they die? Yes!"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Burrower(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID}
+    b.board[(1, 1)].takeDamage(2)
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    assert b.board[(1, 1)].unit == None
+
+def t_LavaDoesntRemoveAcidFromUnit():
+    "Does lava remove acid from a unit like water does? NO, you still have acid."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 2)].putUnitHere(Unit_Laser_Mech(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 2)].unit.effects == set()
+    b.board[(1, 2)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 2)].unit.effects == {Effects.ACID}
+    b.push((1, 2), Direction.DOWN)
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
+    b.push((1, 1), Direction.UP)
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 2)].unit.effects == {Effects.FIRE, Effects.ACID}
+
+def t_UnitWithAcidDiesInLava():
+    "Lava doesn't get acid from an acid unit dying on it."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 2)].putUnitHere(Unit_Acid_Scorpion(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 2)].unit.effects == set()
+    b.board[(1, 2)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 2)].unit.effects == {Effects.ACID}
+    b.push((1, 2), Direction.DOWN)
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
+    assert b.board[(1, 1)].unit == None
+
+def t_MechCorpseIsRepairedBackToLife():
+    "a mech is killed, becomes a mech corpse, and then is repaired to become the alive mech again."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Judo_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].takeDamage(4) # 3 hp, but it has armor :)
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.type == 'mechcorpse'
+    b.board[(1, 1)].repair()
+    assert b.board[(1, 1)].unit.effects == set()
+    print(b.board[(1, 1)].unit)
+    assert b.board[(1, 1)].unit.type == 'judo'
+
+
 ########### write tests for these:
 # If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
-# replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the damn replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
 # do a test of each unit to verify they have the proper attributes by default.
-# do burrowers leave acid when they die? Yes!
-# fire removes acid on tile.
-# If you set a burrower on fire (when it spawns) and it then moves by burrowing, it re-emerges without fire!
-# if a unit with acid drowns in lava, the lava tile does not get acid.
-# You can't give lava acid at all, even with the gun.
-# Does lava remove acid from a unit like water does? NO, you still have acid.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -1296,6 +1320,7 @@ def t_MechRepairsRemovesIceFromUnit():
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
 # when rocks fall on the boss level, it replaces lava with ground. when it falls on ground that's on fire, the fire remains.
+# replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the dam replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
 
 ########## Research these:
 # Confirm that ice on lava does nothing
@@ -1303,6 +1328,7 @@ def t_MechRepairsRemovesIceFromUnit():
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 # Timepods can only be on ground tiles, they convert sand and forest to ground upon landing.
+# If you set a burrower on fire (when it spawns) and it then moves by burrowing, it re-emerges without fire!
 
 ######### Envinronmental actions:
 # Ice storm, air strike, tsunami, cataclysm, conveyor belts, falling rocks, tentacles, tiles turning to lava, lighting.

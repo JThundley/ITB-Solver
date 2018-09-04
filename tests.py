@@ -1247,6 +1247,7 @@ def t_MechRepairsRemovesIceFromUnit():
     assert b.board[(1, 1)].unit.effects == {Effects.ICE}
     assert b.board[(1, 1)].unit.currenthp == 2
     b.board[(1, 1)].applyAcid()
+    print(b.board[(1, 1)])
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].unit.effects == {Effects.ICE, Effects.ACID}
     assert b.board[(1, 1)].unit.currenthp == 2
@@ -1255,16 +1256,24 @@ def t_MechRepairsRemovesIceFromUnit():
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.currenthp == 3
 
-
+########### write tests for these:
 # If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the damn replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
 # do a test of each unit to verify they have the proper attributes by default.
+# do burrowers leave acid when they die? Yes!
+# fire removes acid on tile.
+# If you set a burrower on fire (when it spawns) and it then moves by burrowing, it re-emerges without fire!
+# if a unit with acid drowns in lava, the lava tile does not get acid.
+# You can't give lava acid at all, even with the gun.
+# Does lava remove acid from a unit like water does? NO, you still have acid.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
 # Train: 1 hp, Fire immune, smoke immune, stable, "choo choo" weapon move forward 2 spaces but will be destroyed if blocked. kills whatever unit it runs into, stops dead on the tile before that unit. It is multi-tile, shielding one tile shields both.
     # when attacked and killed, becomes a "damaged train" that is also stable and fire immune. When that is damaged again, it becomes a damaged train corpse that can't be shielded, is no longer fire immune, and is flying like a normal corpse.
     # units can bump into the corpse
+# ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
+
 
 ########## Weapons stuff for later
 # rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
@@ -1282,14 +1291,14 @@ def t_MechRepairsRemovesIceFromUnit():
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
 # if you shoot your mechs withe acid gun and they have a shield, they get acid anyway! wtf!
 # if a non-flying shielded unit is in water and is hit by the acid gun, it's pushed first and then acid goes to the tile where it lands, and does give it acid!
+# the shock cannon is a projectile that pushes the unit in its path toward the direction it was fired. it pushes and does damage to the tile on the other side of what got hit.
 
 # buildings do block mech movement
+# a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
+# when rocks fall on the boss level, it replaces lava with ground. when it falls on ground that's on fire, the fire remains.
 
 ########## Research these:
-# do burrowers leave acid when they die?
 # Confirm that ice on lava does nothing
-# Does Lava remove acid from a unit like water does?
-# If you shield the dam and then hit it with acid, and then attack it to get rid of the shield, does the acid spread from the water tile to the dam?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

@@ -263,7 +263,7 @@ class Tile_Base(TileUnit_Base):
         except AttributeError:
             return
     def repair(self):
-        "process the action of a friendly mech repairing on this tile and removing certain effects."
+        "process the action of a friendly mech repairing on this tile and removing certain bad effects."
         self.removeEffect(Effects.FIRE)
     def putUnitHere(self, unit):
         "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit. If there's a unit already on the tile, it's overwritten and deleted. returns nothing."
@@ -446,6 +446,7 @@ class Tile_Chasm(Tile_Base):
             pass # congratulations, you live!
         else:
             self.unit.die()
+            self.unit = None # set the unit to None even though most units do this. Mech corpses are invincible units that can only be killed by being pushed into a chasm.
         # no need to super()._spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
     def repair(self):
         "There can't be any fire to repair"
@@ -455,7 +456,7 @@ class Tile_Lava(Tile_Water):
         super().__init__(gboard, square, type, effects=effects)
         self.effects.add(Effects.FIRE)
     def repair(self):
-        return # No effects can be removed from lava from repairing on it.
+        "No effects can be removed from lava from repairing on it."
     def applyIce(self):
         return # Ice does nothing
     def applyFire(self):
@@ -663,18 +664,6 @@ class Unit_Rock(Unit_Base):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
 
-class Unit_Mech_Corpse(Unit_Rock):
-    "This is a player mech after it dies. It's invincible but can be pushed around."
-    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, oldunit=None, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
-        self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
-        self.attributes.add(Attributes.MASSIVE)
-    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        "invulnerable to damage"
-    def applyShield(self):
-        "Mech corpses cannot be shielded."
-    def applyIce(self):
-        "Mech corpses cannot be shielded."
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
@@ -756,6 +745,33 @@ class Unit_Train(Unit_MultiTile_Base):
         for xoffset in -1, 1: # check the tiles ahead of and behind this one on the X axis for another train unit.
             if self.gboard.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
                 self.companion = (self.square[0]+xoffset, self.square[1])
+
+############################################################################################################################
+################################################### FRIENDLY Sub-Units #####################################################
+############################################################################################################################
+class Sub_Unit_Base(Unit_Base):
+    "The base unit for smaller sub-units that the player controls."
+    def __init__(self, gboard, type, currenthp, maxhp, moves, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.moves = moves
+        self.alliance = Alliance.FRIENDLY
+
+class Unit_AcidTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_FreezeTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_ArchiveTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_OldArtillery(Sub_Unit_Base):
+    def __init__(self, gboard, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
@@ -946,6 +962,47 @@ class Unit_Spiderling(Unit_Blobber):
 class Unit_Alpha_Spiderling(Unit_Blobber):
     def __init__(self, gboard, type='alphaspiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_CannonBot(Unit_Blobber):
+    def __init__(self, gboard, type='cannonbot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_CannonMech(Unit_Blobber):
+    def __init__(self, gboard, type='cannonmech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_ArtilleryBot(Unit_Blobber):
+    def __init__(self, gboard, type='artillerybot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_ArtilleryMech(Unit_Blobber):
+    def __init__(self, gboard, type='artillerymech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_LaserBot(Unit_Blobber):
+    def __init__(self, gboard, type='laserbot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_LaserMech(Unit_Blobber):
+    def __init__(self, gboard, type='lasermech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_MineBot(Unit_Blobber):
+    def __init__(self, gboard, type='minebot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_MineMech(Unit_Blobber):
+    def __init__(self, gboard, type='minemech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_BotLeader(Unit_Blobber):
+    def __init__(self, gboard, type='botleader', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_BotLeaderHard(Unit_Blobber):
+    def __init__(self, gboard, type='botleaderhard', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
 ############################################################################################################################
@@ -961,7 +1018,7 @@ class Unit_Mech_Base(Repairable_Unit_Base):
         "Make the mech die."
         self.currenthp = 0
         self.gboard.board[self.square].putUnitHere(Unit_Mech_Corpse(self.gboard, oldunit=self)) # it's dead, replace it with a mech corpse
-    def repair(self, hp=1):
+    def repair(self, hp):
         "Repair the unit healing HP and removing bad effects."
         self.repairHP(hp)
         self.gboard.board[self.square].repair()
@@ -973,6 +1030,25 @@ class Unit_Mech_Flying_Base(Unit_Mech_Base):
     def __init__(self, gboard, type, currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
+
+class Unit_Mech_Corpse(Unit_Mech_Base):
+    "This is a player mech after it dies. It's invincible but can be pushed around. It can be repaired back to an alive mech."
+    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, moves=0, oldunit=None, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+        self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
+        self.attributes.add(Attributes.MASSIVE)
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        "invulnerable to damage"
+    def applyShield(self):
+        "Mech corpses cannot be shielded."
+    def applyIce(self):
+        "Mech corpses cannot be shielded."
+    def die(self):
+        "Nothing happens when a mech corpse is killed again."
+    def repair(self, hp):
+        "repair the mech corpse back to unit it was."
+        self.gboard.board[self.square].putUnitHere(self.oldunit)
+        self.gboard.board[self.square].unit.repair(hp)
 
 class Unit_Combat_Mech(Unit_Mech_Base):
     def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):

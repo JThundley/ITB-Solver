@@ -1281,14 +1281,15 @@ def t_MechCorpseIsRepairedBackToLife():
     b.board[(1, 1)].takeDamage(4) # 3 hp, but it has armor :)
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.type == 'mechcorpse'
-    b.board[(1, 1)].repair()
+    b.board[(1, 1)].unit.repair(1)
     assert b.board[(1, 1)].unit.effects == set()
     print(b.board[(1, 1)].unit)
     assert b.board[(1, 1)].unit.type == 'judo'
+    assert b.board[(1, 1)].unit.currenthp == 1
 
 
 ########### write tests for these:
-# If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
+
 # do a test of each unit to verify they have the proper attributes by default.
 
 ########## special objective units:
@@ -1324,6 +1325,7 @@ def t_MechCorpseIsRepairedBackToLife():
 
 ########## Research these:
 # Confirm that ice on lava does nothing
+# If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

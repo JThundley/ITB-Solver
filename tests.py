@@ -1289,8 +1289,8 @@ def t_MechCorpseIsRepairedBackToLife():
 
 
 ########### write tests for these:
-
 # do a test of each unit to verify they have the proper attributes by default.
+# have a unit die on a teleporter and then get revived. It should teleport to the other teleporter.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -1324,8 +1324,8 @@ def t_MechCorpseIsRepairedBackToLife():
 # replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the dam replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
 
 ########## Research these:
-# Confirm that ice on lava does nothing
 # If a Mech Corpse is repaired (either through Viscera Nanobots or Repair Drop) it reverts to an alive mech. You can also heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
+# What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket, earth mover.
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

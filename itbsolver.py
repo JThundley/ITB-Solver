@@ -664,6 +664,32 @@ class Unit_Rock(Unit_Base):
         super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
 
+############################################################################################################################
+################################################### FRIENDLY Sub-Units #####################################################
+############################################################################################################################
+class Sub_Unit_Base(Unit_Base):
+    "The base unit for smaller sub-units that the player controls as well as objective units that the player controls.."
+    def __init__(self, gboard, type, currenthp, maxhp, moves, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        self.moves = moves
+        self.alliance = Alliance.FRIENDLY
+
+class Unit_AcidTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_FreezeTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_ArchiveTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
+class Unit_OldArtillery(Sub_Unit_Base):
+    def __init__(self, gboard, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
@@ -672,6 +698,7 @@ class Unit_MultiTile_Base(Unit_Base):
     def __init__(self, gboard, type, currenthp, maxhp, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE)) # these attributes are shared by the dam and train
+        self.alliance = Alliance.FRIENDLY
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
         self.deadfromdamage = False # Set this true when the unit has died from damage. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
     def _replicate(self, meth, **kwargs):
@@ -746,32 +773,32 @@ class Unit_Train(Unit_MultiTile_Base):
             if self.gboard.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
                 self.companion = (self.square[0]+xoffset, self.square[1])
 
-############################################################################################################################
-################################################### FRIENDLY Sub-Units #####################################################
-############################################################################################################################
-class Sub_Unit_Base(Unit_Base):
-    "The base unit for smaller sub-units that the player controls."
-    def __init__(self, gboard, type, currenthp, maxhp, moves, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
-        self.moves = moves
+class Unit_Terraformer(Sub_Unit_Base):
+    def __init__(self, gboard, type='terraformer', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+        self.attributes.add(Attributes.STABLE)
         self.alliance = Alliance.FRIENDLY
 
-class Unit_AcidTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+class Unit_DisposalUnit(Unit_Terraformer):
+    def __init__(self, gboard, type='disposalunit', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
 
-class Unit_FreezeTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+class Unit_SatelliteRocket(Sub_Unit_Base):
+    def __init__(self, gboard, type='satelliterocket', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
+        self.attributes.add(Attributes.STABLE)
 
-class Unit_ArchiveTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+class Unit_EarthMover(Unit_SatelliteRocket):
+    def __init__(self, gboard, type='earthmover', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
 
-class Unit_OldArtillery(Sub_Unit_Base):
-    def __init__(self, gboard, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
-
+class Unit_PrototypeBomb(Unit_Base):
+    def __init__(self, gboard, type='prototypebomb', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
+        self.effects.add(Effects.EXPLOSIVE)
+        self.attributes.add(Attributes.IMMUNEFIRE)
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################

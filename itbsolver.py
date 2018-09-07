@@ -129,11 +129,6 @@ class GameBoard():
             newtile.effects.update(self.board[square].effects)
         self.board[square] = newtile
         self.board[square].square = square
-        # I'm not sure how tf None.putUnitHere() would ever happen, why did I write this?
-        # try:
-        #     self.board[square].putUnitHere(unit)
-        # except AttributeError: # raised by None.putUnitHere()
-        #     return
         self.board[square].putUnitHere(unit)
     def moveUnit(self, srcsquare, destsquare):
         "Move a unit from srcsquare to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
@@ -165,7 +160,7 @@ class GameBoard():
         """push unit on square direction.
         square is a tuple of (x, y) coordinates
         direction is a Direction.UP direction
-        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same turn.
+        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same action.
         returns nothing"""
         try:
             if Attributes.STABLE in self.board[square].unit.attributes:
@@ -262,9 +257,16 @@ class Tile_Base(TileUnit_Base):
             self.unit.applyShield()
         except AttributeError:
             return
-    def repair(self):
-        "process the action of a friendly mech repairing on this tile and removing certain bad effects."
+    def repair(self, hp):
+        "Repair this tile and any mech on it. hp is the amount of hp to repair on the present unit. This method should only be used for mechs and not vek as they can be healed but they never repair the tile."
         self.removeEffect(Effects.FIRE)
+        if self.unit:
+            self.unit.repair(hp)
+        # switch to a more effecient try statement when we're sure there aren't bugs :)
+        # try:
+        #     self.unit.repair(hp)
+        # except AttributeError:
+        #     return
     def putUnitHere(self, unit):
         "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit. If there's a unit already on the tile, it's overwritten and deleted. returns nothing."
         self.unit = unit
@@ -281,6 +283,10 @@ class Tile_Base(TileUnit_Base):
             if Effects.ACID in self.effects: # same with acid, but also remove it from the tile.
                 self.unit.applyAcid()
                 self.removeEffect(Effects.ACID)
+    def die(self):
+        "Instakill whatever unit is on the tile."
+        if self.unit:
+            self.unit.die()
     def __str__(self):
         return "%s on %s. Effects: %s" % (self.type, self.square, set(Effects.pprint(self.effects)))
 
@@ -368,8 +374,10 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
             return
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
-    def repair(self):
+    def repair(self, hp):
         "acid cannot be removed from water or ice by repairing it. There can't be any fire to repair either."
+        if self.unit:
+            self.unit.repair(hp)
 
 class Tile_Water(Tile_Water_Ice_Damaged_Base):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
@@ -448,15 +456,19 @@ class Tile_Chasm(Tile_Base):
             self.unit.die()
             self.unit = None # set the unit to None even though most units do this. Mech corpses are invincible units that can only be killed by being pushed into a chasm.
         # no need to super()._spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
-    def repair(self):
+    def repair(self, hp):
         "There can't be any fire to repair"
+        if self.unit:
+            self.unit.repair(hp)
 
 class Tile_Lava(Tile_Water):
     def __init__(self, gboard, square=None, type='lava', effects=None):
         super().__init__(gboard, square, type, effects=effects)
         self.effects.add(Effects.FIRE)
-    def repair(self):
+    def repair(self, hp):
         "No effects can be removed from lava from repairing on it."
+        if self.unit:
+            self.unit.repair(hp)
     def applyIce(self):
         return # Ice does nothing
     def applyFire(self):
@@ -499,12 +511,16 @@ class Tile_Teleporter(Tile_Base):
         "Spread effects like normal but teleport the unit to the companion tile afterward."
         super()._spreadEffects()
         if not self.suppressteleport:
-            self.suppressteleport = True # suppress further teleports here until this finishes
             try:
-                self.gboard.board[self.companion].suppressteleport = True # suppress teleport on the companion too
-            except KeyError:
-                raise MissingCompanionTile(self.type, self.square)
-            self.gboard.teleport(self.square, self.companion)
+                if self.unit.suppressteleport:
+                    return # no teleporting for you!
+            except AttributeError: # unit didn't have suppressteleport attribute, only corpses do.
+                self.suppressteleport = True # suppress further teleports here until this finishes
+                try:
+                    self.gboard.board[self.companion].suppressteleport = True # suppress teleport on the companion too
+                except KeyError:
+                    raise MissingCompanionTile(self.type, self.square)
+                self.gboard.teleport(self.square, self.companion)
         self.suppressteleport = False
 
 class Tile_Conveyor(Tile_Base):
@@ -732,7 +748,7 @@ class Unit_MultiTile_Base(Unit_Base):
             except KeyError:
                 pass
             else:
-                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading. TODO: is this needed? Fire can't spread, acid maybe not either.
+                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading.
                 return # and then stop processing things, the shield or ice took the damage.
         if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
@@ -1048,7 +1064,6 @@ class Unit_Mech_Base(Repairable_Unit_Base):
     def repair(self, hp):
         "Repair the unit healing HP and removing bad effects."
         self.repairHP(hp)
-        self.gboard.board[self.square].repair()
         for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
             self.removeEffect(e)
 
@@ -1064,18 +1079,20 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
         self.attributes.add(Attributes.MASSIVE)
+        self.suppressteleport = True # Mech corpses can never be teleported through a teleporter. They can be teleported by the teleport mech/weapon however
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
     def applyShield(self):
         "Mech corpses cannot be shielded."
     def applyIce(self):
-        "Mech corpses cannot be shielded."
+        "Mech corpses cannot be frozen."
     def die(self):
         "Nothing happens when a mech corpse is killed again."
     def repair(self, hp):
         "repair the mech corpse back to unit it was."
+        self.oldunit.repairHP(hp)
+        self.oldunit.removeEffect(Effects.FIRE) # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
         self.gboard.board[self.square].putUnitHere(self.oldunit)
-        self.gboard.board[self.square].unit.repair(hp)
 
 class Unit_Combat_Mech(Unit_Mech_Base):
     def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):

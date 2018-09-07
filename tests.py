@@ -174,7 +174,7 @@ def t_RepairWaterAcidTileDoesntRemoveAcid():
     b = GameBoard()
     b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
-    b.board[(1, 1)].repair()
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
 
 def t_IceAcidWaterThenThawingWithFireRemovesAcid():
@@ -224,7 +224,7 @@ def t_RepairingInSmokeLeavesSmoke():
     b = GameBoard()
     b.board[(1, 1)].applySmoke()
     assert b.board[(1, 1)].effects == {Effects.SMOKE}
-    b.board[(1, 1)].repair()
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == {Effects.SMOKE}
 
 def t_FlyingDoesntGetAcidFromAcidWater():
@@ -290,7 +290,7 @@ def t_UnitLeavesAcidWhenKilled():
     assert b.board[(1, 2)].unit.effects == set()
     b.board[(1, 2)].applyAcid()
     b.moveUnit((1, 2), (1, 1))
-    b.board[(1, 1)].unit.die()
+    b.board[(1, 1)].die()
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 2)].effects == set()
 
@@ -378,7 +378,7 @@ def t_UnitsOnFireDontLightTileOnDeath():
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
     b.moveUnit((1, 1), (2, 1))
-    b.board[(2, 1)].unit.die()
+    b.board[(2, 1)].die()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(2, 1)].effects == set()
     assert b.board[(2, 1)].unit == None
@@ -432,7 +432,7 @@ def t_GroundUnitWithAcidAndFireDies():
     assert b.board[(2, 1)].effects == {Effects.FIRE}
     assert b.board[(2, 1)].unit.effects == {Effects.ACID, Effects.FIRE}
     b.moveUnit((2, 1), (1, 1))
-    b.board[(1, 1)].unit.die()
+    b.board[(1, 1)].die()
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(2, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit == None
@@ -545,7 +545,7 @@ def t_FlyingUnitWithAcidDiesInWater():
     assert b.board[(2, 1)].effects == set()
     assert b.board[(2, 1)].unit.effects == {Effects.ACID}
     b.moveUnit((2, 1), (1, 1))
-    b.board[(1, 1)].unit.die()
+    b.board[(1, 1)].die()
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(2, 1)].effects == set()
     assert b.board[(1, 1)].unit == None
@@ -794,7 +794,6 @@ def t_FireImmuneUnitDoesntCatchFire():
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b, attributes={Attributes.IMMUNEFIRE}))
     assert b.board[(1, 1)].effects == set()
-    print(b.board[(1, 1)].unit.attributes)
     assert b.board[(1, 1)].unit.attributes == {Attributes.IMMUNEFIRE, Attributes.FLYING}
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE} # tile on fire
@@ -929,7 +928,6 @@ def t_DamagedIceBecomesIceWhenFrozen():
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].type == 'ice_damaged'
     b.board[(1, 1)].applyIce()
-    print(b.board[(1, 1)].type)
     assert b.board[(1, 1)].type == 'ice'
 
 def t_BrokenTeleporter():
@@ -1138,7 +1136,7 @@ def t_ShieldedUnitDoesntGetAcidFromGround():
 def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
     "if a shielded unit repairs on an acid pool, the acid pool remains."
     b = GameBoard()
-    b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
+    b.board[(2, 1)].putUnitHere(Unit_Aegis_Mech(b))
     b.board[(1, 1)].applyAcid()
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].unit == None
@@ -1154,7 +1152,7 @@ def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD} # still shielded only
     assert b.board[(2, 1)].effects == set() # nothing on that tile
     assert b.board[(2, 1)].unit == None  # nothing on that tile
-    b.board[(1, 1)].repair()
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == {Effects.ACID}  # still acid on the ground
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}  # still shielded only
     assert b.board[(2, 1)].effects == set()  # nothing on that tile
@@ -1177,7 +1175,6 @@ def t_ShieldedUnitGetsAcidFromWater():
     assert b.board[(2, 1)].unit.effects == {Effects.SHIELD}
     b.moveUnit((2, 1), (1, 1))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED} # still acid in the water
-    print("\n", b.board[(1, 1)].unit)
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD, Effects.ACID} # Shielded and acid!
     assert b.board[(2, 1)].effects == set() # nothing on that tile
     assert b.board[(2, 1)].unit == None  # nothing on that tile
@@ -1197,7 +1194,7 @@ def t_MechRepairsRemovesBadEffectsTileAndUnit():
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
     assert b.board[(1, 1)].unit.currenthp == 2
-    b.board[(1, 1)].unit.repair(1)
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.currenthp == 3
@@ -1219,11 +1216,10 @@ def t_MechRepairsRemovesIceFromUnit():
     assert b.board[(1, 1)].unit.effects == {Effects.ICE}
     assert b.board[(1, 1)].unit.currenthp == 2
     b.board[(1, 1)].applyAcid()
-    print(b.board[(1, 1)])
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == {Effects.ICE, Effects.ACID}
     assert b.board[(1, 1)].unit.currenthp == 2
-    b.board[(1, 1)].unit.repair(1)
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.currenthp == 3
@@ -1281,16 +1277,110 @@ def t_MechCorpseIsRepairedBackToLife():
     b.board[(1, 1)].takeDamage(4) # 3 hp, but it has armor :)
     assert b.board[(1, 1)].unit.effects == set()
     assert b.board[(1, 1)].unit.type == 'mechcorpse'
-    b.board[(1, 1)].unit.repair(1)
+    b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].unit.effects == set()
-    print(b.board[(1, 1)].unit)
     assert b.board[(1, 1)].unit.type == 'judo'
     assert b.board[(1, 1)].unit.currenthp == 1
 
+def t_MechDiesAndRevivedOnTeleporter():
+    "a mech dies on a teleporter and is then revived. The act of reviving the unit should teleport it through again."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Flame_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit.effects == set() # unit is on far teleporter
+    b.board[(8, 8)].takeDamage(3)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit.effects == set()  # unit is on far teleporter
+    assert b.board[(8, 8)].unit.type == 'mechcorpse'
+    b.board[(8, 8)].repair(1)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None  # no unit on far teleporter
+    assert b.board[(1, 1)].unit.type == 'flame'  # unit is back on the near teleporter
+    print(b.board[(1, 1)].unit)
+    assert b.board[(1, 1)].unit.currenthp == 1 # the repair worked properly
+
+def t_MechCorpsesDontGoThroughTelePorter():
+    "if a mech dies and is pushed to a teleporter tile, it does not teleport. Corpses don't teleport at all, even if they die and then are pushed onto a teleporter."
+    b = GameBoard()
+    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
+    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(2, 1)].putUnitHere(Unit_Leap_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(8, 8)].unit == None
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    b.board[(2, 1)].takeDamage(3)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.type == 'mechcorpse'
+    b.moveUnit((2, 1), (1, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 8)].effects == set()
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(8, 8)].unit == None  # unit is on near teleporter
+    assert b.board[(1, 1)].unit.type == 'mechcorpse'
+
+def t_RevivedMechCorpsesKeepAcidButNotFire():
+    "When a mech corpse is repaired back to life, it keeps acid if it had it before. If the mech died with fire, it is revived without fire (assuming it's not on a fire tile. The revived unit will be on fire if revived on a fire tile)."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
+    b.board[(1, 1)].takeDamage(2)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.type == 'mechcorpse'
+    b.moveUnit((1, 1), (2, 1))
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.type == 'mechcorpse'
+    b.board[(2, 1)].unit.repair(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.effects == {Effects.ACID}
+    assert b.board[(2, 1)].unit.type == 'cannon'
+
+def t_ReviveMechCorpseKeepsAcidGetsFireFromTile():
+    "When a mech corpse is repaired back to life, it keeps acid if it had it before. If the mech died with fire, it is revived without fire (assuming it's not on a fire tile. The revived unit will be on fire if revived on a fire tile)."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Jet_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyAcid()
+    b.board[(1, 1)].applyFire()
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
+    b.board[(1, 1)].takeDamage(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.type == 'mechcorpse'
+    b.board[(1, 1)].unit.repair(1)
+    assert b.board[(1, 1)].effects == {Effects.FIRE}
+    assert b.board[(1, 1)].unit.effects == {Effects.ACID, Effects.FIRE}
+    assert b.board[(1, 1)].unit.type == 'jet'
 
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.
-# have a unit die on a teleporter and then get revived. It should teleport to the other teleporter.
+# dead vek that that are pushed to tiles with mines remove the mines!
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -1311,12 +1401,19 @@ def t_MechCorpseIsRepairedBackToLife():
 # Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
 # If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
-# Teleporters: This can have some pretty odd looking interactions with the Hazardous mechs, since a unit that reactivates is treated as re-entering the square it died on.
 # If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
 # if you shoot your mechs withe acid gun and they have a shield, they get acid anyway! wtf!
 # if a non-flying shielded unit is in water and is hit by the acid gun, it's pushed first and then acid goes to the tile where it lands, and does give it acid!
 # the shock cannon is a projectile that pushes the unit in its path toward the direction it was fired. it pushes and does damage to the tile on the other side of what got hit.
+# Terraformer weapon "terraformer" kills any unit in a 2x3 grid around it, converts tiles to sand tile.
+# Earth Mover expands toward 0 and 8 on X 2 squares at a time. It does this on the y row that it's on and the row right below it.
+# if a scarab that has an artillery shot weapon only is surrounded by units so it has no place to move and it has no targets available, it will choose to not shoot anything.
+# Cannon-bot's weapon is "Cannon 84 Mark I". it's a projectile weapon that does one damage and sets target on fire.
+# Repair Drop heals your friendly npc freezemine laying bots that you do not control. I guess to remove bad effects? Repair drop heals your units to full health. It does not remove fire from the tile of a repaired unit.
+# Flamethrower weapon can't go through more than one mountain tile.
+# The Goo's goo attack just does 4 damage and ice negates it like a regular weapon.
+# viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.

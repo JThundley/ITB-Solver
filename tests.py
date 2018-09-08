@@ -10,7 +10,7 @@ def runTest(funcname):
     globals()[funcname]()
     print('PASSED')
 
-def t_bumpDamage():
+def t_BumpDamage():
     "2 units bump into each other and take 1 damage each."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
@@ -22,19 +22,19 @@ def t_bumpDamage():
     assert b.board[(1, 1)].unit.currenthp == 2
     assert b.board[(2, 1)].unit.currenthp == 4
 
-def t_forestCatchesFire():
+def t_ForestCatchesFire():
     "A forest tile takes damage and catches fire."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].effects == {Effects.FIRE}
 
-def t_fireTurnsIceToWater():
+def t_FireTurnsIceToWater():
     "An ice tile takes fire damage and turns to water. A flying unit on the tile catches fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Ice(b))
+    b.board[(1, 1)].replaceTile(Tile_Ice(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -43,7 +43,7 @@ def t_fireTurnsIceToWater():
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE}
 
-def t_shieldBlocksTileFire():
+def t_ShieldBlocksTileFire():
     "a shielded unit that is hit with fire doesn't catch fire but the tile does. The shield remains."
     b = GameBoard()
     assert b.board[(1, 1)].effects == set()
@@ -90,7 +90,7 @@ def t_MountainOverkill():
 def t_FlyingUnitOnFireOverWater():
     "A flying unit that is on fire that moves to a water tile remains on fire"
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(1, 2)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 2)].effects == set()
@@ -105,7 +105,7 @@ def t_FlyingUnitOnFireOverWater():
 def t_FlyingUnitCatchesFireOverWater():
     "A flying unit is set on fire on an Ice tile. The unit catches fire, the tile does not."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Ice(b))
+    b.board[(1, 1)].replaceTile(Tile_Ice(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
@@ -117,7 +117,7 @@ def t_FlyingUnitCatchesFireOverWater():
 def t_FlyingUnitIcedOverWater():
     "A flying unit that is frozen on water remains frozen because the tile under it becomes ice instead of water."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
@@ -129,8 +129,8 @@ def t_FlyingUnitIcedOverWater():
 def t_WaterRemovesIceFromUnit():
     "A flying unit or ground unit that is frozen and is then moved onto a water tile is unfrozen."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b)) # make water tiles
-    b.replaceTile((1, 2), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b)) # make water tiles
+    b.board[(1, 2)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b)) # flying unit on the bottom next to the tile
     b.board[(2, 2)].putUnitHere(Unit_Blobber(b)) # ground unit above it next to water tile
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED} # no new tile effects
@@ -151,14 +151,14 @@ def t_WaterRemovesIceFromUnit():
 def t_WaterTileTurnsToIceWhenIce():
     "A water tile that is hit with ice becomes an ice tile"
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].type == 'ice'
 
 def t_WaterTilePutsOutUnitFire():
     "A ground unit that is on fire that moves into a water tile is no longer on fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Beetle_Leader(b)) # massive unit on the bottom next to the water tile
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -172,7 +172,7 @@ def t_WaterTilePutsOutUnitFire():
 def t_RepairWaterAcidTileDoesntRemoveAcid():
     "When a water tile has acid on it, it becomes an acid water tile. A flying unit repairing here does NOT remove the acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    b.board[(1, 1)].replaceTile(Tile_Water(b, effects={Effects.ACID}))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].repair(1)
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
@@ -180,7 +180,7 @@ def t_RepairWaterAcidTileDoesntRemoveAcid():
 def t_IceAcidWaterThenThawingWithFireRemovesAcid():
     "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by fire, it becomes a regular water tile."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    b.board[(1, 1)].replaceTile(Tile_Water(b, effects={Effects.ACID}))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -192,7 +192,7 @@ def t_IceAcidWaterThenThawingWithFireRemovesAcid():
 def t_IceAcidWaterThenThawingWithDamageLeavesAcid():
     "When an acid water tile is frozen, it becomes a frozen acid tile that behaves just like an ice tile. When this frozen acid tile is destroyed by damage, it reverts to an acid water tile."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    b.board[(1, 1)].replaceTile(Tile_Water(b, effects={Effects.ACID}))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -207,7 +207,7 @@ def t_IceAcidWaterThenThawingWithDamageLeavesAcid():
 def t_UnitDoesntGetAcidFromIcedAcidWater():
     "If acid is put onto an ice tile, it becomes a frozen acid tile. This means there is no pool of acid on it and a unit can't pick up acid by moving here."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].effects == set()
@@ -230,7 +230,7 @@ def t_RepairingInSmokeLeavesSmoke():
 def t_FlyingDoesntGetAcidFromAcidWater():
     "A flying unit on an acid water tile does not get acid on it."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b, effects={Effects.ACID}))
+    b.board[(1, 1)].replaceTile(Tile_Water(b, effects={Effects.ACID}))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -249,7 +249,7 @@ def t_IceDoesntEffectAcidPool():
 def t_IceDoesNothingToLava():
     "Lava is unfreezable."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 1)].replaceTile(Tile_Lava(b))
     assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
@@ -258,7 +258,7 @@ def t_IceDoesNothingToLava():
 def t_LavaSetsMassiveOnFire():
     "Massive units that go into lava catch on fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 1)].replaceTile(Tile_Lava(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
     assert b.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert b.board[(1, 2)].effects == set()
@@ -306,7 +306,7 @@ def t_MountainTileCantGainAcid():
 
 def t_IceGroundUnitDiesInChasm():
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Chasm(b))
+    b.board[(1, 1)].replaceTile(Tile_Chasm(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
@@ -321,7 +321,7 @@ def t_IceGroundUnitDiesInChasm():
 def t_IceFlyingUnitDiesInChasm():
     "when a flying unit is frozen with ice and then moved to a chasm, it does because it's not really flying anymore."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Chasm(b))
+    b.board[(1, 1)].replaceTile(Tile_Chasm(b))
     b.board[(1, 2)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 2)].effects == set()
@@ -386,7 +386,7 @@ def t_UnitsOnFireDontLightTileOnDeath():
 def t_SmallGroundUnitBringsAcidIntoWater():
     "a non-massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit dies"
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -402,7 +402,7 @@ def t_SmallGroundUnitBringsAcidIntoWater():
 def t_MassiveGroundUnitBringsAcidIntoWater():
     "a massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit survives. It then walks out and still has acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Large_Goo(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -450,7 +450,7 @@ def t_MountainCantBeSetOnFire():
 def t_SmokePutsOutFire():
     "Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile. When the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -461,7 +461,7 @@ def t_SmokePutsOutFire():
 def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
     "Attacking a forest that is smoked will remove the smoke and set the tile on fire."
     b = GameBoard() # This is all the exact same as smoke puts out fire
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].takeDamage(1)
     assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -474,7 +474,7 @@ def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
 def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
     "Setting fire to a normal tile that is smoked will remove the smoke and set the tile on fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Ground(b))
+    b.board[(1, 1)].replaceTile(Tile_Ground(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -487,7 +487,7 @@ def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
 def t_SettingFireToSmokedWaterTileDoesNothing():
     "Setting fire to a water tile that is smoked will leave the smoke."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
@@ -500,7 +500,7 @@ def t_SettingFireToSmokedWaterTileDoesNothing():
 def t_SettingFireToSmokedChasmTileDoesNothing():
     "Setting fire to a chasm tile that is smoked will leave the smoke."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Chasm(b))
+    b.board[(1, 1)].replaceTile(Tile_Chasm(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == set()
@@ -513,7 +513,7 @@ def t_SettingFireToSmokedChasmTileDoesNothing():
 def t_SettingFireToSmokedIceTileRemovesSmokeAndTurnsToWater():
     "Setting fire to an ice tile that is smoked will remove the smoke and turn it into a water tile."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Ice(b))
+    b.board[(1, 1)].replaceTile(Tile_Ice(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
@@ -536,7 +536,7 @@ def t_BuildingAcidGoesToTile():
 def t_FlyingUnitWithAcidDiesInWater():
     "When a flying unit with acid dies over water, it becomes a water acid tile."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -554,7 +554,7 @@ def t_FlyingUnitWithAcidDiesInWater():
 def t_IceGroundUnitWithAcidDiesInWater():
     "frozen with acid units pushed into water make the water into acid water."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(2, 1)].unit.effects == set()
@@ -572,7 +572,7 @@ def t_IceGroundUnitWithAcidDiesInWater():
 def t_IceFlyingUnitOverChasmKillsIt():
     "if you freeze a flying unit over a chasm it dies"
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Chasm(b))
+    b.board[(1, 1)].replaceTile(Tile_Chasm(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -583,7 +583,7 @@ def t_IceFlyingUnitOverChasmKillsIt():
 def t_UnitsOnFireCatchForestsOnFireByMovingToThem():
     "Fire spreads from units (including flying) on fire to forest tiles."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(2, 1)].effects == set()
@@ -600,7 +600,7 @@ def t_UnitsOnFireCatchForestsOnFireByMovingToThem():
 def t_UnitsOnFireCatchSmokedForestsOnFireByMovingToThem():
     "If a unit is on fire and it moves to a smoked forest tile, the tile will catch fire and the smoke will disappear."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b, effects={Effects.SMOKE}))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b, effects={Effects.SMOKE}))
     b.board[(2, 1)].putUnitHere(Unit_Hornet(b))
     assert b.board[(1, 1)].effects == {Effects.SMOKE}
     assert b.board[(2, 1)].effects == set()
@@ -617,7 +617,7 @@ def t_UnitsOnFireCatchSmokedForestsOnFireByMovingToThem():
 def t_ShieldedUnitOnForestWontIgnightForest():
     "If a Shielded unit stands on a forest and takes damage, the forest will not ignite."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     b.board[(1, 1)].putUnitHere(Unit_Hornet(b))
     b.board[(1, 1)].applyShield()
     assert b.board[(1, 1)].effects == set()
@@ -641,7 +641,7 @@ def t_UnitSetOnFireThenShieldedNothingWeird():
 def t_UnitFireAndShieldMovedToForestSetOnFire():
     "if a unit that is on fire and shielded moves to a forest tile, it is set on fire."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     b.board[(2, 1)].putUnitHere(Unit_Blobber(b))
     assert b.board[(2, 1)].unit.effects == set()
     b.board[(2, 1)].applyFire()
@@ -726,7 +726,7 @@ def t_AcidVatWithSmokeKeepsSmokeAfterKilled():
 def t_AcidUnitAttackedonDesertLeavesAcidNoSmoke():
     "If a unit with acid stands on a desert tile and is attacked and killed, an acid pool is left on the tile along with smoke. The sand is removed."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Sand(b))
+    b.board[(1, 1)].replaceTile(Tile_Sand(b))
     b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -741,7 +741,7 @@ def t_AcidUnitAttackedonDesertLeavesAcidNoSmoke():
 def t_AcidRemovesSand():
     "Acid that lands on sand converts it to a ground tile with acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Sand(b))
+    b.board[(1, 1)].replaceTile(Tile_Sand(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyAcid()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -751,7 +751,7 @@ def t_AcidRemovesSand():
 def t_AcidRemovesForest():
     "Acid that lands on forest converts it to a ground tile with acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     assert b.board[(1, 1)].effects == set()
     b.board[(1, 1)].applyAcid()
     assert b.board[(1, 1)].effects == {Effects.ACID}
@@ -761,7 +761,7 @@ def t_AcidRemovesForest():
 def t_AcidDoesNothingToLava():
   "Nothing happens when acid hits lava."
   b = GameBoard()
-  b.replaceTile((1, 1), Tile_Lava(b))
+  b.board[(1, 1)].replaceTile(Tile_Lava(b))
   assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
   b.board[(1, 1)].applyAcid()
   assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
@@ -771,7 +771,7 @@ def t_AcidDoesNothingToLava():
 def t_FireErasesSandTile():
   "A sand tile being set on fire converts the sand tile to a ground tile on fire."
   b = GameBoard()
-  b.replaceTile((1, 1), Tile_Sand(b))
+  b.board[(1, 1)].replaceTile(Tile_Sand(b))
   assert b.board[(1, 1)].effects == set()
   b.board[(1, 1)].applyFire()
   assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -814,7 +814,7 @@ def t_MechCorpsePushIntoChasm():
     "Dead mechs disappear into chasms. They have the flying attribute ingame for some reason but are clearly not flying."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
-    b.replaceTile((2, 1), Tile_Chasm(b))
+    b.board[(2, 1)].replaceTile( Tile_Chasm(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert b.board[(2, 1)].effects == set()
@@ -837,7 +837,7 @@ def t_MechCorpseCantBeIced():
 def t_MechCorpseSpreadsFire():
     "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
     b = GameBoard()
-    b.replaceTile((2, 1), Tile_Forest(b))
+    b.board[(2, 1)].replaceTile( Tile_Forest(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
@@ -857,7 +857,7 @@ def t_MechCorpseSpreadsFire():
 def t_MechCorpseSpreadsAcid():
     "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
     b = GameBoard()
-    b.replaceTile((2, 1), Tile_Water(b))
+    b.board[(2, 1)].replaceTile( Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
@@ -903,7 +903,7 @@ def t_MechCorpseCantBeShielded():
 def t_UnitWithAcidKilledOnSandThenSetOnFire():
     "A unit with acid is killed on a sand tile, tile now has smoke and acid and is no longer a sand tile. Setting it on fire gets rid of smoke and acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Sand(b))
+    b.board[(1, 1)].replaceTile(Tile_Sand(b))
     b.board[(1, 1)].putUnitHere(Unit_Scarab(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -922,7 +922,7 @@ def t_UnitWithAcidKilledOnSandThenSetOnFire():
 def t_DamagedIceBecomesIceWhenFrozen():
     "If a damaged ice tile is hit with ice, it becomes an ice tile."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(1, 1)].applyIce()
     assert b.board[(1, 1)].type == 'ice'
     b.board[(1, 1)].takeDamage(1)
@@ -933,7 +933,7 @@ def t_DamagedIceBecomesIceWhenFrozen():
 def t_BrokenTeleporter():
     "Make sure an exception is raised if a unit moves onto a teleporter tile that doesn't have a companion."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
     try:
         b.moveUnit((2, 1), (1, 1))
@@ -945,8 +945,8 @@ def t_BrokenTeleporter():
 def t_WorkingTeleporter():
     "Make sure a unit can teleport back and fourth between 2 teleporters."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit == None
@@ -971,8 +971,8 @@ def t_WorkingTeleporter():
 def t_TeleporterSwaps2Units():
     "If a unit is on a teleporter when another unit moves to its companion, the units will swap places."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b)) # put scarab next to near teleporter
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit == None
@@ -992,8 +992,8 @@ def t_TeleporterSwaps2Units():
 def t_TeleporterWithFire():
     "A unit that is pushed onto an on fire teleporter also catches fire and is then teleported."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, effects={Effects.FIRE}, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, effects={Effects.FIRE}, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit == None
@@ -1010,8 +1010,8 @@ def t_TeleporterWithFire():
 def t_TeleporterWithAcid():
     "If there's an acid pool on a teleporter, it's picked up by the unit that moves there and then the unit is teleported."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, effects={Effects.ACID}, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, effects={Effects.ACID}, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Scarab(b))
     assert b.board[(1, 1)].effects == {Effects.ACID}
     assert b.board[(1, 1)].unit == None
@@ -1028,8 +1028,8 @@ def t_TeleporterWithAcid():
 def t_DamDies():
     "The Dam is a special 2-tile unit. In this program, it's treated as 2 separate units that replicate actions to each other. In this test, we kill one and make sure they both die and flood the map."
     b = GameBoard()
-    b.replaceTile((8, 3), Tile_Water(b))
-    b.replaceTile((8, 4), Tile_Water(b))
+    b.board[(8, 3)].replaceTile(Tile_Water(b))
+    b.board[(8, 4)].replaceTile(Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     assert b.board[(8, 3)].effects == {Effects.SUBMERGED}
@@ -1049,8 +1049,8 @@ def t_DamDies():
 def t_DamDiesWithAcidUnits():
     "In this test, we kill one and make sure that a unit with acid dies and leaves acid in the new water. Also a flying unit will survive the flood."
     b = GameBoard()
-    b.replaceTile((8, 3), Tile_Water(b))
-    b.replaceTile((8, 4), Tile_Water(b))
+    b.board[(8, 3)].replaceTile(Tile_Water(b))
+    b.board[(8, 4)].replaceTile(Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     b.board[(7, 3)].putUnitHere(Unit_Blobber(b, effects={Effects.ACID}))
@@ -1078,8 +1078,8 @@ def t_DamDiesWithAcidUnits():
 def t_DamDiesWithAcidOnGround():
     "In this test, we kill one and make sure that a ground tile with acid leaves acid in the new water tile."
     b = GameBoard()
-    b.replaceTile((8, 3), Tile_Water(b))
-    b.replaceTile((8, 4), Tile_Water(b))
+    b.board[(8, 3)].replaceTile(Tile_Water(b))
+    b.board[(8, 4)].replaceTile(Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     b.board[(7, 3)].applyAcid()
@@ -1102,8 +1102,8 @@ def t_DamDiesWithAcidOnGround():
 def t_ShieldedDamHitWithAcidGetsAcid():
     "If the dam is shielded and then hit with acid, it's immediately inflicted with acid."
     b = GameBoard()
-    b.replaceTile((8, 3), Tile_Water(b))
-    b.replaceTile((8, 4), Tile_Water(b))
+    b.board[(8, 3)].replaceTile(Tile_Water(b))
+    b.board[(8, 4)].replaceTile(Tile_Water(b))
     b.board[(8, 3)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].putUnitHere(Unit_Dam(b))
     b.board[(8, 4)].applyShield()
@@ -1161,7 +1161,7 @@ def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
 def t_ShieldedUnitGetsAcidFromWater():
     "if a non-flying shielded unit goes into acid water, it gets acid!"
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(2, 1)].putUnitHere(Unit_Scorpion_Leader(b))
     b.board[(1, 1)].applyAcid()
     assert b.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
@@ -1182,7 +1182,7 @@ def t_ShieldedUnitGetsAcidFromWater():
 def t_MechRepairsRemovesBadEffectsTileAndUnit():
     "A mech and its forest tile are set on fire and then hit with acid and repaired."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Forest(b))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
     b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit.effects == set()
@@ -1202,7 +1202,7 @@ def t_MechRepairsRemovesBadEffectsTileAndUnit():
 def t_MechRepairsRemovesIceFromUnit():
     "A mech and its water tile are frozen and then hit with acid and repaired."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Water(b))
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert b.board[(1, 1)].unit.effects == set()
@@ -1240,7 +1240,7 @@ def t_BurrowerWithAcidLeavesItWhenKilled():
 def t_LavaDoesntRemoveAcidFromUnit():
     "Does lava remove acid from a unit like water does? NO, you still have acid."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 1)].replaceTile(Tile_Lava(b))
     b.board[(1, 2)].putUnitHere(Unit_Laser_Mech(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert b.board[(1, 2)].unit.effects == set()
@@ -1257,7 +1257,7 @@ def t_LavaDoesntRemoveAcidFromUnit():
 def t_UnitWithAcidDiesInLava():
     "Lava doesn't get acid from an acid unit dying on it."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Lava(b))
+    b.board[(1, 1)].replaceTile(Tile_Lava(b))
     b.board[(1, 2)].putUnitHere(Unit_Acid_Scorpion(b))
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert b.board[(1, 2)].unit.effects == set()
@@ -1285,8 +1285,8 @@ def t_MechCorpseIsRepairedBackToLife():
 def t_MechDiesAndRevivedOnTeleporter():
     "a mech dies on a teleporter and is then revived. The act of reviving the unit should teleport it through again."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Flame_Mech(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit == None
@@ -1315,8 +1315,8 @@ def t_MechDiesAndRevivedOnTeleporter():
 def t_MechCorpsesDontGoThroughTelePorter():
     "if a mech dies and is pushed to a teleporter tile, it does not teleport. Corpses don't teleport at all, even if they die and then are pushed onto a teleporter."
     b = GameBoard()
-    b.replaceTile((1, 1), Tile_Teleporter(b, companion=(8, 8)))
-    b.replaceTile((8, 8), Tile_Teleporter(b, companion=(1, 1)))
+    b.board[(1, 1)].replaceTile(Tile_Teleporter(b, companion=(8, 8)))
+    b.board[(8, 8)].replaceTile(Tile_Teleporter(b, companion=(1, 1)))
     b.board[(2, 1)].putUnitHere(Unit_Leap_Mech(b))
     assert b.board[(1, 1)].effects == set()
     assert b.board[(1, 1)].unit == None

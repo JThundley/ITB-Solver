@@ -122,14 +122,6 @@ class GameBoard():
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-    def replaceTile(self, square, newtile, keepeffects=True):
-        "replace tile in square with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
-        unit = self.board[square].unit
-        if keepeffects:
-            newtile.effects.update(self.board[square].effects)
-        self.board[square] = newtile
-        self.board[square].square = square
-        self.board[square].putUnitHere(unit)
     def moveUnit(self, srcsquare, destsquare):
         "Move a unit from srcsquare to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
@@ -222,8 +214,6 @@ class Tile_Base(TileUnit_Base):
             self._tileTakeDamage() # Tile takes damage first.
         if self.gboard.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
             self.gboard.board[self.square].unit.takeDamage(damage) #  the non-garbage-collected unit that's no longer attached to the gameboard which is a waste.
-    def _tileTakeDamage(self):
-        "Process the effects of the tile taking damage. returns nothing."
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
@@ -267,14 +257,10 @@ class Tile_Base(TileUnit_Base):
         #     self.unit.repair(hp)
         # except AttributeError:
         #     return
-    def putUnitHere(self, unit):
-        "Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit. If there's a unit already on the tile, it's overwritten and deleted. returns nothing."
-        self.unit = unit
-        try:
-            self.unit.square = self.square
-        except AttributeError: # raised by None.square = blah
-            return # bail, the unit has been replaced by nothing which is ok.
-        self._spreadEffects()
+    def die(self):
+        "Instakill whatever unit is on the tile."
+        if self.unit:
+            self.unit.die()
     def _spreadEffects(self):
         "Spread effects from the tile to a unit that newly landed here. This also executes other things the tile can do to the unit when it lands there, such as dying if it falls into a chasm."
         if not Effects.SHIELD in self.unit.effects: # If the unit is not shielded...
@@ -283,12 +269,27 @@ class Tile_Base(TileUnit_Base):
             if Effects.ACID in self.effects: # same with acid, but also remove it from the tile.
                 self.unit.applyAcid()
                 self.removeEffect(Effects.ACID)
-    def die(self):
-        "Instakill whatever unit is on the tile."
-        if self.unit:
-            self.unit.die()
+    def _tileTakeDamage(self):
+        "Process the effects of the tile taking damage. returns nothing."
+    def putUnitHere(self, unit):
+        """Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit.
+        If there's a unit already on the tile, it's overwritten and deleted. returns nothing."""
+        self.unit = unit
+        try:
+            self.unit.square = self.square
+        except AttributeError: # raised by None.square = blah
+            return # bail, the unit has been replaced by nothing which is ok.
+        self._spreadEffects()
+    def replaceTile(self, newtile, keepeffects=True):
+        "replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
+        unit = self.unit
+        if keepeffects:
+            newtile.effects.update(self.effects)
+        self.gboard.board[self.square] = newtile
+        self.gboard.board[self.square].square = self.square
+        self.gboard.board[self.square].putUnitHere(unit)
     def __str__(self):
-        return "%s on %s. Effects: %s" % (self.type, self.square, set(Effects.pprint(self.effects)))
+        return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
 class Tile_Ground(Tile_Base):
     "This is a normal ground tile."
@@ -323,7 +324,7 @@ class Tile_Forest_Sand_Base(Tile_Base):
         try:
             self.unit.applyAcid() # give the unit acid if present
         except AttributeError:
-            self.gboard.replaceTile(self.square, Tile_Ground(self.gboard, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
+            self.gboard.board[self.square].replaceTile(Tile_Ground(self.gboard, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
         # The tile doesn't get acid effects if the unit takes it instead.
 
 class Tile_Forest(Tile_Forest_Sand_Base):
@@ -347,7 +348,7 @@ class Tile_Sand(Tile_Forest_Sand_Base):
         super().__init__(gboard, square, type, effects=effects)
     def applyFire(self):
         "Fire converts the sand tile to a ground tile"
-        self.gboard.replaceTile(self.square, Tile_Ground(self.gboard, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
+        self.gboard.board[self.square].replaceTile(Tile_Ground(self.gboard, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
         super().applyFire()
     def _tileTakeDamage(self):
         self.applySmoke()
@@ -358,7 +359,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         super().__init__(gboard, square, type, effects=effects)
     def applyIce(self):
         "replace the tile with ice and give ice to the unit if present."
-        self.gboard.replaceTile(self.square, Tile_Ice(self.gboard))
+        self.gboard.board[self.square].replaceTile(Tile_Ice(self.gboard))
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -367,7 +368,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
             self.removeEffect(e)
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard))
         try:
             self.unit.applyFire()
         except AttributeError:
@@ -422,13 +423,13 @@ class Tile_Ice(Tile_Water_Ice_Damaged_Base):
         except AttributeError:
             return
     def _tileTakeDamage(self):
-        self.gboard.replaceTile(self.square, Tile_Ice_Damaged(self.gboard))
+        self.gboard.board[self.square].replaceTile(Tile_Ice_Damaged(self.gboard))
 
 class Tile_Ice_Damaged(Tile_Water_Ice_Damaged_Base):
     def __init__(self, gboard, square=None, type='ice_damaged', effects=None):
         super().__init__(gboard, square, type, effects=effects)
     def _tileTakeDamage(self):
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard))
+        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard))
 
 class Tile_Chasm(Tile_Base):
     "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
@@ -604,7 +605,7 @@ class Unit_Base(TileUnit_Base):
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
     def __str__(self):
-        return "%s on %s. %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.square, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
+        return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
 class Repairable_Unit_Base(Unit_Base):
     "The base class of all mechs and vek."
@@ -672,7 +673,7 @@ class Unit_Acid_Vat(Unit_Base):
     def die(self):
         "Acid vats turn into acid water when destroyed."
         self.gboard.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
-        self.gboard.replaceTile(self.square, Tile_Water(self.gboard, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
 class Unit_Rock(Unit_Base):
@@ -776,7 +777,7 @@ class Unit_Dam(Unit_MultiTile_Base):
         self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
-            self.gboard.replaceTile((x, self.square[1]), Tile_Water(self.gboard))
+            self.gboard.board[(x, self.square[1])].replaceTile(Tile_Water(self.gboard))
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 

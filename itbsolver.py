@@ -4,16 +4,14 @@
 # Order of turn operations:
 #   Fire
 #   Storm Smoke
+#   Psion Tentacle
 #   Environment
 #   Enemy Actions
 #   NPC actions
 #   Enemies emerge
 
-# TODO
-# get rid of def addAttributes?
-# change PushTile to push multiple tiles and check if the tile that is being pushed is to another tile being pushed then push that other one first.
-# Old Earth Dam has 2 hp, is 2 tiles, is smoke immune, massive, submerged (weapons do not work when submerged in water), and Stable. If you freeze the dam, both dam tiles catch on fire.
 ############ IMPORTS ######################
+from copy import deepcopy
 
 ############### GLOBALS ###################
 DEBUG=True
@@ -70,7 +68,6 @@ Effects = Constant(thegen,
     'TIMEPOD',
     'MINE',
     'FREEZEMINE',
-    'VEKEMERGE',
     'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     'SHIELD',
@@ -112,7 +109,11 @@ class MissingCompanionTile(Exception):
 
 class GameBoard():
     "This represents the game board and some of the most basic rules of the game."
-    def __init__(self, board=None, powergrid_hp=7):
+    def __init__(self, board=None, powergrid_hp=7, environmentaleffect=None, vekemerge=None):
+        """board is a dict of tiles to use. If it's left blank, a default board full of empty ground tiles is generated.
+        powergrid_hp is the amount of power (hp) you as a player have. When this reaches 0, the entire game ends.
+        environmentaleffect is an environmental effect object that should be run during a turn.
+        vekemerge is the special VekEmerge environmental effect. If left blank, an empty one is created."""
         if board:
             self.board = board
         else: # create a blank board of normal ground tiles
@@ -122,59 +123,16 @@ class GameBoard():
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-    def moveUnit(self, srcsquare, destsquare):
-        "Move a unit from srcsquare to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
-        self.board[destsquare].putUnitHere(self.board[srcsquare].unit)
-        self.board[srcsquare].putUnitHere(None)
-    def getRelTile(self, square, direction, distance):
-        """return the coordinates of the tile that starts at square and goes direction direction a certain distance. return False if that tile would be off the board.
-        square is a tuple of coordinates (1, 1)
-        direction is a Direction.UP type global constant
-        distance is an int
-        """
-        if direction == Direction.UP:
-            destinationsquare = (square[0], square[1] + distance)
-        elif direction == Direction.RIGHT:
-            destinationsquare = (square[0] + distance, square[1])
-        elif direction == Direction.DOWN:
-            destinationsquare = (square[0], square[1] - distance)
-        elif direction == Direction.LEFT:
-            destinationsquare = (square[0] - distance, square[1])
-        else:
-            raise Exception("Invalid direction given.")
+        self.environmentaleffect = environmentaleffect
         try:
-            self.board[destinationsquare]
-        except KeyError:
-            return False
-        return destinationsquare
-    # The following can all be considered weapon mechanics
-    def push(self, square, direction):
-        """push unit on square direction.
-        square is a tuple of (x, y) coordinates
-        direction is a Direction.UP direction
-        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same action.
-        returns nothing"""
-        try:
-            if Attributes.STABLE in self.board[square].unit.attributes:
-                return # stable units can't be pushed
+            self.environmentaleffect.gboard = self
         except AttributeError:
-            return # There was no unit to push
-        else: # push the unit
-            destinationsquare = self.getRelTile(square, direction, 1)
-            try:
-                self.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
-            except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
-                self.moveUnit(square, destinationsquare) # move the unit from square to destination square
-            except KeyError:
-                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
-            else:
-                self.board[square].unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
-    def teleport(self, srcsquare, destsquare):
-        "Teleport srcsquare to destsquare, swapping units if there is one on destsquare."
-        unitfromdest = self.board[destsquare].unit  # grab the unit that's about to be overwritten on the destination
-        self.moveUnit(srcsquare, destsquare) # move unit from this square to destination
-        self.board[srcsquare].putUnitHere(unitfromdest)
-
+            pass # no environmental effect being used
+        if vekemerge:
+            self.vekemerge = vekemerge
+        else:
+            self.vekemerge = Environ_VekEmerge(())
+        self.vekemerge.gboard = self
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -200,7 +158,7 @@ class Tile_Base(TileUnit_Base):
     def __init__(self, gboard, square=None, type=None, effects=None, unit=None):
         super().__init__(gboard, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
-    def takeDamage(self, damage):
+    def takeDamage(self, damage=1):
         """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
         There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs which never has an effect on the tile.
         Damage is an int of how much damage to take.
@@ -281,13 +239,64 @@ class Tile_Base(TileUnit_Base):
             return # bail, the unit has been replaced by nothing which is ok.
         self._spreadEffects()
     def replaceTile(self, newtile, keepeffects=True):
-        "replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods."
+        """replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods.
+        Warning: effects are given to the new tile even if it can't support them! For example, this will happily give a chasm fire or acid.
+        Avoid this by manually removing these effects after the tile is replaced."""
         unit = self.unit
         if keepeffects:
             newtile.effects.update(self.effects)
         self.gboard.board[self.square] = newtile
         self.gboard.board[self.square].square = self.square
         self.gboard.board[self.square].putUnitHere(unit)
+    def moveUnit(self, destsquare):
+        "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
+        self.gboard.board[destsquare].putUnitHere(self.unit)
+        self.unit = None
+    def push(self, direction):
+        """push unit on this tile direction.
+        direction is a Direction.UP type direction
+        This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same action.
+        returns nothing"""
+        try:
+            if Attributes.STABLE in self.unit.attributes:
+                return # stable units can't be pushed
+        except AttributeError:
+            return # There was no unit to push
+        else: # push the unit
+            destinationsquare = self.getRelTile(direction, 1)
+            try:
+                self.gboard.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
+            except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
+                self.moveUnit(destinationsquare) # move the unit from this tile to destination square
+            except KeyError:
+                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
+            else:
+                self.unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
+    def getRelTile(self, direction, distance):
+        """return the coordinates of the tile that starts at this tile and goes direction direction a certain distance. return False if that tile would be off the board.
+        direction is a Direction.UP type global constant
+        distance is an int
+        """
+        if direction == Direction.UP:
+            destinationsquare = (self.square[0], self.square[1] + distance)
+        elif direction == Direction.RIGHT:
+            destinationsquare = (self.square[0] + distance, self.square[1])
+        elif direction == Direction.DOWN:
+            destinationsquare = (self.square[0], self.square[1] - distance)
+        elif direction == Direction.LEFT:
+            destinationsquare = (self.square[0] - distance, self.square[1])
+        else:
+            raise Exception("Invalid direction given.")
+        try:
+            self.gboard.board[destinationsquare]
+        except KeyError:
+            return False
+        return destinationsquare
+    def teleport(self, destsquare):
+        "Teleport from this tile to destsquare, swapping units if there is one on destsquare."
+        unitfromdest = self.gboard.board[destsquare].unit # grab the unit that's about to be overwritten on the destination
+        self.moveUnit(destsquare) # move unit from this square to destination
+        self.putUnitHere(unitfromdest)
     def __str__(self):
         return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
@@ -482,6 +491,9 @@ class Tile_Lava(Tile_Water):
             self.unit.applyAcid()
         except AttributeError:
             return # but not the tile
+    def applySmoke(self):
+        "Smoke doesn't remove fire from the lava."
+        self.effects.add(Effects.SMOKE)
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -521,7 +533,7 @@ class Tile_Teleporter(Tile_Base):
                     self.gboard.board[self.companion].suppressteleport = True # suppress teleport on the companion too
                 except KeyError:
                     raise MissingCompanionTile(self.type, self.square)
-                self.gboard.teleport(self.square, self.companion)
+                self.teleport(self.companion)
         self.suppressteleport = False
 
 class Tile_Conveyor(Tile_Base):
@@ -634,14 +646,14 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         self.alliance = Alliance.NEUTRAL
     def applyAcid(self):
         pass
-    def takeDamage(self, damage=1):
+    def takeDamage(self, damage):
         self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, gboard, type='mountaindamaged', effects=None):
         super().__init__(gboard, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
-    def takeDamage(self, damage=1):
+    def takeDamage(self, damage):
         self.gboard.board[self.square].putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
@@ -649,7 +661,7 @@ class Unit_Volcano(Unit_Mountain):
     def __init__(self, gboard, type='volcano', effects=None):
         super().__init__(gboard, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
-    def takeDamage(self, damage=1):
+    def takeDamage(self, damage):
         return # what part of indestructible do you not understand?!
     def die(self):
         return # indestructible!
@@ -674,6 +686,7 @@ class Unit_Acid_Vat(Unit_Base):
         "Acid vats turn into acid water when destroyed."
         self.gboard.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
         self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.gboard.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
 class Unit_Rock(Unit_Base):
@@ -778,6 +791,7 @@ class Unit_Dam(Unit_MultiTile_Base):
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
             self.gboard.board[(x, self.square[1])].replaceTile(Tile_Water(self.gboard))
+            self.gboard.vekemerge.remove((x, self.square[1])) # don't let vek emerge from these newly created water tiles
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 
@@ -1162,7 +1176,7 @@ class Unit_Boulder_Mech(Unit_Mech_Base):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
 
 class Unit_Siege_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='siege', currenthp=3, maxhp=2, moves=2, pilot=None, effects=None, attributes=None):
+    def __init__(self, gboard, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
 
 class Unit_Meteor_Mech(Unit_Mech_Base):
@@ -1206,6 +1220,91 @@ class Unit_TechnoScarab_Mech(Unit_Mech_Base):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
 
         ############## PROGRAM FLOW FUNCTIONS ###############
+
+##############################################################################
+########################## ENVIRONMENTAL EFFECTS #############################
+##############################################################################
+# Environmental effects are actions performed on tiles/units after fire damage but before enemy actions. We count emerging vek as an environmental effect here even though it happens last.
+# conveyor belts,
+class Environ_Base():
+    "The base object for environmental effects."
+    def __init__(self, squares, effects=None, newtile=None):
+        """squares is an iter of tiles that are affected. If they need to be done in a certain order, pass in a tuple of squares, otherwise use a set.
+        effects is a tuple of strings. Each string is a method to apply on each tile in squares.
+        newtile is a tile object that will replace the tiles on squares.
+        the attribute self.gboard is set when the GameBoard instance initializes this object."""
+        self.squares = squares
+        self.effects = effects
+        self.newtile = newtile
+    def run(self):
+        "Run the environmental effect on the gameboard."
+        for square in self.squares:
+            if self.effects:
+                for effect in self.effects:
+                    getattr(self.gboard.board[square], effect)()
+            if self.newtile:
+                self.gboard.board[square].replaceTile(deepcopy(self.newtile))
+                self.gboard.board[square].gboard = self.gboard # manually set the new tile's self.gboard since the new tile was created outside of this GameBoard instance
+
+class Environ_IceStorm(Environ_Base):
+    def __init__(self, squares):
+        "Use a set of squares here."
+        super().__init__(squares, effects=('applyIce',))
+
+class Environ_AirStrike(Environ_Base):
+    def __init__(self, squares):
+        "Use a set of squares here."
+        super().__init__(squares, effects=('die', 'takeDamage'))
+
+Environ_Lightning = Environ_AirStrike # Lightning is really the exact same thing as Air Strike except it hits squares in a spread out pattern while Air Strike hits in that touching cluster of 5 pattern.
+# We don't check for the number of squares or the pattern, so fuggit
+
+class Environ_Tsunami(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, newtile=Tile_Water(None))
+
+class Environ_Cataclysm(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, newtile=Tile_Chasm(None))
+    def run(self):
+        super().run()
+        for square in self.squares:
+            for e in Effects.FIRE, Effects.ACID: # remove fire and acid from the newly created chasm tiles as they can't have these effects.
+                self.gboard.board[square].removeEffect(e)
+
+class Environ_FallingRock(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, effects=('die',), newtile=Tile_Ground(None))
+
+class Environ_Tentacles(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, effects=('die',), newtile=Tile_Lava(None))
+
+class Environ_LavaFlow(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, newtile=Tile_Lava(None))
+
+class Environ_VolcanicProjectile(Environ_Base):
+    def __init__(self, squares):
+        "Use a tuple of squares here."
+        super().__init__(squares, effects=('die', 'applyFire'))
+
+class Environ_VekEmerge():
+    "This one is a bit special and different from other environmental effects as you can imagine."
+    def __init__(self, squares):
+        "Use a list of squares here since tiles being replaced will remove squares from this."
+        self.squares = squares
+    def run(self):
+        for square in self.squares:
+            try:
+                self.gboard.board[square].unit.takeBumpDamage()
+            except AttributeError: # there was no unit
+                pass # TODO: the vek emerges
 
 ############## MAIN ########################
 if __name__ == '__main__':

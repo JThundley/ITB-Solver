@@ -1440,7 +1440,7 @@ def t_LightningEnvironmental():
     assert b.board[(3, 2)].effects == {Effects.SMOKE}
 
 def t_TsunamiEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_Tsunami({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_Tsunami(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Hook_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
     b.board[(3, 1)].putUnitHere(Unit_Blood_Psion(b))
@@ -1463,7 +1463,7 @@ def t_TsunamiEnvironmental():
     assert b.board[(1, 1)].type == 'ice'
 
 def t_CataclysmEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_Cataclysm({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Mirror_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Acid_Scorpion(b))
     b.board[(2, 1)].applyFire()
@@ -1487,7 +1487,7 @@ def t_CataclysmEnvironmental():
     assert b.board[(1, 1)].type == 'chasm'
 
 def t_FallingRockEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_FallingRock({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_FallingRock(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Unstable_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
     b.board[(2, 1)].applyFire()
@@ -1511,7 +1511,7 @@ def t_FallingRockEnvironmental():
     assert b.board[(1, 1)].type == 'ground'
 
 def t_TentaclesEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_Tentacles({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_Tentacles(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Artillery_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
     b.board[(2, 1)].applyFire()
@@ -1535,7 +1535,7 @@ def t_TentaclesEnvironmental():
     assert b.board[(1, 1)].type == 'lava'
 
 def t_LavaFlowEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_LavaFlow({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_LavaFlow(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Rocket_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
     b.board[(2, 1)].applyFire()
@@ -1559,7 +1559,7 @@ def t_LavaFlowEnvironmental():
     assert b.board[(1, 1)].type == 'lava'
 
 def t_VolcanicProjectileEnvironmental():
-    b = GameBoard(environmentaleffect=Environ_VolcanicProjectile({(1, 1), (2, 1), (3, 1)}))
+    b = GameBoard(environmentaleffect=Environ_VolcanicProjectile(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Boulder_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Alpha_Firefly(b))
     b.board[(2, 1)].applyFire()
@@ -1583,7 +1583,7 @@ def t_VolcanicProjectileEnvironmental():
     assert b.board[(1, 1)].type == 'ground'
 
 def t_VekEmergeEnvironmental():
-    b = GameBoard(vekemerge=Environ_VekEmerge(((1, 1), (2, 1), (3, 1), (4, 1))))
+    b = GameBoard(vekemerge=Environ_VekEmerge([(1, 1), (2, 1), (3, 1), (4, 1)]))
     b.board[(1, 1)].putUnitHere(Unit_Siege_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Leaper(b))
     b.board[(2, 1)].applyFire()
@@ -1611,6 +1611,54 @@ def t_VekEmergeEnvironmental():
     b.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this GameBoard instance:
     assert b.board[(1, 1)].effects == {Effects.SMOKE}
     assert b.board[(1, 1)].type == 'ground'
+
+def t_TsunamiEnvironmentalReplaceTile():
+    "make sure that when Tsunami replaces tiles with water, they are in fact different tile objects and not the same one."
+    b = GameBoard(environmentaleffect=Environ_Tsunami({(1, 1), (2, 1), (3, 1)}))
+    b.board[(1, 1)].putUnitHere(Unit_Hook_Mech(b))
+    b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
+    b.board[(3, 1)].putUnitHere(Unit_Blood_Psion(b))
+    b.board[(3, 1)].applySmoke()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(3, 1)].effects == {Effects.SMOKE}
+    assert b.board[(3, 1)].unit.effects == set()
+    b.environmentaleffect.run()
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(2, 1)].effects == {Effects.SUBMERGED}
+    assert b.board[(2, 1)].unit == None  # he drowned
+    assert b.board[(3, 1)].effects == {Effects.SUBMERGED, Effects.SMOKE}  # smoke remains
+    assert b.board[(3, 1)].unit.effects == set()  # so does this flying unit
+    b.board[(1, 1)].applyIce()
+    b.board[(2, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == set() # one tile is frozen, one has acid, the last has smoke
+    assert b.board[(1, 1)].type == 'ice'
+    assert b.board[(2, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
+    assert b.board[(2, 1)].type == 'water'
+    assert b.board[(3, 1)].effects == {Effects.SUBMERGED, Effects.SMOKE}
+    assert b.board[(3, 1)].type == 'water'
+
+def t_ConveyorBeltsEnviron():
+    "make sure that when Tsunami replaces tiles with water, they are in fact different tile objects and not the same one."
+    b = GameBoard(environmentaleffect=Environ_ConveyorBelts({(1, x): Direction.UP for x in range(1, 9)})) # all tiles against the left border pushing up
+    b.board[(1, 1)].putUnitHere(Unit_Meteor_Mech(b))
+    b.board[(1, 2)].putUnitHere(Unit_Beetle(b))
+    b.board[(1, 7)].putUnitHere(Unit_Spider_Leader(b))
+    b.board[(1, 8)].putUnitHere(Unit_Blood_Psion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(1, 2)].unit.currenthp == 4
+    assert b.board[(1, 7)].unit.currenthp == 6
+    assert b.board[(1, 8)].unit.currenthp == 2
+    b.environmentaleffect.run()
+    assert b.board[(1, 1)].unit == None # meteor got pushed off this tile
+    assert b.board[(1, 2)].unit.currenthp == 3 # meteor still has 3 hp
+    assert b.board[(1, 3)].unit.currenthp == 4 # beetle took no damage as well
+    assert b.board[(1, 7)].unit.currenthp == 5 # spider leader took a bump when he was pushed into the blood psion, so he didn't move
+    assert b.board[(1, 8)].unit.currenthp == 1 # blood psion tried to get pushed off the board so he stayed put and got bumped
+
 
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.

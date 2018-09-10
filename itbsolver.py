@@ -11,7 +11,6 @@
 #   Enemies emerge
 
 ############ IMPORTS ######################
-from copy import deepcopy
 
 ############### GLOBALS ###################
 DEBUG=True
@@ -131,7 +130,7 @@ class GameBoard():
         if vekemerge:
             self.vekemerge = vekemerge
         else:
-            self.vekemerge = Environ_VekEmerge(())
+            self.vekemerge = Environ_VekEmerge()
         self.vekemerge.gboard = self
 ##############################################################################
 ######################################## TILES ###############################
@@ -241,7 +240,7 @@ class Tile_Base(TileUnit_Base):
     def replaceTile(self, newtile, keepeffects=True):
         """replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods.
         Warning: effects are given to the new tile even if it can't support them! For example, this will happily give a chasm fire or acid.
-        Avoid this by manually removing these effects after the tile is replaced."""
+        Avoid this by manually removing these effects after the tile is replaced or setting keepeffects False and then manually keep only the effects you want."""
         unit = self.unit
         if keepeffects:
             newtile.effects.update(self.effects)
@@ -1225,13 +1224,12 @@ class Unit_TechnoScarab_Mech(Unit_Mech_Base):
 ########################## ENVIRONMENTAL EFFECTS #############################
 ##############################################################################
 # Environmental effects are actions performed on tiles/units after fire damage but before enemy actions. We count emerging vek as an environmental effect here even though it happens last.
-# conveyor belts,
 class Environ_Base():
     "The base object for environmental effects."
     def __init__(self, squares, effects=None, newtile=None):
         """squares is an iter of tiles that are affected. If they need to be done in a certain order, pass in a tuple of squares, otherwise use a set.
         effects is a tuple of strings. Each string is a method to apply on each tile in squares.
-        newtile is a tile object that will replace the tiles on squares.
+        newtile is a tile class (not object!) that will replace the tiles on squares.
         the attribute self.gboard is set when the GameBoard instance initializes this object."""
         self.squares = squares
         self.effects = effects
@@ -1243,8 +1241,7 @@ class Environ_Base():
                 for effect in self.effects:
                     getattr(self.gboard.board[square], effect)()
             if self.newtile:
-                self.gboard.board[square].replaceTile(deepcopy(self.newtile))
-                self.gboard.board[square].gboard = self.gboard # manually set the new tile's self.gboard since the new tile was created outside of this GameBoard instance
+                self.gboard.board[square].replaceTile(self.newtile(self.gboard))
 
 class Environ_IceStorm(Environ_Base):
     def __init__(self, squares):
@@ -1262,12 +1259,12 @@ Environ_Lightning = Environ_AirStrike # Lightning is really the exact same thing
 class Environ_Tsunami(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
-        super().__init__(squares, newtile=Tile_Water(None))
+        super().__init__(squares, newtile=Tile_Water)
 
 class Environ_Cataclysm(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
-        super().__init__(squares, newtile=Tile_Chasm(None))
+        super().__init__(squares, newtile=Tile_Chasm)
     def run(self):
         super().run()
         for square in self.squares:
@@ -1277,34 +1274,70 @@ class Environ_Cataclysm(Environ_Base):
 class Environ_FallingRock(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
-        super().__init__(squares, effects=('die',), newtile=Tile_Ground(None))
+        super().__init__(squares, effects=('die',), newtile=Tile_Ground)
 
 class Environ_Tentacles(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
-        super().__init__(squares, effects=('die',), newtile=Tile_Lava(None))
+        super().__init__(squares, effects=('die',), newtile=Tile_Lava)
 
 class Environ_LavaFlow(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
-        super().__init__(squares, newtile=Tile_Lava(None))
+        super().__init__(squares, newtile=Tile_Lava)
 
 class Environ_VolcanicProjectile(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
         super().__init__(squares, effects=('die', 'applyFire'))
 
+class Environ_ConveyorBelts():
+    def __init__(self, squaresdirs):
+        "squaresdirs is a dict of tuples to direction: {(x, y): Direction.DIR, ...}"
+        self.squaresdirs = squaresdirs
+        self.sorted = False
+    def sort(self):
+        """"Sort self.squaresdirs so that the first square pushes to a non-conveyor tile and all the following ones then point to the previous one.
+        This is done to prevent 2 units next to each other on a conveyor belt from bumping into each other, just like they don't in the game.
+        There can be multiple conveyor paths that are separate, one will just follow the other.
+        return nothing and change self.squaresdirs to the sorted list and set self.sorted = True at the end."""
+        solution = []
+        while self.squaresdirs:
+            for c in self.squaresdirs:
+                if self.gboard.board[c].getRelTile(self.squaresdirs[c], 1) not in self.squaresdirs: # if this square does NOT push to another square that needs to be pushed...
+                    solution.append((c, self.squaresdirs.pop(c)))
+                    break # start a new iter of squaresdirs since we can't iterate over something that changes
+        self.squaresdirs = solution
+        self.sorted = True
+    def run(self):
+        "Do it to it!"
+        if not self.sorted:
+            self.sort()
+        for sqd in self.squaresdirs: # this is now a list of [((x, y), Direction.DIR), ...]
+            self.gboard.board[sqd[0]].push(sqd[1])
+
 class Environ_VekEmerge():
     "This one is a bit special and different from other environmental effects as you can imagine."
-    def __init__(self, squares):
+    def __init__(self, squares=None):
         "Use a list of squares here since tiles being replaced will remove squares from this."
-        self.squares = squares
+        if squares:
+            self.squares = squares
+        else:
+            self.squares = []
     def run(self):
         for square in self.squares:
             try:
                 self.gboard.board[square].unit.takeBumpDamage()
             except AttributeError: # there was no unit
                 pass # TODO: the vek emerges
+    def remove(self, square):
+        "remove square from self.squares, ignoring if it wasn't there in the first place. returns nothing."
+        try:
+            self.squares.remove(square)
+        except ValueError:
+            pass
+        else:
+            pass # TODO: Vek emerging cancelled!
 
 ############## MAIN ########################
 if __name__ == '__main__':

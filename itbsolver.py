@@ -44,6 +44,10 @@ class DirectionConst(Constant):
         if dir > 4:
             dir -= 4
         return dir
+    def gen(self):
+        "A generator that yields each direction."
+        for d in Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT:
+            yield d
 
 # These are up/down/left/right directions with a method to get the opposite direction. THIS SET OF CONSTANTS MUST BE FIRST SO IT GETS THE FIRST 4 NUMBERS!
 Direction = DirectionConst(thegen, (
@@ -618,10 +622,31 @@ class Unit_Base(TileUnit_Base):
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
-class Repairable_Unit_Base(Unit_Base):
-    "The base class of all mechs and vek."
-    def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
+class Fighting_Unit_Base(Unit_Base):
+    "The base class of all units that have weapons."
+    def __init__(self, gboard, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
         super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        try: # try to set the wielding unit of this weapon
+            weapon1.wieldingunit = self
+        except AttributeError: # it's none and that's fine
+            pass
+        else: # it worked so assign the weapon to this unit and set gboard.
+            self.weapon1 = weapon1
+            self.weapon1.gboard = self.gboard
+        try: # do it again with 2. I'm on the fence if I should do this programmatically. Seems hacky for no benefit, I don't want to go through locals and do string slicing and stuff
+            weapon2.wieldingunit = self
+        except AttributeError:
+            pass
+        else:
+            self.weapon2 = weapon2
+            self.weapon2.gboard = self.gboard
+
+
+
+class Repairable_Unit_Base(Fighting_Unit_Base):
+    "The base class of all mechs and vek."
+    def __init__(self, gboard, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
+        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, weapon1=weapon1, weapon2=weapon2, attributes=attributes)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -696,28 +721,32 @@ class Unit_Rock(Unit_Base):
 ############################################################################################################################
 ################################################### FRIENDLY Sub-Units #####################################################
 ############################################################################################################################
-class Sub_Unit_Base(Unit_Base):
+class Sub_Unit_Base(Fighting_Unit_Base):
     "The base unit for smaller sub-units that the player controls as well as objective units that the player controls.."
-    def __init__(self, gboard, type, currenthp, maxhp, moves, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type, currenthp, maxhp, moves, weapon1=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves
         self.alliance = Alliance.FRIENDLY
 
 class Unit_AcidTank(Sub_Unit_Base):
     def __init__(self, gboard, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_FreezeTank(Sub_Unit_Base):
     def __init__(self, gboard, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ArchiveTank(Sub_Unit_Base):
     def __init__(self, gboard, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_OldArtillery(Sub_Unit_Base):
     def __init__(self, gboard, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+
+class Unit_ShieldTank(Sub_Unit_Base):
+    def __init__(self, gboard, type='shieldtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
@@ -1065,8 +1094,8 @@ class Unit_BotLeaderHard(Unit_Blobber):
 ############################################################################################################################
 class Unit_Mech_Base(Repairable_Unit_Base):
     "This is the base unit of Mechs."
-    def __init__(self, gboard, type, currenthp, maxhp, moves, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type, currenthp, maxhp, moves, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
         self.pilot = pilot # the pilot in this mech that might provide bonuses or extra abilities
         self.attributes.add(Attributes.MASSIVE) # all mechs are massive
@@ -1083,12 +1112,12 @@ class Unit_Mech_Base(Repairable_Unit_Base):
 
 class Unit_Mech_Flying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
-    def __init__(self, gboard, type, currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type, currenthp=2, maxhp=2, moves=4, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, weapon1=weapon1, weapon2=weapon2, pilot=pilot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Mech_Corpse(Unit_Mech_Base):
-    "This is a player mech after it dies. It's invincible but can be pushed around. It can be repaired back to an alive mech."
+    "This is a player mech after it dies. It's invincible but can be pushed around. It can be repaired back to an alive mech. It has no weapons."
     def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, moves=0, oldunit=None, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
@@ -1109,116 +1138,114 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self.gboard.board[self.square].putUnitHere(self.oldunit)
 
 class Unit_Combat_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Laser_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Lightning_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Judo_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Flame_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Aegis_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Leap_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Cannon_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Jet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Charge_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Hook_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Mirror_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Unstable_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Artillery_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Rocket_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Boulder_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Siege_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Meteor_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Ice_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Pulse_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Defense_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Gravity_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Swap_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Nano_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoBeetle_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoHornet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, gboard, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoScarab_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, effects=effects, attributes=attributes)
-
-        ############## PROGRAM FLOW FUNCTIONS ###############
+    def __init__(self, gboard, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 ##############################################################################
 ########################## ENVIRONMENTAL EFFECTS #############################
@@ -1252,9 +1279,6 @@ class Environ_AirStrike(Environ_Base):
     def __init__(self, squares):
         "Use a set of squares here."
         super().__init__(squares, effects=('die', 'takeDamage'))
-
-Environ_Lightning = Environ_AirStrike # Lightning is really the exact same thing as Air Strike except it hits squares in a spread out pattern while Air Strike hits in that touching cluster of 5 pattern.
-# We don't check for the number of squares or the pattern, so fuggit
 
 class Environ_Tsunami(Environ_Base):
     def __init__(self, squares):
@@ -1290,6 +1314,11 @@ class Environ_VolcanicProjectile(Environ_Base):
     def __init__(self, squares):
         "Use a tuple of squares here."
         super().__init__(squares, effects=('die', 'applyFire'))
+
+Environ_Lightning = Environ_AirStrike # Lightning is really the exact same thing as Air Strike except it hits squares in a spread out pattern while Air Strike hits in that touching cluster of 5 pattern.
+# We don't check for the number of squares or the pattern, so fuggit
+Environ_TidalWave = Environ_Tsunami # same
+Environ_SeismicActivity = Environ_Cataclysm # yeah
 
 class Environ_ConveyorBelts():
     def __init__(self, squaresdirs):
@@ -1339,6 +1368,50 @@ class Environ_VekEmerge():
         else:
             pass # TODO: Vek emerging cancelled!
 
-############## MAIN ########################
-if __name__ == '__main__':
-    pass
+##############################################################################
+################################## WEAPONS ###################################
+##############################################################################
+class Weapon_Base():
+    """The base of all weapon objects.
+    All weapons must have a shoot() method to shoot the weapon.
+    All weapons must have a gen() method to generate all possible shots the unit with this weapon can take.
+    """
+    def __init__(self, power1=False, power2=False):
+        """
+        self.gboard will be set by the unit that owns the weapon.
+        self.wieldingunit will be set by the unit that owns the weapon.
+        power1 is weather the first weapon upgrade is powered. (Mechs only)
+        power2 is weather the second weapon upgrade is powered. (Mechs only)
+        All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
+        """
+        self.power1 = power1
+        self.power2 = power2
+
+class Weapon_TitanFist(Weapon_Base):
+    def __init__(self, power1=False, power2=False):
+        super().__init__(power1=power1, power2=power2)
+        if power1:
+            self.shoot = self.shoot_dash # dash if it's powered
+        else:
+            self.shoot = self.shoot_normal # punch by default
+        if power2: # increase damage by 2
+            self.damage = 4
+        else: # it's 2 by default
+            self.damage = 2
+        self.gen = Direction.gen # only 4 possible shots in each direction, use the generator from the direction constant
+    def shoot_normal(self, direction):
+        attackedsquare = self.gboard.board[self.wieldingunit.square].getRelTile(direction, 1) # square in Direction from the unit that used the weapon...
+        self.gboard.board[attackedsquare].takeDamage(self.damage) # takes damage
+        self.gboard.board[attackedsquare].push(direction) # and is pushed
+    def shoot_dash(self, direction):
+        # first find which unit we're dashing into:
+        prevsquare = self.wieldingunit.square # Where the unit is moved to when the dash is complete
+        attackedsquare = self.gboard.board[self.wieldingunit.square].getRelTile(direction, 1) # start at square in Direction from the unit that used the weapon...
+        while True:
+            if self.gboard.board[attackedsquare].unit:
+                break # found the unit
+            prevsquare = attackedsquare
+            attackedsquare = self.gboard.board[attackedsquare].getRelTile(direction, 1) # the next tile in direction of the last square
+        self.gboard.board[attackedsquare].takeDamage(self.damage)  # takes damage
+        self.gboard.board[attackedsquare].push(direction)  # and is pushed
+        self.gboard.board[self.wieldingunit.square].moveUnit(prevsquare) # the wielder dashed and is now in the square next to his victim

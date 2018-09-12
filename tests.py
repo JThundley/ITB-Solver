@@ -1659,10 +1659,50 @@ def t_ConveyorBeltsEnviron():
     assert b.board[(1, 7)].unit.currenthp == 5 # spider leader took a bump when he was pushed into the blood psion, so he didn't move
     assert b.board[(1, 8)].unit.currenthp == 1 # blood psion tried to get pushed off the board so he stayed put and got bumped
 
+def t_WeaponTitanFistFirst():
+    "My very first weapon test. Have a mech punch another!"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist()))
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.currenthp == 3
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None # judo was pushed off this square
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 2 # he only lost 1 health because of armor
+
+def t_WeaponTitanFistChargeSecond():
+    "My very second weapon test. Have a mech dash punch another!"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power1=True)))
+    b.board[(6, 1)].putUnitHere(Unit_Judo_Mech(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(6, 1)].effects == set()
+    assert b.board[(6, 1)].unit.effects == set()
+    assert b.board[(6, 1)].unit.currenthp == 3
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None # Combat dashed off of this tile
+    assert b.board[(5, 1)].unit.effects == set() # and he's now here
+    assert b.board[(5, 1)].unit.currenthp == 3
+    assert b.board[(6, 1)].unit == None # judo was pushed off this square
+    assert b.board[(7, 1)].effects == set() # and he's here now
+    assert b.board[(7, 1)].unit.effects == set()
+    assert b.board[(7, 1)].unit.currenthp == 2 # he only lost 1 health because of armor
 
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.
-# dead vek that that are pushed to tiles with mines remove the mines!
+# dead vek that that are pushed to tiles with mines remove the mines! Make a corpse for them just like a mech but have it die upon moving.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.

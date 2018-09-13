@@ -1876,6 +1876,49 @@ def t_WeaponElectricWhipLowPower():
     assert b.board[(8, 1)].unit.currenthp == 6  # safe spider 1
     assert b.board[(3, 8)].unit.currenthp == 6  # safe spider 2
 
+def t_WeaponElectricWhipBuildingChainPower():
+    "Shoot the electric whip without building chain or extra damage powered and make sure it goes through units it should and not through units it shouldn't."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Lightning_Mech(b, weapon1=Weapon_ElectricWhip(power1=True)))
+    for x in range(2, 7): # spider bosses on x tiles 2-6
+        b.board[(x, 1)].putUnitHere(Unit_Spider_Leader(b))
+    b.board[(7, 1)].putUnitHere(Unit_Mountain(b)) # a mountain to block it
+    b.board[(8, 1)].putUnitHere(Unit_Spider_Leader(b)) # and a spider boss on the other side which should stay safe
+    for y in range(2, 7):
+        b.board[(3, y)].putUnitHere(Unit_Spider_Leader(b)) # start branching vertically
+    b.board[(3, 7)].putUnitHere(Unit_Building(b))  # a building to block it
+    b.board[(3, 8)].putUnitHere(Unit_Spider_Leader(b)) # and another spider boss on the other side which should also stay safe
+    assert b.board[(1, 1)].unit.currenthp == 3 # lightning mech
+    assert b.board[(2, 1)].unit.currenthp == 6 # spider bosses
+    assert b.board[(3, 1)].unit.currenthp == 6
+    assert b.board[(4, 1)].unit.currenthp == 6
+    assert b.board[(5, 1)].unit.currenthp == 6
+    assert b.board[(6, 1)].unit.currenthp == 6
+    assert b.board[(3, 2)].unit.currenthp == 6
+    assert b.board[(3, 3)].unit.currenthp == 6
+    assert b.board[(3, 4)].unit.currenthp == 6
+    assert b.board[(3, 5)].unit.currenthp == 6
+    assert b.board[(3, 6)].unit.currenthp == 6
+    assert b.board[(7, 1)].unit.type == 'mountain'
+    assert b.board[(3, 7)].unit.type == 'building'
+    assert b.board[(8, 1)].unit.currenthp == 6 # safe spider 1
+    assert b.board[(3, 8)].unit.currenthp == 6  # building chain  spider 2
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3  # lightning mech untouched
+    assert b.board[(2, 1)].unit.currenthp == 4  # spider bosses lose 2 hp
+    assert b.board[(3, 1)].unit.currenthp == 4
+    assert b.board[(4, 1)].unit.currenthp == 4
+    assert b.board[(5, 1)].unit.currenthp == 4
+    assert b.board[(6, 1)].unit.currenthp == 4
+    assert b.board[(3, 2)].unit.currenthp == 4
+    assert b.board[(3, 3)].unit.currenthp == 4
+    assert b.board[(3, 4)].unit.currenthp == 4
+    assert b.board[(3, 5)].unit.currenthp == 4
+    assert b.board[(3, 6)].unit.currenthp == 4
+    assert b.board[(7, 1)].unit.type == 'mountain'
+    assert b.board[(3, 7)].unit.type == 'building'
+    assert b.board[(8, 1)].unit.currenthp == 6  # safe spider 1
+    assert b.board[(3, 8)].unit.currenthp == 4  # building chain spider 2 took damage
 
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.

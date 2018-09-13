@@ -1473,47 +1473,35 @@ class Weapon_ElectricWhip():
         else:
             self.damage = 2
     def shoot(self, direction):
-        backwards = Direction.opposite(direction) # backwards will always be where the chain traveled from so we can avoid spreading directly back to units that were already hit.
-        targetsqure = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1)  # the original target
         self.hitsquares = {False}  # squares that have already been hit so we don't travel back through them in circles. It is possible to chain through the weapon wielder once and this is desired sometimes.
-                                            # False is included because getRelSquare will return False when you go off the board. We can short-circuit the branching logic by telling it to not branch off the board.
-        # imagine that you have your Lightning mech and 3 other units touching in a 2x2 square. Now imagine there's a 5th unit sticking out behind your mech. The lightning
-        # will travel around the 2x2 square in a circle, get back to the mech and then branch off to the 5 unit behind it.
-        self.branchChain(backwards=backwards, targetsquare=targetsqure)
+            # imagine that you have your Lightning mech and 3 other units touching in a 2x2 square. Now imagine there's a 5th unit sticking out behind your mech. The lightning
+            # will travel around the 2x2 square in a circle, get back to the mech and then branch off to the 5 unit behind it.
+            # False is included because getRelSquare will return False when you go off the board. We can use this in the branching logic to tell it that anything off the board has been visited.
+        self.branchChain(backwards=Direction.opposite(direction), targetsquare=self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1))
+        # done with the recursive method, now remove False and make all the units that need to take damage take damage
         self.hitsquares.remove(False)
-        for hs in self.hitsquares: # take the damage now
-            self.gboard.board[hs].takeDamage(self.damage)
+        for hs in self.hitsquares:
+            if self.gboard.board[hs].unit.type not in ('building', 'buildingobjective'): # don't damage buildings. If they're here they're already not effected.
+                self.gboard.board[hs].takeDamage(self.damage)
     def gen(self):
         for dir in Direction.gen():
             if self.unitIsChainable(self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(dir, 1)].unit):
                 yield dir
     def unitIsChainable(self, unit):
         "Pass a unit to this method and it will return true if you can chain through it, false if not or if there is no unit."
-        try:
-            print("isChainable:", self.gboard.board[unit.square], end=' ')
-        except AttributeError: # None.square
-            return
         if unit:
-            print('\n' + unit.type)
-            print(self.buildingchain and unit.type in 'building', 'buildingobjective')
-            print(self.buildingchain and unit.type not in ('mountain', 'mountaindamaged', 'volcano'))
-            print(self.buildingchain and unit.type not in ('mountain', 'mountaindamaged', 'volcano'))
-            if (self.buildingchain and unit.type in 'building', 'buildingobjective') or \
+            if (self.buildingchain and unit.type in ('building', 'buildingobjective')) or \
                     (self.buildingchain and unit.type not in ('mountain', 'mountaindamaged', 'volcano')) or \
                     (unit.type not in ('building', 'buildingobjective', 'mountain', 'mountaindamaged', 'volcano')):
-                print("True")
                 return True
-        print("False")
         return False
     def branchChain(self, backwards, targetsquare):
         """"A recursive method to facilitate the branching out of the electric whip shot.
         backwards is the direction that the shock came from to avoid doubling back.
         targetsquare is the current square being hit and branched out from.
-        hitsquares is set of squares that have already been hit to avoid looping without going backwards.
-        returns a set of hitsquares."""
+        self.hitsquares will be built out to a set of squares that need to be hit without ever backwards.
+        returns nothing."""
         self.hitsquares.add(targetsquare)
-        #print("target square is:", targetsquare)
-        #print("hitsquares is", self.hitsquares)
         for d in Direction.gen():
             if d == backwards:
                 continue

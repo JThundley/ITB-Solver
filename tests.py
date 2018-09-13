@@ -1309,7 +1309,6 @@ def t_MechDiesAndRevivedOnTeleporter():
     assert b.board[(8, 8)].effects == set()
     assert b.board[(8, 8)].unit == None  # no unit on far teleporter
     assert b.board[(1, 1)].unit.type == 'flame'  # unit is back on the near teleporter
-    print(b.board[(1, 1)].unit)
     assert b.board[(1, 1)].unit.currenthp == 1 # the repair worked properly
 
 def t_MechCorpsesDontGoThroughTelePorter():
@@ -1700,6 +1699,184 @@ def t_WeaponTitanFistChargeSecond():
     assert b.board[(7, 1)].unit.effects == set()
     assert b.board[(7, 1)].unit.currenthp == 2 # he only lost 1 health because of armor
 
+def t_HurtAndPushedVekOnFireSetsForestOnFire():
+    "This is testing the concept of the vek corpse. A vek is lit on fire, and then punched for 4 damage so it's killed, but it's fake corpse is pushed to a forest tile and sets it on fire."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].putUnitHere(Unit_Firefly(b, effects={Effects.FIRE}))
+    b.board[(3, 1)].replaceTile(Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit == None
+    assert b.board[(3, 1)].type == 'forest'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set() # no change for punchbot
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set() # still no effects here
+    assert b.board[(2, 1)].unit == None # firefly was pushed off this tile
+    assert b.board[(3, 1)].effects == {Effects.FIRE}
+    assert b.board[(3, 1)].unit == None # The firefly died after spreading fire here. We did a strong 4 damage punch
+    assert b.board[(3, 1)].type == 'forest' # still a forest? lol
+
+def t_HurtAndPushedMechOnFireDoesNotSetForestOnFire():
+    "A mech is lit on fire, and then punched for 4 damage so it's killed, but it's mech corpse is not on fire like the mech was! the corpse is pushed to a forest tile and sets it on fire."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].putUnitHere(Unit_Swap_Mech(b, effects={Effects.FIRE}))
+    b.board[(3, 1)].replaceTile(Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert b.board[(2, 1)].unit.currenthp == 2
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit == None
+    assert b.board[(3, 1)].type == 'forest'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set() # no change for punchbot
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set() # still no effects here
+    assert b.board[(2, 1)].unit == None # swapper was pushed off this tile
+    assert b.board[(3, 1)].effects == set() # corpse is not on fire
+    assert b.board[(3, 1)].unit.type == 'mechcorpse' # The swapper died after spreading fire here. We did a strong 4 damage punch
+    assert b.board[(3, 1)].type == 'forest' # still a forest? lol
+
+def t_HurtAndPushedVekRemovesMine():
+    "This is also testing the concept of the vek corpse. A vek is punched for 4 damage so it's killed, but it's fake corpse is pushed to a tile with a mine. The mine trips and then the unit and mine are gone."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
+    b.board[(3, 1)].effects.add(Effects.MINE)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == {Effects.MINE}
+    assert b.board[(3, 1)].unit == None
+    assert b.board[(3, 1)].type == 'ground'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set() # no change for punchbot
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set() # still no effects here
+    assert b.board[(2, 1)].unit == None # firefly was pushed off this tile
+    assert b.board[(3, 1)].effects == set() # mine is gone
+    assert b.board[(3, 1)].unit == None # The firefly died after we did a strong 4 damage punch
+    assert b.board[(3, 1)].type == 'ground' # still a forest? lol
+
+def t_HurtAndPushedVekRemovesFreezeMine():
+    "This is also testing the concept of the vek corpse. A vek is punched for 4 damage so it's killed, but it's fake corpse is pushed to a tile with a mine. The mine trips and then the unit and mine are gone."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
+    b.board[(3, 1)].effects.add(Effects.FREEZEMINE)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == {Effects.FREEZEMINE}
+    assert b.board[(3, 1)].unit == None
+    assert b.board[(3, 1)].type == 'ground'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set() # no change for punchbot
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == set() # still no effects here
+    assert b.board[(2, 1)].unit == None # firefly was pushed off this tile
+    assert b.board[(3, 1)].effects == set() # mine is gone
+    assert b.board[(3, 1)].unit == None # The firefly died after we did a strong 4 damage punch
+    assert b.board[(3, 1)].type == 'ground' # still a forest? lol
+
+def t_MechMovesToMine():
+    "Make sure mines work"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].effects.add(Effects.MINE)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == {Effects.MINE}
+    assert b.board[(2, 1)].unit == None
+    b.board[(1, 1)].moveUnit((2, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set() # mine tripped
+    assert b.board[(2, 1)].unit.type == 'mechcorpse' # ol' punchbot died
+
+def t_MechMovesToFreezeMine():
+    "Make sure mines work"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
+    b.board[(2, 1)].effects.add(Effects.FREEZEMINE)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].effects == {Effects.FREEZEMINE}
+    assert b.board[(2, 1)].unit == None
+    b.board[(1, 1)].moveUnit((2, 1))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].effects == set() # mine tripped
+    assert b.board[(2, 1)].unit.type == 'combat' # ol' punchbot survived
+    assert b.board[(2, 1)].unit.effects == {Effects.ICE}  # ol' punchbot survived
+
+def t_WeaponElectricWhipLowPower():
+    "Shoot the electric whip without building chain or extra damage powered and make sure it goes through units it should and not through units it shouldn't."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Lightning_Mech(b, weapon1=Weapon_ElectricWhip()))
+    for x in range(2, 7): # spider bosses on x tiles 2-6
+        b.board[(x, 1)].putUnitHere(Unit_Spider_Leader(b))
+    b.board[(7, 1)].putUnitHere(Unit_Mountain(b)) # a mountain to block it
+    b.board[(8, 1)].putUnitHere(Unit_Spider_Leader(b)) # and a spider boss on the other side which should stay safe
+    for y in range(2, 7):
+        b.board[(3, y)].putUnitHere(Unit_Spider_Leader(b)) # start branching vertically
+    b.board[(3, 7)].putUnitHere(Unit_Building(b))  # a building to block it
+    b.board[(3, 8)].putUnitHere(Unit_Spider_Leader(b)) # and another spider boss on the other side which should also stay safe
+    assert b.board[(1, 1)].unit.currenthp == 3 # lightning mech
+    assert b.board[(2, 1)].unit.currenthp == 6 # spider bosses
+    assert b.board[(3, 1)].unit.currenthp == 6
+    assert b.board[(4, 1)].unit.currenthp == 6
+    assert b.board[(5, 1)].unit.currenthp == 6
+    assert b.board[(6, 1)].unit.currenthp == 6
+    assert b.board[(3, 2)].unit.currenthp == 6
+    assert b.board[(3, 3)].unit.currenthp == 6
+    assert b.board[(3, 4)].unit.currenthp == 6
+    assert b.board[(3, 5)].unit.currenthp == 6
+    assert b.board[(3, 6)].unit.currenthp == 6
+    assert b.board[(7, 1)].unit.type == 'mountain'
+    assert b.board[(3, 7)].unit.type == 'building'
+    assert b.board[(8, 1)].unit.currenthp == 6 # safe spider 1
+    assert b.board[(3, 8)].unit.currenthp == 6  # safe spider 2
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3  # lightning mech untouched
+    assert b.board[(2, 1)].unit.currenthp == 4  # spider bosses lose 2 hp
+    assert b.board[(3, 1)].unit.currenthp == 4
+    assert b.board[(4, 1)].unit.currenthp == 4
+    assert b.board[(5, 1)].unit.currenthp == 4
+    assert b.board[(6, 1)].unit.currenthp == 4
+    assert b.board[(3, 2)].unit.currenthp == 4
+    assert b.board[(3, 3)].unit.currenthp == 4
+    assert b.board[(3, 4)].unit.currenthp == 4
+    assert b.board[(3, 5)].unit.currenthp == 4
+    assert b.board[(3, 6)].unit.currenthp == 4
+    assert b.board[(7, 1)].unit.type == 'mountain'
+    assert b.board[(3, 7)].unit.type == 'building'
+    assert b.board[(8, 1)].unit.currenthp == 6  # safe spider 1
+    assert b.board[(3, 8)].unit.currenthp == 6  # safe spider 2
+
+
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.
 # dead vek that that are pushed to tiles with mines remove the mines! Make a corpse for them just like a mech but have it die upon moving.
@@ -1736,15 +1913,16 @@ def t_WeaponTitanFistChargeSecond():
 # Flamethrower weapon can't go through more than one mountain tile.
 # The Goo's goo attack just does 4 damage and ice negates it like a regular weapon.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
+# Shield tank: first power gives it 2 hp, second power makes it shoot a projectile that gives shields. has 1 hp by default.
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
-# when rocks fall on the boss level, it replaces lava with ground. when it falls on ground that's on fire, the fire remains.
 # replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the dam replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
 
 ########## Research these:
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket (leaves a corpse that is invincible and can't be pushed. It's friendly so you can move through it), earth mover.
+# what happens if lightning strikes a desert or forest tile with a vek with acid on it? Does it create smoke first, then kill the enemy, then drop the acid and convert the tile to a regular ground tile? Or does the acid drop first converting the tiel before it does anything?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.

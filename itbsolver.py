@@ -44,6 +44,11 @@ class DirectionConst(Constant):
         if dir > 4:
             dir -= 4
         return dir
+    def getAxis(self, direction):
+        "return 0 if direction is on the x axis, 1 if it's on the y axis."
+        if direction in (1, 3):
+            return 1
+        return 0
     def gen(self):
         "A generator that yields each direction."
         for d in Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT:
@@ -1406,33 +1411,39 @@ class Weapon_Base():
     """The base of all weapon objects.
     All weapons must have a shoot() method to shoot the weapon.
     All weapons must have a gen() method to generate all possible shots the unit with this weapon can take.
+    All weapons that deal damage should store the amount of damage as self.damage
+    self.gboard will be set by the unit that owns the weapon.
+    self.wieldingunit will be set by the unit that owns the weapon.
+    All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
     """
-    def __init__(self, power1=False, power2=False):
-        """
-        self.gboard will be set by the unit that owns the weapon.
-        self.wieldingunit will be set by the unit that owns the weapon.
-        #power1 is weather the first weapon upgrade is powered. (Mechs only)
-        #power2 is weather the second weapon upgrade is powered. (Mechs only)
-        All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
-        """
-        #self.power1 = power1
-        #self.power2 = power2
     def hurtAndPush(self, square, direction):
         "have a tile takeDamage() and get pushed. This should be used whenever a tile needs to have both done at once because we treat vek specially."
-        mightneedtodie = set() # a set of units that will be checked for death after they're done taking abuse.
         self.gboard.board[square].takeDamage(self.damage, preventdeath=True) # takes damage
-        mightneedtodie.add(self.gboard.board[square].unit) # It's fine if this is None
-        self.gboard.board[square].push(direction) # and is pushed
-        for u in mightneedtodie: # now let any units die
+        hurtunit = self.gboard.board[square].unit # It's fine if this is None
+        self.gboard.board[square].push(direction) # hurtunit is pushed
+        try:
+            hurtunit._allowDeath()
+        except AttributeError: # raised by None._allowDeath()
+            pass
+    def findUnitInDirection(self, direction, edgeok=False):
+        """Travel from srcsquare in direction, returning the square of the first unit we find.
+        If none is found, return False.
+        If none is found and edgeok is True, return the square on the edge of the board."""
+        attackedsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
+        while True:
             try:
-                u._allowDeath()
-            except AttributeError: # raised by None._allowDeath()
-                pass
+                if self.gboard.board[attackedsquare].unit:
+                    return attackedsquare  # found the unit
+            except KeyError:  # raised from if gboard.board[False].unit: attackedsquare being false means we never found a unit and went off the board
+                if edgeok:
+                    return attackedsquare
+                return False
+            attackedsquare = self.gboard.board[attackedsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
 
 class Weapon_TitanFist(Weapon_Base):
-    "Combat mech's default weapon."
+    """Combat mech's default weapon.
+    Dashing does not damage the edge tile if it doesn't come in contact with a unit like projectiles do."""
     def __init__(self, power1=False, power2=False):
-        #super().__init__(power1=power1, power2=power2)
         if power1:
             self.shoot = self.shoot_dash # dash if it's powered
         else:
@@ -1447,22 +1458,38 @@ class Weapon_TitanFist(Weapon_Base):
     def shoot_dash(self, direction):
         # first find which unit we're dashing into:
         prevsquare = self.wieldingunit.square # Where the unit is moved to when the dash is complete. Start where the unit currently is.
-        attackedsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1) # start at square in Direction from the unit that used the weapon...
+        attackedsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1) # start the attack at square in Direction from the unit that used the weapon...
         while True:
-            if self.gboard.board[attackedsquare].unit:
-                break # found the unit
+            try:
+                if self.gboard.board[attackedsquare].unit:
+                    raise KeyError # found the unit
+            except KeyError: # raised from if gboard.board[False].unit: attackedsquare being false means we never found a unit and went off the board
+                self.gboard.board[self.wieldingunit.square].moveUnit(prevsquare)  # the wielder dashed and is now in the square next to his victim (or the edge of the board)
+                break
             prevsquare = attackedsquare
             attackedsquare = self.gboard.board[attackedsquare].getRelSquare(direction, 1) # the next tile in direction of the last square
-        self.hurtAndPush(attackedsquare, direction)
-        self.gboard.board[self.wieldingunit.square].moveUnit(prevsquare) # the wielder dashed and is now in the square next to his victim
+        if attackedsquare: # If it's not false and we didn't go off the board
+            self.hurtAndPush(attackedsquare, direction) # then hurt and push the unit
+
+class Weapon_TaurusCannon(Weapon_Base):
+    "Cannon Mech's default weapon."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        for p in power1, power2:
+            if p:
+                self.damage += 1
+        self.gen = Direction.gen
+    def shoot(self, direction):
+        self.hurtAndPush(self.findUnitInDirection(direction, edgeok=True), direction)
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.
-    When building chain is not powered (power1), you cannot hurt buildings with this at all.
-    It does not go through mountains either. It does go through rocks.
+    When building chain is not powered (power1), you cannot hurt buildings or chain through them with this at all.
+    It does not go through mountains or supervolcano either. It does go through rocks.
     Cannot attack mines on the ground.
     Reddit said you can attack a building if it's webbed, this is not true. Even if you attack the scorpion webbing the building, the building won't pass the attack through or take damage.
-    When you chain through units that are explosive, they explode in the reverse orcer in which they were shocked."""
+    When you chain through units that are explosive, they explode in the reverse order in which they were shocked.
+    You can never chain through yourself when you shoot!"""
     def __init__(self, power1=False, power2=False):
         if power1:
             self.buildingchain = True
@@ -1473,14 +1500,12 @@ class Weapon_ElectricWhip():
         else:
             self.damage = 2
     def shoot(self, direction):
-        self.hitsquares = {False}  # squares that have already been hit so we don't travel back through them in circles. It is possible to chain through the weapon wielder once and this is desired sometimes.
-            # imagine that you have your Lightning mech and 3 other units touching in a 2x2 square. Now imagine there's a 5th unit sticking out behind your mech. The lightning
-            # will travel around the 2x2 square in a circle, get back to the mech and then branch off to the 5 unit behind it.
-            # False is included because getRelSquare will return False when you go off the board. We can use this in the branching logic to tell it that anything off the board has been visited.
+        self.hitsquares = [False, self.wieldingunit.square]  # squares that have already been hit so we don't travel back through them in circles.
+        # False is included because getRelSquare will return False when you go off the board. We can use this in the branching logic to tell it that anything off the board has been visited.
+        # we also include the unit that shot the weapon since you can NEVER chain through yourself!
         self.branchChain(backwards=Direction.opposite(direction), targetsquare=self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1))
-        # done with the recursive method, now remove False and make all the units that need to take damage take damage
-        self.hitsquares.remove(False)
-        for hs in self.hitsquares:
+        # done with the recursive method, now skip False and and the wielder's square and make all the units that need to take damage take damage
+        for hs in self.hitsquares[2:]:
             if self.gboard.board[hs].unit.type not in ('building', 'buildingobjective'): # don't damage buildings. If they're here they're already not effected.
                 self.gboard.board[hs].takeDamage(self.damage)
     def gen(self):
@@ -1501,7 +1526,7 @@ class Weapon_ElectricWhip():
         targetsquare is the current square being hit and branched out from.
         self.hitsquares will be built out to a set of squares that need to be hit without ever backwards.
         returns nothing."""
-        self.hitsquares.add(targetsquare)
+        self.hitsquares.append(targetsquare)
         for d in Direction.gen():
             if d == backwards:
                 continue

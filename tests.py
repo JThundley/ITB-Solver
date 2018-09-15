@@ -1699,6 +1699,24 @@ def t_WeaponTitanFistChargeSecond():
     assert b.board[(7, 1)].unit.effects == set()
     assert b.board[(7, 1)].unit.currenthp == 2 # he only lost 1 health because of armor
 
+def t_WeaponTitanFistChargeToEdge():
+    "When you charge to the edge of the map without hitting a unit, you do NOT attack the tile at the edge like a projectile does."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power1=True)))
+    b.board[(8, 1)].replaceTile(Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(8, 1)].effects == set()
+    assert b.board[(8, 1)].unit == None
+    assert b.board[(8, 1)].type == 'forest'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # he's not here anymore
+    assert b.board[(8, 1)].effects == set() # still no fire
+    assert b.board[(8, 1)].unit.effects == set() # no change
+    assert b.board[(8, 1)].unit.currenthp == 3 # no change
+    assert b.board[(8, 1)].type == 'forest'
+
 def t_HurtAndPushedVekOnFireSetsForestOnFire():
     "This is testing the concept of the vek corpse. A vek is lit on fire, and then punched for 4 damage so it's killed, but it's fake corpse is pushed to a forest tile and sets it on fire."
     b = GameBoard()
@@ -1920,6 +1938,26 @@ def t_WeaponElectricWhipBuildingChainPower():
     assert b.board[(8, 1)].unit.currenthp == 6  # safe spider 1
     assert b.board[(3, 8)].unit.currenthp == 4  # building chain spider 2 took damage
 
+def t_WeaponElectricWhipDoesntChainInCicle():
+    "Shoot the electric whip with the power2 extra damage and make sure we don't loop through the weaponwielder"
+    b = GameBoard()
+    b.board[(2, 2)].putUnitHere(Unit_Lightning_Mech(b, weapon1=Weapon_ElectricWhip(power2=True)))
+    b.board[(1, 1)].putUnitHere(Unit_Spider_Leader(b)) # shocked spider
+    b.board[(2, 1)].putUnitHere(Unit_Spider_Leader(b))  # shocked spider
+    b.board[(1, 2)].putUnitHere(Unit_Spider_Leader(b))  # shocked spider
+    b.board[(2, 3)].putUnitHere(Unit_Spider_Leader(b))  # undamaged spider
+    assert b.board[(2, 2)].unit.currenthp == 3 # lightning mech
+    assert b.board[(1, 1)].unit.currenthp == 6 # spider bosses
+    assert b.board[(2, 1)].unit.currenthp == 6
+    assert b.board[(1, 2)].unit.currenthp == 6
+    assert b.board[(2, 3)].unit.currenthp == 6
+    b.board[(2, 2)].unit.weapon1.shoot(Direction.DOWN)
+    assert b.board[(2, 2)].unit.currenthp == 3  # lightning mech
+    assert b.board[(1, 1)].unit.currenthp == 3  # spider bosses took 3 damage
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(1, 2)].unit.currenthp == 3
+    assert b.board[(2, 3)].unit.currenthp == 6 # this one didn't get hit because we can't chain back through the wielder
+
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.
 # dead vek that that are pushed to tiles with mines remove the mines! Make a corpse for them just like a mech but have it die upon moving.
@@ -1957,6 +1995,7 @@ def t_WeaponElectricWhipBuildingChainPower():
 # The Goo's goo attack just does 4 damage and ice negates it like a regular weapon.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 # Shield tank: first power gives it 2 hp, second power makes it shoot a projectile that gives shields. has 1 hp by default.
+# Satellite launches happen after enemy attacks.
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.

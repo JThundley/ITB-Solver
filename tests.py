@@ -1958,9 +1958,195 @@ def t_WeaponElectricWhipDoesntChainInCicle():
     assert b.board[(1, 2)].unit.currenthp == 3
     assert b.board[(2, 3)].unit.currenthp == 6 # this one didn't get hit because we can't chain back through the wielder
 
+def t_WeaponArtemisArtilleryDefault():
+    "Do the default power Artillery demo from the game when you mouseover the weapon."
+    b = GameBoard()
+    b.board[(2, 2)].putUnitHere(Unit_Artillery_Mech(b, weapon1=Weapon_ArtemisArtillery()))
+    b.board[(3, 2)].putUnitHere(Unit_Mountain(b))
+    b.board[(4, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b)) # this one is actually against the wall and cannot be pushed
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b)) # an extra vek added above the one that gets hit to make sure he's pushed
+    assert b.board[(2, 2)].unit.currenthp == 2
+    assert b.board[(3, 2)].unit.currenthp == 1
+    assert b.board[(4, 2)].unit.currenthp == 5
+    assert b.board[(5, 2)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 5
+    assert b.board[(4, 3)].unit.currenthp == 5
+    b.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
+    assert b.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
+    assert b.board[(3, 2)].unit.type == 'mountain' # mountain unchanged
+    assert b.board[(4, 2)].unit.currenthp == 4 # target square took 1 damage
+    assert b.board[(5, 2)].unit == None # vek pushed off this square
+    assert b.board[(4, 1)].unit.currenthp == 5 # this vek wasn't pushed because he's on the edge of the map. he took no damage
+    assert b.board[(4, 3)].unit == None # vek also pushed off this square
+    assert b.board[(6, 2)].unit.currenthp == 5 # pushed vek has full health
+    assert b.board[(4, 4)].unit.currenthp == 5 # vek pushed has full health
+
+def t_WeaponArtemisArtilleryPower1():
+    "Do the Artillery demo from the game when you mouseover the weapon and you have buildings immune powered."
+    b = GameBoard()
+    b.board[(2, 2)].putUnitHere(Unit_Artillery_Mech(b, weapon1=Weapon_ArtemisArtillery(power1=True)))
+    b.board[(3, 2)].putUnitHere(Unit_Mountain(b))
+    b.board[(4, 2)].putUnitHere(Unit_Building(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b)) # this one is actually against the wall and cannot be pushed
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b)) # an extra vek added above the one that gets hit to make sure he's pushed
+    assert b.board[(2, 2)].unit.currenthp == 2
+    assert b.board[(3, 2)].unit.currenthp == 1
+    assert b.board[(4, 2)].unit.currenthp == 1 # the building
+    assert b.board[(5, 2)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 5
+    assert b.board[(4, 3)].unit.currenthp == 5
+    b.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
+    assert b.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
+    assert b.board[(3, 2)].unit.type == 'mountain'  # mountain unchanged
+    assert b.board[(4, 2)].unit.currenthp == 1  # target square took no damage since it's a building and power1 prevents damage to it
+    assert b.board[(5, 2)].unit == None  # vek pushed off this square
+    assert b.board[(4, 1)].unit.currenthp == 5  # this vek wasn't pushed because he's on the edge of the map. he took no damage
+    assert b.board[(4, 3)].unit == None  # vek also pushed off this square
+    assert b.board[(6, 2)].unit.currenthp == 5  # pushed vek has full health
+    assert b.board[(4, 4)].unit.currenthp == 5  # vek pushed has full health
+
+def t_WeaponArtemisArtilleryPower2():
+    "Do the power Artillery demo from the game when you mouseover the weapon and you have extra damage powered."
+    b = GameBoard()
+    b.board[(2, 2)].putUnitHere(Unit_Artillery_Mech(b, weapon1=Weapon_ArtemisArtillery(power2=True)))
+    b.board[(3, 2)].putUnitHere(Unit_Mountain(b))
+    b.board[(4, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b)) # this one is actually against the wall and cannot be pushed
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b)) # an extra vek added above the one that gets hit to make sure he's pushed
+    assert b.board[(2, 2)].unit.currenthp == 2
+    assert b.board[(3, 2)].unit.currenthp == 1
+    assert b.board[(4, 2)].unit.currenthp == 5
+    assert b.board[(5, 2)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 5
+    assert b.board[(4, 3)].unit.currenthp == 5
+    b.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
+    assert b.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
+    assert b.board[(3, 2)].unit.type == 'mountain' # mountain unchanged
+    assert b.board[(4, 2)].unit.currenthp == 2 # target square took 1 damage
+    assert b.board[(5, 2)].unit == None # vek pushed off this square
+    assert b.board[(4, 1)].unit.currenthp == 5 # this vek wasn't pushed because he's on the edge of the map. he took no damage
+    assert b.board[(4, 3)].unit == None # vek also pushed off this square
+    assert b.board[(6, 2)].unit.currenthp == 5 # pushed vek has full health
+    assert b.board[(4, 4)].unit.currenthp == 5 # vek pushed has full health
+
+def t_WeaponArtemisArtilleryFullPower():
+    "Do the Artillery demo from the game when you mouseover the weapon and you have buildings immune powered and damage powered."
+    b = GameBoard()
+    b.board[(2, 2)].putUnitHere(Unit_Artillery_Mech(b, weapon1=Weapon_ArtemisArtillery(power1=True)))
+    b.board[(3, 2)].putUnitHere(Unit_Mountain(b))
+    b.board[(4, 2)].putUnitHere(Unit_Building(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b)) # this one is actually against the wall and cannot be pushed
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b)) # an extra vek added above the one that gets hit to make sure he's pushed
+    assert b.board[(2, 2)].unit.currenthp == 2
+    assert b.board[(3, 2)].unit.currenthp == 1
+    assert b.board[(4, 2)].unit.currenthp == 1 # the building
+    assert b.board[(5, 2)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 5
+    assert b.board[(4, 3)].unit.currenthp == 5
+    b.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
+    assert b.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
+    assert b.board[(3, 2)].unit.type == 'mountain'  # mountain unchanged
+    assert b.board[(4, 2)].unit.currenthp == 1  # target square took no damage since it's a building and power1 prevents damage to it
+    assert b.board[(5, 2)].unit == None  # vek pushed off this square
+    assert b.board[(4, 1)].unit.currenthp == 5  # this vek wasn't pushed because he's on the edge of the map. he took no damage
+    assert b.board[(4, 3)].unit == None  # vek also pushed off this square
+    assert b.board[(6, 2)].unit.currenthp == 5  # pushed vek has full health
+    assert b.board[(4, 4)].unit.currenthp == 5  # vek pushed has full health
+
+def t_WeaponBurstBeamNoPower():
+    "Do the weapon demo with default power"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam()))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b))
+    b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 2
+    assert b.board[(5, 1)].unit.type == 'mountain'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
+    assert b.board[(2, 1)].unit == None # still nothing here
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 1 # friendly took 1 damage
+    assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+
+def t_WeaponBurstBeamAllyPower():
+    "Do the weapon demo with ally immune powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam(power1=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b))
+    b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 2
+    assert b.board[(5, 1)].unit.type == 'mountain'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
+    assert b.board[(2, 1)].unit == None # still nothing here
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 2 # friendly took NO damage
+    assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+
+def t_WeaponBurstBeamDamagePower():
+    "Do the weapon demo with extra damage powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam(power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b))
+    b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 2
+    assert b.board[(5, 1)].unit.type == 'mountain'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
+    assert b.board[(2, 1)].unit == None # still nothing here
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 2 # vek took 3 damage
+    assert b.board[(4, 1)].unit.type == 'mechcorpse' # friendly took 2 damage and died
+    assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+
+def t_WeaponBurstBeamFullPower():
+    "Do the weapon demo with ally immune powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam(power1=True, power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b))
+    b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 2
+    assert b.board[(5, 1)].unit.type == 'mountain'
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
+    assert b.board[(2, 1)].unit == None # still nothing here
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 2 # vek took 3 damage
+    assert b.board[(4, 1)].unit.currenthp == 2 # friendly took NO damage
+    assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+
+
 ########### write tests for these:
+# test noOffBoardShotsGen by putting a unit in each corner, against each wall, and then somewhere in the middle.
 # do a test of each unit to verify they have the proper attributes by default.
-# dead vek that that are pushed to tiles with mines remove the mines! Make a corpse for them just like a mech but have it die upon moving.
+# changing tiles doesn't necessarily remove emerging vek. the terraformer transforms from ground to sand and it remains.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -1996,6 +2182,7 @@ def t_WeaponElectricWhipDoesntChainInCicle():
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 # Shield tank: first power gives it 2 hp, second power makes it shoot a projectile that gives shields. has 1 hp by default.
 # Satellite launches happen after enemy attacks.
+# robots do not benefit from psion vek passives such as explosive.
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.

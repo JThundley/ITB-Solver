@@ -44,11 +44,6 @@ class DirectionConst(Constant):
         if dir > 4:
             dir -= 4
         return dir
-    # def getAxis(self, direction):
-    #     "return 0 if direction is on the x axis, 1 if it's on the y axis."
-    #     if direction in (1, 3):
-    #         return 1
-    #     return 0
     def gen(self):
         "A generator that yields each direction."
         for d in Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT:
@@ -219,7 +214,7 @@ class Tile_Base(TileUnit_Base):
         self.removeEffect(Effects.FIRE)
         if self.unit:
             self.unit.repair(hp)
-        # switch to a more effecient try statement when we're sure there aren't bugs :)
+        # switch to a more efficient try statement when we're sure there aren't bugs :)
         # try:
         #     self.unit.repair(hp)
         # except AttributeError:
@@ -556,13 +551,6 @@ class Tile_Teleporter(Tile_Base):
                 self.teleport(self.companion)
         self.suppressteleport = False
 
-class Tile_Conveyor(Tile_Base):
-    "This tile will push any unit in the direction marked on the belt at the end of your turn."
-    # Conveyer belts can have acid on them.
-    # Conveyer belts can have fire on them.
-    # Conveyer belts can have smoke on them.
-    # acid, fire and smoke are not moved by conveyer belts, they stay on the tile.
-
 ##############################################################################
 ######################################## UNITS ###############################
 ##############################################################################
@@ -641,6 +629,14 @@ class Unit_Base(TileUnit_Base):
         self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.gboard.board[self.square].applyAcid()
+        self.explode()
+    def explode(self):
+        "Make the unit explode only if it is explosive (to be used after death)."
+        if Effects.EXPLOSIVE in self.effects:
+            for d in Direction.gen():
+                relsquare = self.gboard.board[self.square].getRelSquare(d, 1)
+                if relsquare:
+                    self.gboard.board[relsquare].takeDamage(1)
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
@@ -1158,6 +1154,7 @@ class Unit_Mech_Base(Repairable_Unit_Base):
         "Make the mech die."
         self.currenthp = 0
         self.gboard.board[self.square].putUnitHere(Unit_Mech_Corpse(self.gboard, oldunit=self)) # it's dead, replace it with a mech corpse
+        self.explode()
     def repair(self, hp):
         "Repair the unit healing HP and removing bad effects."
         self.repairHP(hp)
@@ -1427,12 +1424,48 @@ class Environ_VekEmerge():
 ################################## WEAPONS ###################################
 ##############################################################################
 # All weapons must have a shoot() method to shoot the weapon.
-# All weapons must have a gen() method to generate all possible shots the unit with this weapon can take.
+# All weapons must have a genShots() method to generate all possible shots the unit with this weapon can take.
 # All weapons that deal damage should store the amount of damage as self.damage
 # self.gboard will be set by the unit that owns the weapon.
 # self.wieldingunit will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
-# the below are loose methods that weapon objects can use. The weapons are bit too varied to make base classes.
+class Weapon_Directional_Base():
+    "The base class for all weapons that must have a direction to be shot."
+    def genShots(self):
+        """A shot generator that yields each direction unless the weapon wielder is on the edge and trying to shoot off the board.
+        For example, if you have a unit in the bottom left corner (1, 1), you can only shoot up and right, but not left or down."""
+        for d in Direction.gen():
+            if self.gboard.board[self.wieldingunit.square].getRelSquare(d, 1):  # false if it goes off the board
+                yield d
+
+class Weapon_Charge_Base(Weapon_Directional_Base):
+    "The base class for charge weapons."
+    def shoot(self, direction):
+        victimtile = findUnitInDirection(self, direction, edgeok=False)
+        try:
+            hurtAndPush(self, victimtile, direction)
+        except KeyError: # raised from hurtAndPush doing self.gboard.board[False]... meaning there was no unit on victimtile
+            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[self.wieldingunit.square].getEdgeSquare(direction)) # move the wielder to victimtile which is the edge of the board
+        else: # victimtile was actually a tile and we hurt and push the unit there
+            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
+
+class Weapon_Artillery_Base():
+    "The base class for artillery weapons."
+    def genShots(self):
+        "Generate every possible shot that the weapon wielder can take from their position with an artillery weapon. Yields a tuple of (direction, relativedistance)."
+        for direction in Direction.gen():
+            relativedistance = 2  # artillery weapons can't shoot the tile next to them, they start at one tile past that.
+            while True:
+                if self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relativedistance):
+                    yield (direction, relativedistance)
+                    relativedistance += 1
+                else:  # square was false, we went off the board
+                    break  # move onto the next direction
+
+class Weapon_LimitedUse_Base():
+    
+
+# the below are loose methods that weapon objects can use. The weapons are bit too varied to make base classes from these.
 def hurtAndPush(self, square, direction):
     "have a tile takeDamage() and get pushed. This should be used whenever a tile needs to have both done at once because we treat vek specially."
     self.gboard.board[square].takeDamage(self.damage, preventdeath=True) # takes damage
@@ -1444,9 +1477,10 @@ def hurtAndPush(self, square, direction):
         pass
 
 def findUnitInDirection(self, direction, edgeok=False):
-    """Travel from srcsquare in direction, returning the square of the first unit we find.
+    """Travel from the weapon wielder's tile in direction, returning the square of the first unit we find.
     If none is found, return False.
-    If none is found and edgeok is True, return the square on the edge of the board."""
+    If none is found and edgeok is True, return the square on the edge of the board.
+    :type edgeok: bool"""
     attackedsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
     while True:
         try:
@@ -1458,17 +1492,6 @@ def findUnitInDirection(self, direction, edgeok=False):
             return False
         attackedsquare = self.gboard.board[attackedsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
 
-def ArtilleryGen(self):
-    "Generate every possible shot that the weapon wielder can take from their position with an artillery weapon."
-    for direction in Direction.gen():
-        relativedistance = 2 # artillery weapons can't shoot the tile next to them, they start at one tile past that.
-        while True:
-            if self.gboard.board[self.wieldingunit.square].getRelTile(direction, relativedistance):
-                yield (direction, relativedistance)
-                relativedistance += 1
-            else: # square was false, we went off the board
-                break # move onto the next direction
-
 def isBuilding(unit):
     "Return True if unit is a building or objectivebuilding, False if it is not."
     try:
@@ -1476,64 +1499,32 @@ def isBuilding(unit):
     except AttributeError: # unit was None or was missing the attribute
         return False
 
-def blocksBeamShot(unit):
-    "Return True if unit will block a beam shot that usually penetrates, False if we can penetrate through it."
-    try:
-        return unit.blocksbeamshot
-    except AttributeError: # units that allow penetration don't have this attribute set at all
-        return False
-
-def isBeamAlly(unit):
-    "return True if unit is considered an ally to the beam weapon when it has the first upgrade powered."
-    try:
-        return unit.alliance == Alliance.FRIENDLY or unit.beamally
-    except AttributeError: # units that allow penetration don't have this attribute set at all
-        return False
-
-def noOffBoardShotsGen(self):
-    """A shot generator that yields each direction unless the weapon wielders is on the edge and trying to shoot off the board.
-    For example, if you  have a unit in the bottom left corner (1, 1), you can only shoot up and right, but not left or down."""
-    for d in Direction.gen():
-        if self.gboard.board[self.wieldingunit.square].getRelTile(d, 1): # false if it goes off the board
-            yield d
-
 ##################### Actual weapons #####################
-class Weapon_TitanFist():
+class Weapon_TitanFist(Weapon_Charge_Base):
     """Combat mech's default weapon.
     Dashing does not damage the edge tile if it doesn't come in contact with a unit like projectiles do."""
     def __init__(self, power1=False, power2=False):
-        if power1:
-            self.shoot = self.shoot_dash # dash if it's powered
-        else:
+        super().__init__()
+        if not power1: # Weapon_Charge_Base already has self.shoot set to the charge attack
             self.shoot = self.shoot_normal # punch by default
         if power2: # increase damage by 2
             self.damage = 4
         else: # it's 2 by default
             self.damage = 2
-        self.gen = noOffBoardShotsGen
     def shoot_normal(self, direction):
         hurtAndPush(self, self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
-    def shoot_dash(self, direction):
-        victimtile = findUnitInDirection(self, direction, edgeok=False)
-        try:
-            hurtAndPush(self, victimtile, direction)
-        except KeyError: # raised from hurtAndPush doing self.gboard.board[False]... meaning there was no unit on victimtile
-            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[self.wieldingunit.square].getEdgeSquare(direction)) # move the wielder to victimtile which is the edge of the board
-        else: # victimtile was actually a tile and we hurt and push the unit there
-            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
 
-class Weapon_TaurusCannon():
+class Weapon_TaurusCannon(Weapon_Directional_Base):
     "Cannon Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         for p in power1, power2:
             if p:
                 self.damage += 1
-        self.gen = noOffBoardShotsGen
     def shoot(self, direction):
         hurtAndPush(self, self.findUnitInDirection(direction, edgeok=True), direction)
 
-class Weapon_ArtemisArtillery():
+class Weapon_ArtemisArtillery(Weapon_Artillery_Base):
     "Artillery Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -1543,7 +1534,6 @@ class Weapon_ArtemisArtillery():
             self.buildingsimmune = False
         if power2:
             self.damage += 2
-        self.gen = ArtilleryGen
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
         targetsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, distance)
@@ -1554,8 +1544,9 @@ class Weapon_ArtemisArtillery():
         for d in Direction.gen(): # now push all the tiles around targetsquare
             self.gboard.board[self.gboard.board[targetsquare].getRelSquare(d, 1)].push(d)
 
-class Weapon_BurstBeam():
+class Weapon_BurstBeam(Weapon_Directional_Base):
     """Laser Mech's default weapon.
+    If ally immune is powered and you have a friendly on a forest tile, the forest tile does NOT ignite from damage when you shoot.
     If ally immune is powered, it will not hurt *some* objective units like:
         terraformer
         earth mover
@@ -1575,26 +1566,38 @@ class Weapon_BurstBeam():
             self.allyimmune = False
         if power2:
             self.damage += 1
-        self.gen = noOffBoardShotsGen
     def shoot(self, direction):
         relsquare = 1 # start 1 square from the wielder
         currentdamage = self.damage # damage being dealt as the beam travels. This decreases the further we go until we reach 1
         while True:
-            targettile = self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
-            if not targettile: # we shot to the edge of the board
+            try:
+                targettile = self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
+            except KeyError: # self.gboard.board[False] means we went off the board
                 return # no more pew pew
-            if self.allyimmune and isBeamAlly(targettile.unit):
+            if self.allyimmune and self.isBeamAlly(targettile.unit):
                 pass # no damage
             else:
                 targettile.takeDamage(currentdamage) # damage the tile
-            if blocksBeamShot(targettile.unit):
+            if self.blocksBeamShot(targettile.unit):
                 return # no more pew pew
             currentdamage -= 1
             if currentdamage < 1:
                 currentdamage = 1
             relsquare += 1
+    def isBeamAlly(self, unit):
+        "return True if unit is considered an ally to the beam weapon when it has the first upgrade powered."
+        try:
+            return unit.alliance == Alliance.FRIENDLY or unit.beamally
+        except AttributeError:  # units that allow penetration don't have this attribute set at all
+            return False
+    def blocksBeamShot(self, unit):
+        "Return True if unit will block a beam shot that usually penetrates, False if we can penetrate through it."
+        try:
+            return unit.blocksbeamshot
+        except AttributeError:  # units that allow penetration don't have this attribute set at all
+            return False
 
-class Weapon_RammingEngines():
+class Weapon_RammingEngines(Weapon_Charge_Base):
     "Charge Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.selfdamage = 1
@@ -1604,6 +1607,9 @@ class Weapon_RammingEngines():
             self.selfdamage += 1
         if power2:
             self.damage += 1
+    def shoot(self, direction):
+        super().shoot(direction)
+        self.gboard.board[self.wieldingunit.square].takeDamage(self.selfdamage)
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.

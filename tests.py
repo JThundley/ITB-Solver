@@ -682,6 +682,18 @@ def t_ShieldBlocksIceFromFire():
     assert b.board[(1, 1)].effects == {Effects.FIRE}
     assert b.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
+def t_ShieldBlocksIce():
+    "You can't be frozen when you have a shield"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Blobber(b))
+    assert b.board[(1, 1)].unit.effects == set()
+    b.board[(1, 1)].applyShield()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+
 def t_FireBreaksIceWithShield():
     "If a unit is iced, shielded, then fired, the ice breaks, the tile catches fire, but the unit remains shielded and not on fire."
     b = GameBoard()
@@ -2142,9 +2154,161 @@ def t_WeaponBurstBeamFullPower():
     assert b.board[(4, 1)].unit.currenthp == 2 # friendly took NO damage
     assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
 
+def t_ExplosiveUnitDies():
+    "Test a unit with the explosive effect dying"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam()))
+    b.board[(2, 1)].putUnitHere(Unit_Scorpion(b, effects={Effects.EXPLOSIVE}))
+    b.board[(3, 1)].putUnitHere(Unit_Defense_Mech(b))
+    b.board[(2, 2)].putUnitHere(Unit_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3 # laser mech
+    assert b.board[(2, 1)].unit.currenthp == 3 # explosive vek
+    assert b.board[(3, 1)].unit.currenthp == 2 # defense mech
+    assert b.board[(2, 2)].unit.currenthp == 3 # vek to take damage from explosion
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 2  # laser mech took damage from explosion
+    assert b.board[(2, 1)].unit == None  # explosive vek died and exploded
+    assert b.board[(3, 1)].unit.type == 'mechcorpse'  # defense mech died from shot, then the corpse got exploded on
+    assert b.board[(2, 2)].unit.currenthp == 2  # vek took damage from explosion
+
+def t_WeaponRammingEnginesDefault():
+    "Do the weapon demo with no powered upgrades"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+
+def t_WeaponRammingEnginesPower1():
+    "Do the weapon demo with the first upgrade powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=True, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 2 # vek pushed here took 3 damage
+
+def t_WeaponRammingEnginesPower2():
+    "Do the weapon demo with the second upgrade powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 2 # vek pushed here took 3 damage
+
+def t_WeaponRammingEnginesFullPower():
+    "Do the weapon demo with the both upgrades powered"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=True, power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 1 # vek pushed here took 4 damage
+
+def t_WeaponRammingEnginesDefaultTileDamage():
+    "Do the weapon demo with no powered upgrades but on sand tiles to make sure they get damaged"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].replaceTile(Tile_Sand(b))
+    b.board[(2, 1)].replaceTile(Tile_Sand(b))
+    b.board[(3, 1)].replaceTile(Tile_Sand(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(1, 1)].effects == set() # sand tiles are all normal
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].effects == set()
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+    assert b.board[(1, 1)].effects == set() # this one untouched
+    assert b.board[(2, 1)].effects == {Effects.SMOKE} # these 2 got smoked from the self damage
+    assert b.board[(3, 1)].effects == {Effects.SMOKE} # and vek getting hit
+
+def t_WeaponRammingEnginesIntoChasm():
+    "Charge but stop at a chasm and die in it"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(2, 1)].replaceTile(Tile_Chasm(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(3, 1)].effects == set() # normal chasm tile
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit == None # wielder and mech corpse died in the chasm
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+    assert b.board[(3, 1)].effects == set()  # normal chasm tile
+
+def t_WeaponRammingEnginesOverChasm():
+    "Charge over a chasm and don't die in it"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    b.board[(2, 1)].replaceTile(Tile_Chasm(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(4, 1)].unit.currenthp == 5
+    assert b.board[(2, 1)].effects == set() # normal chasm tile
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    #for x in range(1, 6):
+    #    print(b.board[x, 1])
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(3, 1)].unit.currenthp == 2 # wielder took 1 damage
+    assert b.board[(4, 1)].unit == None # vek pushed off this tile
+    assert b.board[(5, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+    assert b.board[(2, 1)].effects == set()  # normal chasm tile
+
+def t_NoOffBoardShotsGenCorner():
+    "test noOffBoardShotsGen by putting a unit in a corner"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    g = b.board[(1, 1)].unit.weapon1.genShots()
+    assert next(g) == Direction.UP
+    assert next(g) == Direction.RIGHT
+    try:
+        next(g)
+    except StopIteration: # no more directions
+        pass # which is good
+    else:
+        assert False # we got another direction?
+
+def t_NoOffBoardShotsGenSide():
+    "test noOffBoardShotsGen by putting a unit in a corner"
+    b = GameBoard()
+    b.board[(1, 2)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    g = b.board[(1, 2)].unit.weapon1.genShots()
+    assert next(g) == Direction.UP
+    assert next(g) == Direction.RIGHT
+    assert next(g) == Direction.DOWN
+    try:
+        next(g)
+    except StopIteration: # no more directions
+        pass # which is good
+    else:
+        assert False # we got another direction?
 
 ########### write tests for these:
-# test noOffBoardShotsGen by putting a unit in each corner, against each wall, and then somewhere in the middle.
 # do a test of each unit to verify they have the proper attributes by default.
 # changing tiles doesn't necessarily remove emerging vek. the terraformer transforms from ground to sand and it remains.
 
@@ -2161,17 +2325,14 @@ def t_WeaponBurstBeamFullPower():
 # when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
 # when unstable cannon shoots and lands on acid tile, it takes damage then gains acid. when unstable cannon shoots, it damages the tile that it's on and then pushes.
 # if a mech has a shield and fires the cryo launcher, the shooter does not freeze.
-# Shield protects you from being frozen by ice storm.
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
-# A unit leaves effects where its body lands. For example, if you punch a unit with acid on a sand tile, the sand tile creates smoke, the unit dies, and the tile that the unit was pushed to (with no health) gets the acid pool.
 # Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
 # If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
 # if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
-# If the rocket mech shoots a vek and kills it one shot, the vek will trigger the mine on the tile it is pushed to even though it "died" when it got hit on another tile.
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
-# if you shoot your mechs withe acid gun and they have a shield, they get acid anyway! wtf!
+# if you shoot your mechs with the acid gun and they have a shield, they get acid anyway! wtf!
 # if a non-flying shielded unit is in water and is hit by the acid gun, it's pushed first and then acid goes to the tile where it lands, and does give it acid!
-# the shock cannon is a projectile that pushes the unit in its path toward the direction it was fired. it pushes and does damage to the tile on the other side of what got hit.
+# the shock cannon is a projectile that pulls the unit in its path toward the direction it was fired. It pushes and does damage to the tile on the other side of what got hit.
 # Terraformer weapon "terraformer" kills any unit in a 2x3 grid around it, converts tiles to sand tile.
 # Earth Mover expands toward 0 and 8 on X 2 squares at a time. It does this on the y row that it's on and the row right below it.
 # if a scarab that has an artillery shot weapon only is surrounded by units so it has no place to move and it has no targets available, it will choose to not shoot anything.

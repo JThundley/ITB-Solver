@@ -637,6 +637,12 @@ class Unit_Base(TileUnit_Base):
                 relsquare = self.gboard.board[self.square].getRelSquare(d, 1)
                 if relsquare:
                     self.gboard.board[relsquare].takeDamage(1)
+    def isBuilding(self):
+        "Return True if unit is a building or objectivebuilding, False if it is not."
+        try:
+            return self._isbuilding
+        except AttributeError:  # unit was None or was missing the attribute
+            return False
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
@@ -711,7 +717,7 @@ class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
-        self.isbuilding = True # a flag to indicate this is a building rather than do string comparisons
+        self._isbuilding = True # a flag to indicate this is a building rather than do string comparisons
     def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
 
@@ -719,6 +725,7 @@ class Unit_Building_Objective(Unit_Building):
     def __init__(self, gboard, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
+        self._isbuilding = True
 
 class Unit_Acid_Vat(Unit_Base):
     def __init__(self, gboard, type='acidvat', currenthp=2, maxhp=2, effects=None):
@@ -1424,12 +1431,12 @@ class Environ_VekEmerge():
 ################################## WEAPONS ###################################
 ##############################################################################
 # All weapons must have a shoot() method to shoot the weapon.
-# All weapons must have a genShots() method to generate all possible shots the unit with this weapon can take.
+# All weapons must have a genShots() method to generate all possible shots the wieldingunit in it's current position with this weapon can take.
 # All weapons that deal damage should store the amount of damage as self.damage
 # self.gboard will be set by the unit that owns the weapon.
 # self.wieldingunit will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
-class Weapon_Directional_Base():
+class Weapon_DirectionalGen_Base():
     "The base class for all weapons that must have a direction to be shot."
     def genShots(self):
         """A shot generator that yields each direction unless the weapon wielder is on the edge and trying to shoot off the board.
@@ -1438,7 +1445,7 @@ class Weapon_Directional_Base():
             if self.gboard.board[self.wieldingunit.square].getRelSquare(d, 1):  # false if it goes off the board
                 yield d
 
-class Weapon_Charge_Base(Weapon_Directional_Base):
+class Weapon_Charge_Base(Weapon_DirectionalGen_Base):
     "The base class for charge weapons."
     def shoot(self, direction):
         victimtile = findUnitInDirection(self, direction, edgeok=False)
@@ -1462,8 +1469,8 @@ class Weapon_Artillery_Base():
                 else:  # square was false, we went off the board
                     break  # move onto the next direction
 
-class Weapon_LimitedUse_Base():
-    
+#class Weapon_LimitedUse_Base():
+
 
 # the below are loose methods that weapon objects can use. The weapons are bit too varied to make base classes from these.
 def hurtAndPush(self, square, direction):
@@ -1492,13 +1499,6 @@ def findUnitInDirection(self, direction, edgeok=False):
             return False
         attackedsquare = self.gboard.board[attackedsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
 
-def isBuilding(unit):
-    "Return True if unit is a building or objectivebuilding, False if it is not."
-    try:
-        return unit.isbuilding
-    except AttributeError: # unit was None or was missing the attribute
-        return False
-
 ##################### Actual weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base):
     """Combat mech's default weapon.
@@ -1514,7 +1514,7 @@ class Weapon_TitanFist(Weapon_Charge_Base):
     def shoot_normal(self, direction):
         hurtAndPush(self, self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
-class Weapon_TaurusCannon(Weapon_Directional_Base):
+class Weapon_TaurusCannon(Weapon_DirectionalGen_Base):
     "Cannon Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -1537,14 +1537,14 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base):
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
         targetsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, distance)
-        if self.buildingsimmune and isBuilding(self.gboard.board[targetsquare].unit):
+        if self.buildingsimmune and self.gboard.board[targetsquare].unit.isBuilding():
            pass
         else:
             self.gboard.board[targetsquare].takeDamage(self.damage)
         for d in Direction.gen(): # now push all the tiles around targetsquare
             self.gboard.board[self.gboard.board[targetsquare].getRelSquare(d, 1)].push(d)
 
-class Weapon_BurstBeam(Weapon_Directional_Base):
+class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
     """Laser Mech's default weapon.
     If ally immune is powered and you have a friendly on a forest tile, the forest tile does NOT ignite from damage when you shoot.
     If ally immune is powered, it will not hurt *some* objective units like:
@@ -1644,7 +1644,7 @@ class Weapon_ElectricWhip():
     def unitIsChainable(self, unit):
         "Pass a unit to this method and it will return true if you can chain through it, false if not or if there is no unit."
         if unit:
-            if (self.buildingchain and isBuilding(unit)) or \
+            if (self.buildingchain and unit.isBuilding()) or \
                     (self.buildingchain and unit.type not in ('mountain', 'mountaindamaged', 'volcano')) or \
                     (unit.type not in ('building', 'buildingobjective', 'mountain', 'mountaindamaged', 'volcano')):
                 return True

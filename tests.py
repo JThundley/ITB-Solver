@@ -2308,9 +2308,134 @@ def t_NoOffBoardShotsGenSide():
     else:
         assert False # we got another direction?
 
+def t_WeaponTaurusCannonDefaultPower():
+    "Shoot the Taurus Cannon with default power"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b, weapon1=Weapon_TaurusCannon()))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None # vek was pushed off this square
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 4 # vek lost 1 hp
+
+def t_WeaponTaurusCannonDefaultPower1():
+    "Shoot the Taurus Cannon with power1"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b, weapon1=Weapon_TaurusCannon(power1=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None # vek was pushed off this square
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek lost 2 hp
+
+def t_WeaponTaurusCannonPower2():
+    "Shoot the Taurus Cannon with power2"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b, weapon1=Weapon_TaurusCannon(power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None # vek was pushed off this square
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek lost 2 hp
+
+def t_WeaponTaurusCannonFullPower():
+    "Shoot the Taurus Cannon with power1"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b, weapon1=Weapon_TaurusCannon(power1=True, power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None # vek was pushed off this square
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 2 # vek lost 3 hp
+
+def t_WeaponAttractionPulseDefault():
+    "Shoot the Attraction Pulse at a unit with no power"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_AttractionPulse(power1=False, power2=False)))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    assert b.board[(4, 1)].unit == None # vek was pushed off this square
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set() # pulled 1 square closer
+    assert b.board[(3, 1)].unit.currenthp == 5 # vek lost 0 hp
+
+def t_WeaponAttractionPulseFullPower():
+    "Shoot the Attraction Pulse at a unit with full power. IRL this gun takes no power, just making sure this doesn't break."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_AttractionPulse(power1=True, power2=True)))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    assert b.board[(4, 1)].effects == set()
+    assert b.board[(4, 1)].unit.effects == set()
+    assert b.board[(4, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    assert b.board[(4, 1)].unit == None # vek was pushed off this square
+    assert b.board[(3, 1)].effects == set()
+    assert b.board[(3, 1)].unit.effects == set() # pulled 1 square closer
+    assert b.board[(3, 1)].unit.currenthp == 5 # vek lost 0 hp
+
 ########### write tests for these:
 # do a test of each unit to verify they have the proper attributes by default.
 # changing tiles doesn't necessarily remove emerging vek. the terraformer transforms from ground to sand and it remains.
+# shield tank is beam ally
+# attraction pulse does not set fire to forest tile if you pull another unit into you for bump damage.
+# mines are not beam friendly
+# if ramming engine wielder has a shield, it doesn't take self damage. even when taking 2 self damage.
+# if ramming engine doesn't hit a unit, it doesn't take self damage.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.

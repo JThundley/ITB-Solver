@@ -2101,11 +2101,13 @@ def t_WeaponBurstBeamAllyPower():
     b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
     b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b))
     b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    b.board[(6, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
     assert b.board[(1, 1)].unit.currenthp == 3
     assert b.board[(2, 1)].unit == None
     assert b.board[(3, 1)].unit.currenthp == 5
     assert b.board[(4, 1)].unit.currenthp == 2
     assert b.board[(5, 1)].unit.type == 'mountain'
+    assert b.board[(6, 1)].unit.currenthp == 5
     b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert b.board[(2, 1)].unit == None # still nothing here
@@ -2113,6 +2115,7 @@ def t_WeaponBurstBeamAllyPower():
     assert b.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
     assert b.board[(4, 1)].unit.currenthp == 2 # friendly took NO damage
     assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+    assert b.board[(6, 1)].unit.currenthp == 5 # this vek was saved by the mountain
 
 def t_WeaponBurstBeamDamagePower():
     "Do the weapon demo with extra damage powered"
@@ -2279,6 +2282,37 @@ def t_WeaponRammingEnginesOverChasm():
     assert b.board[(5, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
     assert b.board[(2, 1)].effects == set()  # normal chasm tile
 
+def t_WeaponRammingEnginesShield():
+    "A shielded unit that uses ramming engines takes no self-damage."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=True, power2=True), effects={Effects.SHIELD}))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 1 # vek pushed here took 4 damage
+
+def t_WeaponRammingEnginesMiss():
+    "if ramming engine doesn't hit a unit, it doesn't take self damage."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=True, power2=True)))
+    b.board[(1, 1)].replaceTile(Tile_Forest(b))
+    b.board[(8, 1)].replaceTile(Tile_Forest(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(8, 1)].effects == set()
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None  # wielder moved
+    assert b.board[(8, 1)].unit.currenthp == 3  # wielder took 0 damage
+    assert b.board[(1, 1)].effects == set() # original forest tile didn't take damage
+    assert b.board[(8, 1)].effects == set() # destination forest tile undamaged as well
+
+
 def t_NoOffBoardShotsGenCorner():
     "test noOffBoardShotsGen by putting a unit in a corner"
     b = GameBoard()
@@ -2428,14 +2462,99 @@ def t_WeaponAttractionPulseFullPower():
     assert b.board[(3, 1)].unit.effects == set() # pulled 1 square closer
     assert b.board[(3, 1)].unit.currenthp == 5 # vek lost 0 hp
 
+def t_WeaponAttractionPulseBump():
+    "Attraction pulse does not set fire to forest tile if you pull another unit into you for bump damage."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_AttractionPulse(power1=True, power2=True)))
+    b.board[(2, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    for x in 1, 2:
+        b.board[(x, 1)].replaceTile(Tile_Forest(b))
+    assert b.board[(1, 1)].effects == set()
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 2
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].effects == set() # no fire
+    assert b.board[(1, 1)].unit.effects == set()
+    assert b.board[(1, 1)].unit.currenthp == 1 # took 1 damage
+    assert b.board[(2, 1)].effects == set() # no fire
+    assert b.board[(2, 1)].unit.effects == set()
+    assert b.board[(2, 1)].unit.currenthp == 4 # vek lost 1 hp from bump
+
+def t_WeaponShieldProjectorDefaultPower():
+    "Maiden test of the shield projector with no upgrade power"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_ShieldProjector(power1=False, power2=False)))
+    b.board[(2, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(2, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    for x in range(1, 6):
+        for y in range(1, 3):
+            assert b.board[(x, y)].unit.effects == set()
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 1)].unit.effects == set()  # no change
+    assert b.board[(2, 1)].unit.effects == set() # shot over this one
+    assert b.board[(3, 1)].unit.effects == {Effects.SHIELD}
+    assert b.board[(4, 1)].unit.effects == {Effects.SHIELD}
+    assert b.board[(5, 1)].unit.effects == set()
+    assert b.board[(1, 2)].unit.effects == set()  # no change to anything in the 2nd row
+    assert b.board[(2, 2)].unit.effects == set()
+    assert b.board[(3, 2)].unit.effects == set()
+    assert b.board[(4, 2)].unit.effects == set()
+    assert b.board[(5, 2)].unit.effects == set()
+
+def t_WeaponShieldProjectorPower2():
+    "Shield Projector with power2"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_ShieldProjector(power1=True, power2=True))) # power1 is ignored
+    b.board[(2, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(2, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(5, 2)].putUnitHere(Unit_Alpha_Scorpion(b))
+    for x in range(1, 6):
+        for y in range(1, 3):
+            assert b.board[(x, y)].unit.effects == set()
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 1)].unit.effects == set()  # no change
+    assert b.board[(2, 1)].unit.effects == {Effects.SHIELD} # shot over this one but he got shielded anyway
+    assert b.board[(3, 1)].unit.effects == {Effects.SHIELD}
+    assert b.board[(4, 1)].unit.effects == {Effects.SHIELD}
+    assert b.board[(5, 1)].unit.effects == set()
+    assert b.board[(1, 2)].unit.effects == set()
+    assert b.board[(2, 2)].unit.effects == set()
+    assert b.board[(3, 2)].unit.effects == {Effects.SHIELD}
+    assert b.board[(4, 2)].unit.effects == set()
+    assert b.board[(5, 2)].unit.effects == set()
+
+def t_WeaponShieldProjectorGen():
+    "Test the generator for the shield projector."
+    b = GameBoard()
+    b.board[(5, 5)].putUnitHere(Unit_Defense_Mech(b, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
+    g = b.board[(5, 5)].unit.weapon1.genShots()
+    assert next(g) == (Direction.UP, 2) # generator generates what we expect
+    b.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
+    try:
+        next(g)
+    except StopIteration:
+        pass # what we expect
+    else:
+        assert False # ya fucked up
+
 ########### write tests for these:
-# do a test of each unit to verify they have the proper attributes by default.
-# changing tiles doesn't necessarily remove emerging vek. the terraformer transforms from ground to sand and it remains.
-# shield tank is beam ally
-# attraction pulse does not set fire to forest tile if you pull another unit into you for bump damage.
-# mines are not beam friendly
-# if ramming engine wielder has a shield, it doesn't take self damage. even when taking 2 self damage.
-# if ramming engine doesn't hit a unit, it doesn't take self damage.
+
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -2469,6 +2588,7 @@ def t_WeaponAttractionPulseFullPower():
 # Shield tank: first power gives it 2 hp, second power makes it shoot a projectile that gives shields. has 1 hp by default.
 # Satellite launches happen after enemy attacks.
 # robots do not benefit from psion vek passives such as explosive.
+# If a vek is attacking the tile in front of him and he's moved to the edge of the board so he can't hit a tile in front of him, his attack is cancelled.
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.

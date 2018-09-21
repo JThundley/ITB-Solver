@@ -1683,6 +1683,65 @@ class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquar
             except KeyError:
                 pass # tried to shield off the board
 
+class Weapon_ViceFist(Weapon_getRelSquare_Base):
+    "The default weapon for the Judo mech"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.allyimmune = True
+        else:
+            self.allyimmune = False
+        if power2:
+            self.damage += 2
+    def genShots(self):
+        "Yield squares next to the wieldingunit that have units on them. Empty squares can't be attacked."
+        for dir in Direction.gen():
+            try:
+                if self.gboard.board[self._getRelSquare(dir, 1)].unit and Attributes.STABLE not in self.gboard.board[self._getRelSquare(dir, 1)].unit and not self.gboard.board[self._getRelSquare(Direction.opposite(dir), 1)].unit:
+                    # if there is a unit one square in direction from wielder and it's not stable and there is NO unit on the other side of the wielder...
+                    yield dir
+            except KeyError: # either the target square or the destination square was off the board
+                pass
+    def shoot(self, direction):
+        destsquare = self._getRelSquare(Direction.opposite(direction), 1) # where the tossed unit lands
+        self.gboard.board[self._getRelSquare(direction, 1)].moveUnit(destsquare) # move the unit from the attack direction to the other side of the wielder
+        try:
+            if self.allyimmune and self.gboard.board[destsquare].unit.alliance == Alliance.FRIENDLY:
+                pass # no damage to friendlies if allies are immune
+            else:
+                self.gboard.board[destsquare].takeDamage(self.damage)
+        except AttributeError: # raised from None.alliance. This happens when you throw the unit into a chasm or such and it immediately dies
+            pass # unit died, no point in damaging the tile that killed it.
+
+class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPush_Base):
+    "Default weapon for Siege Mech."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.buildingsimmune = True
+        else:
+            self.buildingsimmune = False
+        if power2:
+            self.damage += 1
+    def shoot(self, direction, distance):
+        targetsquare = self._getRelSquare(direction, distance) # indicates where the shot landed. Nothing actually happens on this tile for this weapon, it's all around it instead.
+        for d in Direction.gen():
+            currenttargetsquare = self.gboard.board[targetsquare].getRelSquare(d, 1) # set the square we're working on
+            try:
+                if self.buildingsimmune and self.gboard.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
+                    pass # don't damage it
+                else: # there was a unit and it was not a building or there was a building that's not immune
+                    self._hurtAndPush(currenttargetsquare, d)
+            except (KeyError, AttributeError): # KeyError raised from currentsquare being False, self.gboard.board[False]. AttributeError raised from None.isBuilding()
+                pass # this square was off the board
+
+class Weapon_GravWell(Weapon_Artillery_Base):
+    "Default first weapon for Gravity Mech"
+    def __init__(self, power1=False, power2=False):
+        pass # grav well can't be upgraded at all
+    def shoot(self, direction, distance):
+        self.gboard.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
+
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.
     When building chain is not powered (power1), you cannot hurt buildings or chain through them with this at all.

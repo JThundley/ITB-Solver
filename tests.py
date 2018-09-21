@@ -2553,6 +2553,167 @@ def t_WeaponShieldProjectorGen():
     else:
         assert False # ya fucked up
 
+def t_WeaponViceFistNoPower():
+    "Test the Vice Fist with no power"
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=False, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 4
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None
+
+def t_WeaponViceFistPower1():
+    "Test the Vice Fist with power1"
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=True, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 4 # no additional effect since this was an enemy
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None
+
+def t_WeaponViceFistPower2():
+    "Test the Vice Fist with power1"
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=False, power2=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 2 # took additional damage
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None
+
+def t_WeaponViceFistPower1Friendly():
+    "Test the Vice Fist with power1 and a friendly unit"
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=True, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Siege_Mech(b))
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 2
+    b.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 2 # friendly unit took no damage
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None
+
+def t_WeaponViceFistPower1FriendlyChasm():
+    "Test the Vice Fist with power1 and a friendly unit, but kill the unit by throwing it into a chasm"
+    b = GameBoard()
+    b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=True, power2=False)))
+    b.board[(3, 1)].putUnitHere(Unit_Siege_Mech(b))
+    b.board[(1, 1)].replaceTile(Tile_Chasm(b))
+    assert b.board[(1, 1)].unit == None
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 2
+    b.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # friendly unit died in the chasm
+    assert b.board[(2, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit == None
+
+def t_WeaponClusterArtilleryNoPower():
+    "Default power test for Cluster Artillery"
+    b = GameBoard()
+    b.board[(1, 3)].putUnitHere(Unit_Siege_Mech(b, weapon1=Weapon_ClusterArtillery(power1=False, power2=False)))
+    b.board[(3, 3)].putUnitHere(Unit_Building(b))
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 4)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1 # building
+    assert b.board[(4, 3)].unit.currenthp == 5
+    assert b.board[(3, 4)].unit.currenthp == 5
+    b.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1  # building
+    assert b.board[(4, 3)].unit == None # vek pushed
+    assert b.board[(5, 3)].unit.currenthp == 4 # took 1 damage
+    assert b.board[(3, 4)].unit == None # vek pushed
+    assert b.board[(3, 5)].unit.currenthp == 4 # took 1 damage
+
+def t_WeaponClusterArtilleryPower1():
+    "power1 test for Cluster Artillery"
+    b = GameBoard()
+    b.board[(1, 3)].putUnitHere(Unit_Siege_Mech(b, weapon1=Weapon_ClusterArtillery(power1=True, power2=False)))
+    b.board[(3, 3)].putUnitHere(Unit_Building(b))
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 4)].putUnitHere(Unit_Building(b))
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1 # building
+    assert b.board[(4, 3)].unit.currenthp == 5
+    assert b.board[(3, 4)].unit.currenthp == 1 # attacked building
+    b.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1  # building
+    assert b.board[(4, 3)].unit == None # vek pushed
+    assert b.board[(5, 3)].unit.currenthp == 4 # took 1 damage
+    assert b.board[(3, 4)].unit.currenthp == 1  # attacked building took no damage
+
+def t_WeaponClusterArtilleryFullPower():
+    "full power test for Cluster Artillery"
+    b = GameBoard()
+    b.board[(1, 3)].putUnitHere(Unit_Siege_Mech(b, weapon1=Weapon_ClusterArtillery(power1=True, power2=True)))
+    b.board[(3, 3)].putUnitHere(Unit_Building(b))
+    b.board[(4, 3)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 4)].putUnitHere(Unit_Building(b))
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1 # building
+    assert b.board[(4, 3)].unit.currenthp == 5
+    assert b.board[(3, 4)].unit.currenthp == 1 # attacked building
+    b.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 3)].unit.currenthp == 2
+    assert b.board[(3, 3)].unit.currenthp == 1  # building
+    assert b.board[(4, 3)].unit == None # vek pushed
+    assert b.board[(5, 3)].unit.currenthp == 3 # took 2 damage
+    assert b.board[(3, 4)].unit.currenthp == 1  # attacked building took no damage
+
+def t_WeaponGravWellNormal():
+    "default test for grav well"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Gravity_Mech(b, weapon1=Weapon_GravWell(power1=True, power2=True))) # this weapon doesn't have power upgrades
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 1)].unit.currenthp == 3 # untouched wielder
+    assert b.board[(3, 1)].unit == None # vek pushed
+    assert b.board[(2, 1)].unit.currenthp == 5 # to here with no damage
+
+def t_WeaponGravWellStable():
+    "grav well can't pull stable units"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Gravity_Mech(b, weapon1=Weapon_GravWell(power1=True, power2=True))) # this weapon doesn't have power upgrades
+    b.board[(3, 1)].putUnitHere(Unit_Mountain(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 1
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 1)].unit.currenthp == 3 # untouched wielder
+    assert b.board[(3, 1)].unit.currenthp == 1 # mountain not moved and undamaged
+    assert b.board[(3, 1)].unit.type == 'mountain'
+
+def t_WeaponGravWellBump():
+    "grav well pulls vek into a mountain"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Gravity_Mech(b, weapon1=Weapon_GravWell(power1=True, power2=True))) # this weapon doesn't have power upgrades
+    b.board[(2, 1)].putUnitHere(Unit_Mountain(b))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit.currenthp == 1
+    assert b.board[(2, 1)].unit.type == 'mountain'
+    assert b.board[(3, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    assert b.board[(1, 1)].unit.currenthp == 3 # untouched wielder
+    assert b.board[(3, 1)].unit.currenthp == 4 # vek pushed and bumped for 1 damage
+    assert b.board[(2, 1)].unit.currenthp == 1 # damage mountain now
+    assert b.board[(2, 1)].unit.type == 'mountaindamaged'
+
 ########### write tests for these:
 
 

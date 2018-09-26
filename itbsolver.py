@@ -93,6 +93,28 @@ Alliance = Constant(thegen, (
     'ENEMY', # but not these
     'NEUTRAL')) # not these either
 
+# Passives = Constant(thegen, (
+#     'FLAMESHIELDING',
+#     'STORMGENERATOR',
+#     'STORMGENERATOR1', # this is for a storm generator with 1 power upgrade
+#     'VISCERANANOBOTS',
+#     'VISCERANANOBOTS1',
+#     'NETWORKEDARMOR',
+#     'NETWORKEDARMOR1',
+#     'REPAIRFIELD',
+#     'AUTO-SHIELDS',
+#     'STABILIZERS',
+#     'PSIONICRECEIVER',
+#     'KICKOFFBOOSTERS',
+#     'KICKOFFBOOSTERS1',
+#     'MEDICALSUPPLIES',
+#     'VEKHORMONES',
+#     'VEKHORMONES1',
+#     'VEKHORMONES2',
+#     'FORCEAMP',
+#     'AMMOGENERATOR',
+#     'CRITICALSHIELDS'))
+
 # don't need these anymore
 del Constant
 del numGen
@@ -141,6 +163,8 @@ class GameBoard():
         else:
             self.vekemerge = Environ_VekEmerge()
         self.vekemerge.gboard = self
+        self.playerpassives = set() # a set of passive effects being applied to the player's mechs
+        self.vekpassives = set()
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -884,9 +908,9 @@ class Unit_EarthMover(Sub_Unit_Base):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
-        self.beamally = False
+        self.beamally = True
 
-class Unit_PrototypeBomb(Unit_Base):
+class Unit_PrototypeRenfieldBomb(Unit_Base):
     def __init__(self, gboard, type='prototypebomb', currenthp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
@@ -894,6 +918,12 @@ class Unit_PrototypeBomb(Unit_Base):
         self.attributes.add(Attributes.IMMUNEFIRE)
         self.beamally = True
 
+class Unit_RenfieldBomb(Unit_Base):
+    def __init__(self, gboard, type='renfieldbomb', currenthp=4, maxhp=4, attributes=None, effects=None):
+        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.alliance = Alliance.NEUTRAL
+        self.attributes.add(Attributes.IMMUNEFIRE)
+        self.beamally = True
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################
@@ -1588,11 +1618,13 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
         archive tank
         train
         prototype renfield bombs
+        normal renfield bombs
         earth mover
         acid launcher
     The following friendly units DO take damage from the beam:
         satellite rocket
-        acid vat"""
+        acid vat
+        dam"""
     def __init__(self, power1=False, power2=False):
         self.damage = 3
         if power1:
@@ -1604,21 +1636,29 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
     def shoot(self, direction):
         relsquare = 1 # start 1 square from the wielder
         currentdamage = self.damage # damage being dealt as the beam travels. This decreases the further we go until we reach 1
+        hurtunits = [] # a list of units we hurt so we can later allow them to die all at the same time. If we don't do this, it's possible to kill an armor psion first and then kill another vek after armor has been removed.
+        # This isn't the way it works in-game so we don't want that.
         while True:
             try:
                 targettile = self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
             except KeyError: # self.gboard.board[False] means we went off the board
-                return # no more pew pew
+                break # no more pew pew
             if self.allyimmune and self.isBeamAlly(targettile.unit):
                 pass # no damage
             else:
-                targettile.takeDamage(currentdamage) # damage the tile
-            if self.blocksBeamShot(targettile.unit):
-                return # no more pew pew
+                targettile.takeDamage(currentdamage, preventdeath=True) # damage the tile
+                hurtunits.append(targettile.unit)
+            if self.blocksBeamShot(targettile.unit): # no more pew pew
+                break
             currentdamage -= 1
             if currentdamage < 1:
                 currentdamage = 1
             relsquare += 1
+        for hu in reversed(hurtunits): # now let the units die
+            try:
+                hu._allowDeath()
+            except AttributeError:  # None._allowDeath()
+                pass
     def isBeamAlly(self, unit):
         "return True if unit is considered an ally to the beam weapon when it has the first upgrade powered."
         try:
@@ -1742,6 +1782,23 @@ class Weapon_GravWell(Weapon_Artillery_Base):
     def shoot(self, direction, distance):
         self.gboard.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
 
+# TODO Weapon_VekHormones()
+
+class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base):
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        if power1:
+            self.gainshield = True
+        else:
+            self.gainshield = False
+        if power2:
+            self.damage += 1
+    def shoot(self, direction):
+        self.gboard.board[self._getRelSquare(direction, 1)].takeDamage(self.damage)
+        # TODO: Implement direction flipping!
+        if self.gainshield:
+            self.wieldingunit.applyShield()
+
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.
     When building chain is not powered (power1), you cannot hurt buildings or chain through them with this at all.
@@ -1763,11 +1820,17 @@ class Weapon_ElectricWhip():
         self.hitsquares = [False, self.wieldingunit.square]  # squares that have already been hit so we don't travel back through them in circles.
         # False is included because getRelSquare will return False when you go off the board. We can use this in the branching logic to tell it that anything off the board has been visited.
         # we also include the unit that shot the weapon since you can NEVER chain through yourself!
+        hurtunits = []
         self.branchChain(backwards=Direction.opposite(direction), targetsquare=self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1))
         # done with the recursive method, now skip False and and the wielder's square and make all the units that need to take damage take damage
         for hs in self.hitsquares[2:]:
             if self.gboard.board[hs].unit.type not in ('building', 'buildingobjective'): # don't damage buildings. If they're here they're already not effected.
-                self.gboard.board[hs].takeDamage(self.damage)
+                self.gboard.board[hs].takeDamage(self.damage, preventdeath=True)
+        for hu in reversed(hurtunits):
+            try:
+                hu._allowDeath()
+            except AttributeError:
+                pass
     def genShots(self):
         for dir in Direction.gen():
             if self.unitIsChainable(self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(dir, 1)].unit):

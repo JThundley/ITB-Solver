@@ -2169,6 +2169,7 @@ def t_ExplosiveUnitDies():
     assert b.board[(3, 1)].unit.currenthp == 2 # defense mech
     assert b.board[(2, 2)].unit.currenthp == 3 # vek to take damage from explosion
     b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    print(b.board[(1, 1)])
     assert b.board[(1, 1)].unit.currenthp == 2  # laser mech took damage from explosion
     assert b.board[(2, 1)].unit == None  # explosive vek died and exploded
     assert b.board[(3, 1)].unit.type == 'mechcorpse'  # defense mech died from shot, then the corpse got exploded on
@@ -2226,7 +2227,7 @@ def t_WeaponRammingEnginesFullPower():
     assert b.board[(3, 1)].unit == None # vek pushed off this tile
     assert b.board[(4, 1)].unit.currenthp == 1 # vek pushed here took 4 damage
 
-def t_WeaponRammingEnginesDefaultTileDamage():
+def t_WeaponRammingEnginesTileDamage():
     "Do the weapon demo with no powered upgrades but on sand tiles to make sure they get damaged"
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
@@ -2247,6 +2248,29 @@ def t_WeaponRammingEnginesDefaultTileDamage():
     assert b.board[(1, 1)].effects == set() # this one untouched
     assert b.board[(2, 1)].effects == {Effects.SMOKE} # these 2 got smoked from the self damage
     assert b.board[(3, 1)].effects == {Effects.SMOKE} # and vek getting hit
+
+def t_WeaponRammingEnginesShieldedTileDamage():
+    "Do the weapon demo with no powered upgrades but on sand tiles with a shield to make sure they don't get damaged"
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+    b.board[(1, 1)].applyShield()
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].replaceTile(Tile_Sand(b))
+    b.board[(2, 1)].replaceTile(Tile_Sand(b))
+    b.board[(3, 1)].replaceTile(Tile_Sand(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(1, 1)].effects == set() # sand tiles are all normal
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].effects == set()
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit == None # wielder moved
+    assert b.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
+    assert b.board[(3, 1)].unit == None # vek pushed off this tile
+    assert b.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+    assert b.board[(1, 1)].effects == set() # this one untouched
+    assert b.board[(2, 1)].effects == set() # this sand tile took no damage since the mech was shielded
+    assert b.board[(3, 1)].effects == {Effects.SMOKE} # this one does take damage because this is where the vek got hit
 
 def t_WeaponRammingEnginesIntoChasm():
     "Charge but stop at a chasm and die in it"
@@ -2715,7 +2739,9 @@ def t_WeaponGravWellBump():
     assert b.board[(2, 1)].unit.type == 'mountaindamaged'
 
 ########### write tests for these:
-
+# If you shield a beam ally (train) with allies immune and then shoot it, the shield remains.
+# if a mech with ramming engine is shielded and then rams something and stops on a forest tile, the shield takes the damage and the forest does not take any damage and catch fire.
+# shielded blobber bombs still explode normally
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -2753,7 +2779,8 @@ def t_WeaponGravWellBump():
 
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
-# replacing tiles with emerging vek typically gets rid of the emerging vek. e.g. the dam replacing emerging ground tiles with water tiles, cataclysm replacing them with chasm tiles, etc.
+# the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
+# blobbers will move out of smoke and throw out a bomb after you take your turn.
 
 ########## Research these:
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.

@@ -10,6 +10,27 @@ def runTest(funcname):
     globals()[funcname]()
     print('PASSED')
 
+def testTheTests():
+    "Test this tests file to look for common errors."
+    funcs = set()
+    docstrings = set()
+    commentisnext = False
+    for line in open('tests.py'):
+        if line.startswith('def '):
+            commentisnext = True
+            funcname = line.split()[1].split('()')[0]
+            if funcname in funcs:
+                print("Duplicate function detected:", funcname)
+            funcs.add(funcname)
+        elif commentisnext:
+            docstring = line.strip()
+            if not docstring or not docstring.startswith('"'):
+                print("Blank docstring for", funcname)
+            elif docstring in docstrings:
+                print("Duplicate docstring detected:", docstring)
+            docstrings.add(line.strip())
+            commentisnext = False
+
 def t_BumpDamage():
     "2 units bump into each other and take 1 damage each."
     b = GameBoard()
@@ -239,12 +260,12 @@ def t_FlyingDoesntGetAcidFromAcidWater():
     assert b.board[(1, 1)].unit.effects == set()
 
 def t_IceDoesntEffectAcidPool():
-  "If a tile with acid on it is frozen, nothing happens. The acid remains."
-  b = GameBoard()
-  b.board[(1, 1)].applyAcid()
-  assert b.board[(1, 1)].effects == {Effects.ACID}
-  b.board[(1, 1)].applyIce()
-  assert b.board[(1, 1)].effects == {Effects.ACID}
+    "If a tile with acid on it is frozen, nothing happens. The acid remains."
+    b = GameBoard()
+    b.board[(1, 1)].applyAcid()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
+    b.board[(1, 1)].applyIce()
+    assert b.board[(1, 1)].effects == {Effects.ACID}
 
 def t_IceDoesNothingToLava():
     "Lava is unfreezable."
@@ -305,6 +326,7 @@ def t_MountainTileCantGainAcid():
     assert b.board[(1, 1)].unit.effects == set()
 
 def t_IceGroundUnitDiesInChasm():
+    "A frozen unit dies in a chasm."
     b = GameBoard()
     b.board[(1, 1)].replaceTile(Tile_Chasm(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle_Leader(b))
@@ -335,6 +357,7 @@ def t_IceFlyingUnitDiesInChasm():
     assert b.board[(1, 2)].unit == None
 
 def t_AcidPutsOutTileFire():
+    "When a tile gets acid, it removes the fire from the tile."
     b = GameBoard()
     b.board[(1, 1)].applyFire()
     assert b.board[(1, 1)].effects == {Effects.FIRE}
@@ -358,6 +381,7 @@ def t_AcidFromDeadUnitPutsOutTileFire():
     assert b.board[(1, 1)].unit == None
 
 def t_RockWithAcidLeavesAcidWhenKilled():
+    "A rock leaves acid when killed just like a vek"
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Rock(b))
     assert b.board[(1, 1)].effects == set()
@@ -847,7 +871,7 @@ def t_MechCorpseCantBeIced():
     assert b.board[(1, 1)].unit.effects == set()
 
 def t_MechCorpseSpreadsFire():
-    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
+    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water. Here we test fire."
     b = GameBoard()
     b.board[(2, 1)].replaceTile( Tile_Forest(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
@@ -867,7 +891,7 @@ def t_MechCorpseSpreadsFire():
     assert b.board[(2, 1)].unit.effects == {Effects.FIRE}
 
 def t_MechCorpseSpreadsAcid():
-    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water."
+    "Even though in the game it doesn't show mech corpses as having fire or acid, they do as evidenced by spreading of fire to forests and acid to water. Here we test acid"
     b = GameBoard()
     b.board[(2, 1)].replaceTile( Tile_Water(b))
     b.board[(1, 1)].putUnitHere(Unit_Mech_Corpse(b))
@@ -1371,7 +1395,7 @@ def t_RevivedMechCorpsesKeepAcidButNotFire():
     assert b.board[(2, 1)].unit.type == 'cannon'
 
 def t_ReviveMechCorpseKeepsAcidGetsFireFromTile():
-    "When a mech corpse is repaired back to life, it keeps acid if it had it before. If the mech died with fire, it is revived without fire (assuming it's not on a fire tile. The revived unit will be on fire if revived on a fire tile)."
+    "When a mech corpse is repaired back to life, it keeps acid if it had it before. In this test we get fire from the tile we were revived on."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Jet_Mech(b))
     assert b.board[(1, 1)].effects == set()
@@ -1390,6 +1414,7 @@ def t_ReviveMechCorpseKeepsAcidGetsFireFromTile():
     assert b.board[(1, 1)].unit.type == 'jet'
 
 def t_IceStormEnvironmental():
+    "Test an ice storm."
     b = GameBoard(environmentaleffect=Environ_IceStorm({(x,y) for x in range(1, 5) for y in range(1, 5)}))
     b.board[(1, 1)].putUnitHere(Unit_Jet_Mech(b))
     b.board[(2, 1)].replaceTile(Tile_Water(b))
@@ -1406,6 +1431,7 @@ def t_IceStormEnvironmental():
     assert b.board[(3, 1)].effects == set()
 
 def t_AirStrikeEnvironmental():
+    "test an airstrike"
     b = GameBoard(environmentaleffect=Environ_AirStrike({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
     b.board[(1, 2)].putUnitHere(Unit_Charge_Mech(b))
     b.board[(2, 3)].replaceTile(Tile_Water(b))
@@ -1451,6 +1477,7 @@ def t_LightningEnvironmental():
     assert b.board[(3, 2)].effects == {Effects.SMOKE}
 
 def t_TsunamiEnvironmental():
+    "test a tsunami"
     b = GameBoard(environmentaleffect=Environ_Tsunami(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Hook_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Scorpion(b))
@@ -1474,6 +1501,7 @@ def t_TsunamiEnvironmental():
     assert b.board[(1, 1)].type == 'ice'
 
 def t_CataclysmEnvironmental():
+    "test a cataclysm"
     b = GameBoard(environmentaleffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Mirror_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Acid_Scorpion(b))
@@ -1498,6 +1526,7 @@ def t_CataclysmEnvironmental():
     assert b.board[(1, 1)].type == 'chasm'
 
 def t_FallingRockEnvironmental():
+    "test falling rocks from the volcano level."
     b = GameBoard(environmentaleffect=Environ_FallingRock(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Unstable_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
@@ -1522,6 +1551,7 @@ def t_FallingRockEnvironmental():
     assert b.board[(1, 1)].type == 'ground'
 
 def t_TentaclesEnvironmental():
+    "test the tentacles."
     b = GameBoard(environmentaleffect=Environ_Tentacles(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Artillery_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
@@ -1546,6 +1576,7 @@ def t_TentaclesEnvironmental():
     assert b.board[(1, 1)].type == 'lava'
 
 def t_LavaFlowEnvironmental():
+    "test the lava flow environmental"
     b = GameBoard(environmentaleffect=Environ_LavaFlow(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Rocket_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
@@ -1570,6 +1601,7 @@ def t_LavaFlowEnvironmental():
     assert b.board[(1, 1)].type == 'lava'
 
 def t_VolcanicProjectileEnvironmental():
+    "test volcanic projectile"
     b = GameBoard(environmentaleffect=Environ_VolcanicProjectile(((1, 1), (2, 1), (3, 1))))
     b.board[(1, 1)].putUnitHere(Unit_Boulder_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Alpha_Firefly(b))
@@ -1594,6 +1626,7 @@ def t_VolcanicProjectileEnvironmental():
     assert b.board[(1, 1)].type == 'ground'
 
 def t_VekEmergeEnvironmental():
+    "test vek emerging environmental"
     b = GameBoard(vekemerge=Environ_VekEmerge([(1, 1), (2, 1), (3, 1), (4, 1)]))
     b.board[(1, 1)].putUnitHere(Unit_Siege_Mech(b))
     b.board[(2, 1)].putUnitHere(Unit_Leaper(b))
@@ -1653,7 +1686,7 @@ def t_TsunamiEnvironmentalReplaceTile():
     assert b.board[(3, 1)].type == 'water'
 
 def t_ConveyorBeltsEnviron():
-    "make sure that when Tsunami replaces tiles with water, they are in fact different tile objects and not the same one."
+    "make sure that converyor belts works."
     b = GameBoard(environmentaleffect=Environ_ConveyorBelts({(1, x): Direction.UP for x in range(1, 9)})) # all tiles against the left border pushing up
     b.board[(1, 1)].putUnitHere(Unit_Meteor_Mech(b))
     b.board[(1, 2)].putUnitHere(Unit_Beetle(b))
@@ -1805,7 +1838,7 @@ def t_HurtAndPushedVekRemovesMine():
     assert b.board[(3, 1)].type == 'ground' # still a forest? lol
 
 def t_HurtAndPushedVekRemovesFreezeMine():
-    "This is also testing the concept of the vek corpse. A vek is punched for 4 damage so it's killed, but it's fake corpse is pushed to a tile with a mine. The mine trips and then the unit and mine are gone."
+    "This is also testing the concept of the vek corpse. A vek is punched for 4 damage so it's killed, but it's fake corpse is pushed to a tile with a freeze mine. The mine trips and then the unit and mine are gone."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
     b.board[(2, 1)].putUnitHere(Unit_Firefly(b))
@@ -1846,7 +1879,7 @@ def t_MechMovesToMine():
     assert b.board[(2, 1)].unit.type == 'mechcorpse' # ol' punchbot died
 
 def t_MechMovesToFreezeMine():
-    "Make sure mines work"
+    "Make sure freezemines work"
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Combat_Mech(b, weapon1=Weapon_TitanFist(power2=True)))
     b.board[(2, 1)].effects.add(Effects.FREEZEMINE)
@@ -1906,8 +1939,8 @@ def t_WeaponElectricWhipLowPower():
     assert b.board[(8, 1)].unit.currenthp == 6  # safe spider 1
     assert b.board[(3, 8)].unit.currenthp == 6  # safe spider 2
 
-def t_WeaponElectricWhipBuildingChainPower():
-    "Shoot the electric whip without building chain or extra damage powered and make sure it goes through units it should and not through units it shouldn't."
+def t_WeaponElectricWhipBuildingChainHighPower():
+    "Shoot the electric whip with extra damage powered and make sure it goes through units it should and not through units it shouldn't."
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Lightning_Mech(b, weapon1=Weapon_ElectricWhip(power1=True)))
     for x in range(2, 7): # spider bosses on x tiles 2-6
@@ -2117,6 +2150,30 @@ def t_WeaponBurstBeamAllyPower():
     assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
     assert b.board[(6, 1)].unit.currenthp == 5 # this vek was saved by the mountain
 
+def t_WeaponBurstBeamShieldedAllyPower():
+    "If you shield a beam ally with allies immune and then shoot it, the shield remains."
+    b = GameBoard()
+    b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam(power1=True)))
+    b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].putUnitHere(Unit_Defense_Mech(b, effects={Effects.SHIELD}))
+    b.board[(5, 1)].putUnitHere(Unit_Mountain(b))
+    b.board[(6, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].unit.currenthp == 3
+    assert b.board[(2, 1)].unit == None
+    assert b.board[(3, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 2
+    assert b.board[(5, 1)].unit.type == 'mountain'
+    assert b.board[(6, 1)].unit.currenthp == 5
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    assert b.board[(1, 1)].unit.currenthp == 3 # wielder untouched
+    assert b.board[(2, 1)].unit == None # still nothing here
+    assert b.board[(2, 1)].effects == set()
+    assert b.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 2 # friendly took NO damage
+    assert b.board[(4, 1)].unit.effects == {Effects.SHIELD}  # friendly still has shield
+    assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+    assert b.board[(6, 1)].unit.currenthp == 5 # this vek was saved by the mountain
+
 def t_WeaponBurstBeamDamagePower():
     "Do the weapon demo with extra damage powered"
     b = GameBoard()
@@ -2138,7 +2195,7 @@ def t_WeaponBurstBeamDamagePower():
     assert b.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
 
 def t_WeaponBurstBeamFullPower():
-    "Do the weapon demo with ally immune powered"
+    "Do the weapon demo with ally immune and extra damage powered"
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Laser_Mech(b, weapon1=Weapon_BurstBeam(power1=True, power2=True)))
     b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
@@ -2352,7 +2409,7 @@ def t_NoOffBoardShotsGenCorner():
         assert False # we got another direction?
 
 def t_NoOffBoardShotsGenSide():
-    "test noOffBoardShotsGen by putting a unit in a corner"
+    "test noOffBoardShotsGen by putting a unit against a side"
     b = GameBoard()
     b.board[(1, 2)].putUnitHere(Unit_Charge_Mech(b, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     g = b.board[(1, 2)].unit.weapon1.genShots()
@@ -2427,7 +2484,7 @@ def t_WeaponTaurusCannonPower2():
     assert b.board[(4, 1)].unit.currenthp == 3 # vek lost 2 hp
 
 def t_WeaponTaurusCannonFullPower():
-    "Shoot the Taurus Cannon with power1"
+    "Shoot the Taurus Cannon with full power"
     b = GameBoard()
     b.board[(1, 1)].putUnitHere(Unit_Cannon_Mech(b, weapon1=Weapon_TaurusCannon(power1=True, power2=True)))
     b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
@@ -2604,7 +2661,7 @@ def t_WeaponViceFistPower1():
     assert b.board[(3, 1)].unit == None
 
 def t_WeaponViceFistPower2():
-    "Test the Vice Fist with power1"
+    "Test the Vice Fist with power2"
     b = GameBoard()
     b.board[(2, 1)].putUnitHere(Unit_Judo_Mech(b, weapon1=Weapon_ViceFist(power1=False, power2=True)))
     b.board[(3, 1)].putUnitHere(Unit_Alpha_Scorpion(b))
@@ -2740,8 +2797,9 @@ def t_WeaponGravWellBump():
 
 ########### write tests for these:
 # If you shield a beam ally (train) with allies immune and then shoot it, the shield remains.
-# if a mech with ramming engine is shielded and then rams something and stops on a forest tile, the shield takes the damage and the forest does not take any damage and catch fire.
 # shielded blobber bombs still explode normally
+# If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
+# Janus cannon tests
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
@@ -2786,6 +2844,7 @@ def t_WeaponGravWellBump():
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket (leaves a corpse that is invincible and can't be pushed. It's friendly so you can move through it), earth mover.
 # what happens if lightning strikes a desert or forest tile with a vek with acid on it? Does it create smoke first, then kill the enemy, then drop the acid and convert the tile to a regular ground tile? Or does the acid drop first converting the tiel before it does anything?
+# Can mech corpses be revived after falling into a chasm?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
@@ -2820,3 +2879,4 @@ if __name__ == '__main__':
         runTest(test)
         testsrun += 1
     print(testsrun, "tests run successfully.")
+    testTheTests()

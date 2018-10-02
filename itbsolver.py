@@ -167,7 +167,7 @@ class GameBoard():
         self.playerunits = set() # All the units that the player has direct control over
         self.enemyunits = set() # all the enemy units
         self.hurtplayerunits = [] # a list of the player's units hurt by a single action. All units here must be checked for death after they all take damage and then this is reset.
-        self.hurtpsions = [] # a list of all psions that were damaged during a single action
+        self.hurtpsions = set() # a set of all psions that were damaged during a single action
         self.hurtenemies = [] # a list of all enemy units that were hurt during a single action. This includes robots
     def flushHurtUnits(self):
         "resolve the deaths of hurt units, killing any units that need killing. returns nothing. Psions are killed first, then your mechs, then vek/bots"
@@ -175,19 +175,25 @@ class GameBoard():
         # print("hurtplayerunits:", self.hurtplayerunits)
         # print("hurtpsions:", self.hurtpsions)
         while self.hurtenemies or self.hurtplayerunits or self.hurtpsions:
+            hpu = self.hurtplayerunits # make temporary stores so that if these units explode and deal more damage, the next wave of hurt units die in the correct order.
+            self.hurtplayerunits = []
+            he = self.hurtenemies
+            self.hurtenemies = []
+            # before doing this, it was possible to have a vek die and explode, killing a psion and another vek in the process. The next unit to die in game would be the psion,
+            # but in this script the vek would have died first since he was added to the list we were actively processing. We don't do this for psions since there can only be one on the field at once anyway
             while True:
                 try:
-                    self.hurtpsions.pop(0)._allowDeath()
+                    self.hurtpsions.pop()._allowDeath()
+                except KeyError:
+                    break
+            while True:
+                try:
+                    hpu.pop(0).explode()
                 except IndexError:
                     break
             while True:
                 try:
-                    self.hurtplayerunits.pop(0).explode()
-                except IndexError:
-                    break
-            while True:
-                try:
-                    self.hurtenemies.pop(0)._allowDeath()
+                    he.pop(0)._allowDeath()
                 except IndexError:
                     break
 ##############################################################################
@@ -1108,23 +1114,23 @@ class Unit_Alpha_Hornet(Unit_Enemy_Flying_Base):
     def __init__(self, gboard, type='alphahornet', currenthp=4, maxhp=4, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Soldier_Psion(Unit_Enemy_Flying_Base):
+class Unit_Soldier_Psion(Unit_Psion_Base):
     def __init__(self, gboard, type='soldierpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Shell_Psion(Unit_Enemy_Flying_Base):
+class Unit_Shell_Psion(Unit_Psion_Base):
     def __init__(self, gboard, type='shellpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Blood_Psion(Unit_Enemy_Flying_Base):
+class Unit_Blood_Psion(Unit_Psion_Base):
     def __init__(self, gboard, type='bloodpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Blast_Psion(Unit_Enemy_Flying_Base):
+class Unit_Blast_Psion(Unit_Psion_Base):
     def __init__(self, gboard, type='blastpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
-class Unit_Psion_Tyrant(Unit_Enemy_Flying_Base):
+class Unit_Psion_Tyrant(Unit_Psion_Base):
     def __init__(self, gboard, type='psiontyrant', currenthp=2, maxhp=2, effects=None, attributes=None):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 

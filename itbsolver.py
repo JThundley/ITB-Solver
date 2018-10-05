@@ -236,6 +236,12 @@ class Tile_Base(TileUnit_Base):
             self._tileTakeDamage() # Tile takes damage first.
         if self.gboard.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
             self.gboard.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) #  the non-garbage-collected unit that's no longer attached to the gameboard which is a waste.
+    def hasShieldedUnit(self):
+        "If there is a unit on this tile that is shielded, return True, return False otherwise."
+        try:
+            return Effects.SHIELD in self.unit.effects
+        except AttributeError:
+            return False
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
@@ -251,13 +257,12 @@ class Tile_Base(TileUnit_Base):
         self.effects.add(Effects.SMOKE)
     def applyIce(self):
         "apply ice to the tile and unit."
-        if self.unit: # if there's a unit...
-            if Effects.SHIELD not in self.unit.effects: # that's not shielded...
-                self.removeEffect(Effects.FIRE) # remove fire from the tile
+        if not self.hasShieldedUnit():
+            self.removeEffect(Effects.FIRE) # remove fire from the tile
+            try:
                 self.unit.applyIce() # give the unit ice
-            # nothing happens to the tile or unit if a unit with a shield is present.
-        else: # no unit
-            self.removeEffect(Effects.FIRE) # just remove fire from the tile
+            except AttributeError: # None.applyIce()
+                pass
     def applyAcid(self):
         try:
             self.unit.applyAcid()
@@ -293,6 +298,7 @@ class Tile_Base(TileUnit_Base):
                 self.removeEffect(Effects.ACID)
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
+        pass
     def putUnitHere(self, unit):
         """Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit.
         If there's a unit already on the tile, it's overwritten and deleted. returns nothing."""
@@ -450,7 +456,9 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         super().__init__(gboard, square, type, effects=effects)
     def applyIce(self):
         "replace the tile with ice and give ice to the unit if present."
-        self.gboard.board[self.square].replaceTile(Tile_Ice(self.gboard))
+        if not self.hasShieldedUnit():
+            self.gboard.board[self.square].replaceTile(Tile_Ice(self.gboard))
+            self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -466,6 +474,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
             return
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
+        pass
     def repair(self, hp):
         "acid cannot be removed from water or ice by repairing it. There can't be any fire to repair either."
         if self.unit:
@@ -482,9 +491,6 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
             self.unit.applyFire()
         except AttributeError:
             return # but not the tile. Fire does NOT remove smoke from a water tile!
-    def applyIce(self):
-        super().applyIce()
-        self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile.
     def applyAcid(self):
         try:
             self.unit.applyAcid()
@@ -1009,7 +1015,7 @@ class Unit_Psion_Base(Unit_Enemy_Flying_Base):
         super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
-        self.gboard.hurtpsions.append(self)  # add it to the queue of units to be killed at the same time
+        self.gboard.hurtpsions.add(self)  # add it to the queue of units to be killed at the same time
         super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Burrower_Base(Unit_EnemyNonPsion_Base):
@@ -1457,7 +1463,8 @@ class Environ_AirStrike(Environ_Base):
         super().__init__(squares, effects=('takeDamage', 'die'))
     def run(self):
         super().run()
-        self.gboard.hurtplayerunits = self.gboard.hurtpsions = self.gboard.hurtenemies = []  # reset all the hurt units that took damage from this since they're dead anyway.
+        self.gboard.hurtplayerunits = self.gboard.hurtenemies = []  # reset all the hurt units that took damage from this since they're dead anyway.
+        self.gboard.hurtpsions = set()
 
 class Environ_Tsunami(Environ_Base):
     def __init__(self, squares):
@@ -1885,7 +1892,32 @@ class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndP
         yield Direction.RIGHT
     def shoot(self, direction):
         for d in direction, Direction.opposite(direction):
-            self._hurtAndPush(self.gboard.board[self._getSquareOfUnitInDirection(d, edgeok=True)], d)
+            self._hurtAndPush(self._getSquareOfUnitInDirection(d, edgeok=True), d)
+
+class Weapon_CryoLauncher(Weapon_Artillery_Base):
+    def __init__(self, power1=False, power2=False):
+        pass # cryolauncher doesn't take power
+    def shoot(self, direction, distance):
+        "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
+        self.gboard.board[self._getRelSquare(direction, distance)].applyIce() # freeze the target
+        self.gboard.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
+
+# class Weapon_AerialBombs(Weapon_getRelSquare_Base):
+#     def __init__(self, power1=False, power2=False):
+#         self.damage = 1
+#         self.range = 1 # how many tiles you can jump over and damage. Unit lands on the tile after this distance.
+#         if power1:
+#             self.damage += 1
+#         if power2:
+#             self.range += 1
+#     # def genShots(self):
+#     #     for d in Direction.gen():
+#     def shoot(self, direction, distance):
+#         for r in range(distance):
+#             self._getRelSquare(direction, distance)
+#         self.gboard[self.wieldingunit.square].moveUnit(self._getRelSquare(direction, distance)) # move the unit to its landing position first
+
+
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.

@@ -2973,14 +2973,133 @@ def t_WeaponGravWellBump():
     assert b.board[(2, 1)].unit.currenthp == 1 # damage mountain now
     assert b.board[(2, 1)].unit.type == 'mountaindamaged'
 
-# def t_JanusCannonLow():
-#     "Shoot the Janus cannon with no power!"
+def t_JanusCannonLow():
+    "Shoot the Janus cannon with no power!"
+    b = GameBoard()
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(b, weapon1=Weapon_JanusCannon(power1=False, power2=False)))  # this weapon doesn't have power upgrades
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(2, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 3
+    assert b.board[(5, 1)].unit.currenthp == 5
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(2, 1)].unit == None # alpha scorpion pushed from here
+    assert b.board[(1, 1)].unit.currenthp == 4 # pushed here and took 1 damage
+    assert b.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
+    assert b.board[(5, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(6, 1)].unit.currenthp == 4 # took a damage
+    # shoot a second time, why not
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit.currenthp == 3  # nowhere else to push, just takes another damage
+    assert b.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
+    assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(7, 1)].unit.currenthp == 3  # took a damage
 
+def t_JanusCannon1():
+    "Shoot the Janus cannon with 1 power."
+    b = GameBoard()
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(b, weapon1=Weapon_JanusCannon(power1=True, power2=False)))
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(2, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 3
+    assert b.board[(5, 1)].unit.currenthp == 5
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(2, 1)].unit == None # alpha scorpion pushed from here
+    assert b.board[(1, 1)].unit.currenthp == 3 # pushed here and took 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
+    assert b.board[(5, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(6, 1)].unit.currenthp == 3 # took 2 damage
+    # shoot a second time, why not
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit.currenthp == 1  # nowhere else to push, just takes another 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
+    assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(7, 1)].unit.currenthp == 1  # took 2 damage
+
+def t_JanusCannon2():
+    "Shoot the Janus cannon with power2 powered."
+    b = GameBoard()
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(b, weapon1=Weapon_JanusCannon(power1=False, power2=True)))
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(2, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 3
+    assert b.board[(5, 1)].unit.currenthp == 5
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(2, 1)].unit == None # alpha scorpion pushed from here
+    assert b.board[(1, 1)].unit.currenthp == 3 # pushed here and took 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
+    assert b.board[(5, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(6, 1)].unit.currenthp == 3 # took 2 damage
+    # shoot a second time, why not
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit.currenthp == 1  # nowhere else to push, just takes another 2 damage
+    assert b.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
+    assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(7, 1)].unit.currenthp == 1  # took 2 damage
+
+def t_JanusCannonFullPower():
+    "Shoot the Janus cannon with Full power."
+    b = GameBoard()
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(b, weapon1=Weapon_JanusCannon(power1=True, power2=True)))
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(2, 1)].unit.currenthp == 5
+    assert b.board[(4, 1)].unit.currenthp == 3
+    assert b.board[(5, 1)].unit.currenthp == 5
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(2, 1)].unit == None # alpha scorpion pushed from here
+    assert b.board[(1, 1)].unit.currenthp == 2 # pushed here and took 3 damage
+    assert b.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
+    assert b.board[(5, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(6, 1)].unit.currenthp == 2 # took 3 damage
+    # shoot a second time, why not
+    b.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None  # unit died
+    assert b.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
+    assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
+    assert b.board[(7, 1)].unit == None # this one also died
+
+def t_CryoLauncher():
+    "Shoot the CryoLauncher cannon."
+    b = GameBoard()
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
+    b.board[(1, 1)].createUnitHere(Unit_Ice_Mech(b, weapon1=Weapon_CryoLauncher(power1=True, power2=True))) # this weapon doesn't use power
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
+    b.flushHurtUnits() # not necessary since nothing was hurt
+    assert b.board[(1, 1)].type == 'ice' # tile is now frozen
+    assert b.board[(1, 1)].effects == set() # not submerged
+    assert b.board[(1, 1)].unit.effects == {Effects.ICE} # wielder was frozen
+    assert b.board[(5, 1)].unit.effects == {Effects.ICE}  # wielder was frozen
+
+def t_CryoLauncherShielded():
+    "Shoot the CryoLauncher cannon with a shielded wielder."
+    b = GameBoard()
+    b.board[(1, 1)].replaceTile(Tile_Water(b))
+    b.board[(1, 1)].createUnitHere(Unit_Ice_Mech(b, weapon1=Weapon_CryoLauncher(power1=True, power2=True), effects={Effects.SHIELD})) # this weapon doesn't use power
+    b.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED}
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
+    b.flushHurtUnits() # not necessary since nothing was hurt
+    assert b.board[(1, 1)].type == 'water' # no change since the wielder's shield prevented ice from being applied to the wielder and the tile it's on
+    assert b.board[(1, 1)].effects == {Effects.SUBMERGED} # no change
+    assert b.board[(1, 1)].unit.effects == {Effects.SHIELD} # wielder was NOT frozen, still shielded
+    assert b.board[(5, 1)].unit.effects == {Effects.ICE}  # wielder was frozen as expected
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
-# Janus cannon tests
 # mech corpses that fall into chasms cannot be revived.
 # if a vek with acid is on a forest and is then hit with an airstrike, the tile is damaged and catches fire, then the unit dies leaving its acid and removing the fire and forest.
 

@@ -1561,11 +1561,11 @@ class Environ_VekEmerge():
 ##############################################################################
 # all weapons must accept power1 and power2 arguments even if the weapon doesn't actually support upgrades.
 # All weapons must have a shoot() method to shoot the weapon.
-# All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take.
+# All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield arguments to the weapons shoot() method.
 # All weapons that deal damage should store the amount of damage as self.damage
 # Weapons with limited uses must accept the argument usesremaining=int() in __init__(). Set the number of uses left as self.usesremaining
 # self.gboard will be set by the unit that owns the weapon.
-# self.wieldingunit will be set by the unit that owns the weapon.
+# self.wieldingunit is the unit that owns the weapon. It will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
 
 # Generator base classes:
@@ -1605,7 +1605,7 @@ class Weapon_hurtAndPush_Base():
     "A base class for weapons that need to hurt and push a unit and a tile in a single action."
     def _hurtAndPush(self, square, direction):
         "have a tile takeDamage() from self.damage and get pushed."
-        self.gboard.board[square].takeDamage(self.damage)  # takes damage
+        self.gboard.board[square].takeDamage(self.damage)
         self.gboard.board[square].push(direction)
 
 class Weapon_getSquareOfUnitInDirection_Base():
@@ -1902,22 +1902,30 @@ class Weapon_CryoLauncher(Weapon_Artillery_Base):
         self.gboard.board[self._getRelSquare(direction, distance)].applyIce() # freeze the target
         self.gboard.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
 
-# class Weapon_AerialBombs(Weapon_getRelSquare_Base):
-#     def __init__(self, power1=False, power2=False):
-#         self.damage = 1
-#         self.range = 1 # how many tiles you can jump over and damage. Unit lands on the tile after this distance.
-#         if power1:
-#             self.damage += 1
-#         if power2:
-#             self.range += 1
-#     # def genShots(self):
-#     #     for d in Direction.gen():
-#     def shoot(self, direction, distance):
-#         for r in range(distance):
-#             self._getRelSquare(direction, distance)
-#         self.gboard[self.wieldingunit.square].moveUnit(self._getRelSquare(direction, distance)) # move the unit to its landing position first
-
-
+class Weapon_AerialBombs(Weapon_getRelSquare_Base):
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        self.range = 1 # how many tiles you can jump over and damage. Unit lands on the tile after this distance.
+        if power1:
+            self.damage += 1
+        if power2:
+            self.range += 1
+    def genShots(self):
+        for d in Direction.gen():
+            for r in range(1, self.range+1):
+                try:
+                    if self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(d, r+1)].unit == None: # if the square where the wielder lands is clear...
+                        yield (d, r)
+                except KeyError:
+                    continue
+    def shoot(self, direction, distance):
+        "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
+        targetsquare = self.wieldingunit.square # start where the unit is
+        for r in range(distance):
+            targetsquare = self.gboard.board[targetsquare].getRelSquare(direction, 1)
+            self.gboard.board[targetsquare].takeDamage(self.damage) # damage the target
+            self.gboard.board[targetsquare].applySmoke() # smoke the target
+        self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.

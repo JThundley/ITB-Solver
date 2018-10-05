@@ -2973,7 +2973,7 @@ def t_WeaponGravWellBump():
     assert b.board[(2, 1)].unit.currenthp == 1 # damage mountain now
     assert b.board[(2, 1)].unit.type == 'mountaindamaged'
 
-def t_JanusCannonLow():
+def t_WeaponJanusCannonLow():
     "Shoot the Janus cannon with no power!"
     b = GameBoard()
     b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
@@ -2997,7 +2997,7 @@ def t_JanusCannonLow():
     assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
     assert b.board[(7, 1)].unit.currenthp == 3  # took a damage
 
-def t_JanusCannon1():
+def t_WeaponJanusCannon1():
     "Shoot the Janus cannon with 1 power."
     b = GameBoard()
     b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
@@ -3021,7 +3021,7 @@ def t_JanusCannon1():
     assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
     assert b.board[(7, 1)].unit.currenthp == 1  # took 2 damage
 
-def t_JanusCannon2():
+def t_WeaponJanusCannon2():
     "Shoot the Janus cannon with power2 powered."
     b = GameBoard()
     b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
@@ -3045,7 +3045,7 @@ def t_JanusCannon2():
     assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
     assert b.board[(7, 1)].unit.currenthp == 1  # took 2 damage
 
-def t_JanusCannonFullPower():
+def t_WeaponJanusCannonFullPower():
     "Shoot the Janus cannon with Full power."
     b = GameBoard()
     b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
@@ -3069,7 +3069,7 @@ def t_JanusCannonFullPower():
     assert b.board[(6, 1)].unit == None  # alpha scorpion pushed from here
     assert b.board[(7, 1)].unit == None # this one also died
 
-def t_CryoLauncher():
+def t_WeaponCryoLauncher():
     "Shoot the CryoLauncher cannon."
     b = GameBoard()
     b.board[(1, 1)].replaceTile(Tile_Water(b))
@@ -3083,7 +3083,7 @@ def t_CryoLauncher():
     assert b.board[(1, 1)].unit.effects == {Effects.ICE} # wielder was frozen
     assert b.board[(5, 1)].unit.effects == {Effects.ICE}  # wielder was frozen
 
-def t_CryoLauncherShielded():
+def t_WeaponCryoLauncherShielded():
     "Shoot the CryoLauncher cannon with a shielded wielder."
     b = GameBoard()
     b.board[(1, 1)].replaceTile(Tile_Water(b))
@@ -3096,6 +3096,98 @@ def t_CryoLauncherShielded():
     assert b.board[(1, 1)].effects == {Effects.SUBMERGED} # no change
     assert b.board[(1, 1)].unit.effects == {Effects.SHIELD} # wielder was NOT frozen, still shielded
     assert b.board[(5, 1)].unit.effects == {Effects.ICE}  # wielder was frozen as expected
+
+def t_WeaponAerialBombs1():
+    "Shoot the AerialBombs with default power."
+    b = GameBoard()
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=False, power2=False)))
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None # jet moved from starting position
+    assert b.board[(2, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
+    assert b.board[(3, 1)].unit.currenthp == 2 # jet landed here
+    assert b.board[(3, 1)].unit.type == 'jet'
+
+def t_WeaponAerialBombs2():
+    "Shoot the AerialBombs with more damage."
+    b = GameBoard()
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=True, power2=False)))
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None # jet moved from starting position
+    assert b.board[(2, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].unit.currenthp == 3 # hit for 2 dmg
+    assert b.board[(3, 1)].unit.currenthp == 2 # jet landed here
+    assert b.board[(3, 1)].unit.type == 'jet'
+
+def t_WeaponAerialBombs3():
+    "Shoot the AerialBombs with more range."
+    b = GameBoard()
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=False, power2=True)))
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None # jet moved from starting position
+    assert b.board[(2, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
+    assert b.board[(3, 1)].effects == {Effects.SMOKE}
+    assert b.board[(3, 1)].unit.currenthp == 4  # hit for 1 dmg
+    assert b.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert b.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponAerialBombs4():
+    "Shoot the AerialBombs with full power."
+    b = GameBoard()
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=True, power2=True)))
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None # jet moved from starting position
+    assert b.board[(2, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].unit.currenthp == 3 # hit for 2 dmg
+    assert b.board[(3, 1)].effects == {Effects.SMOKE}
+    assert b.board[(3, 1)].unit.currenthp == 3  # hit for 2 dmg
+    assert b.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert b.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponAerialBombsForest():
+    "Shoot the AerialBombs on a forest and make sure it has smoke and not fire after."
+    b = GameBoard()
+    b.board[(2, 1)].replaceTile(Tile_Forest(b))
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=False, power2=False)))
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    b.flushHurtUnits()
+    assert b.board[(1, 1)].unit == None # jet moved from starting position
+    assert b.board[(2, 1)].effects == {Effects.SMOKE}
+    assert b.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
+    assert b.board[(3, 1)].effects == {Effects.SMOKE}
+    assert b.board[(3, 1)].unit.currenthp == 4  # hit for 1 dmg
+    assert b.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert b.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponAerialBombsGen1():
+    "Test the Aerial Bombs shot generator."
+    b = GameBoard()
+    b.board[(1, 1)].createUnitHere(Unit_Jet_Mech(b, weapon1=Weapon_AerialBombs(power1=False, power2=True))) # with range
+    b.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(b))
+    b.board[(1, 4)].createUnitHere(Unit_Alpha_Scorpion(b))
+    g = b.board[(1, 1)].unit.weapon1.genShots()
+    assert next(g) == (Direction.UP, 1)
+    assert next(g) == (Direction.RIGHT, 2)
+    try:
+        next(g)
+    except StopIteration:
+        pass # this is expected
+    else:
+        assert False # there shouldn't be any more valid shots to generate in this configuration
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

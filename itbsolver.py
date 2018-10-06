@@ -1600,6 +1600,11 @@ class Weapon_ArtilleryGenLimited_Base(Weapon_ArtilleryGen_Base):
             else:
                 raise StopIteration
 
+class Weapon_NoChoiceGen_Base():
+    "A generator for weapons that give you no options of how you can fire it, e.g. Repulse, Self-destruct"
+    def genShots(self):
+        yield ()
+
 # Low-level shared weapon functionality:
 class Weapon_hurtAndPush_Base():
     "A base class for weapons that need to hurt and push a unit and a tile in a single action."
@@ -1895,6 +1900,7 @@ class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndP
             self._hurtAndPush(self._getSquareOfUnitInDirection(d, edgeok=True), d)
 
 class Weapon_CryoLauncher(Weapon_Artillery_Base):
+    "Default weapon for the Ice mech"
     def __init__(self, power1=False, power2=False):
         pass # cryolauncher doesn't take power
     def shoot(self, direction, distance):
@@ -1903,6 +1909,7 @@ class Weapon_CryoLauncher(Weapon_Artillery_Base):
         self.game.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
 
 class Weapon_AerialBombs(Weapon_getRelSquare_Base):
+    "Default weapon for the Jet mech."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         self.range = 1 # how many tiles you can jump over and damage. Unit lands on the tile after this distance.
@@ -1928,13 +1935,45 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base):
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
 class Weapon_RocketArtillery(Weapon_Artillery_Base):
+    "Default weapon for the Rocket mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         for p in power1, power2:
             if p:
                 self.damage += 1
     def shoot(self, direction, distance):
-        self.game.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
+        targetsquare = self._getRelSquare(direction, distance)
+        self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
+        self.game.board[targetsquare].push(direction) # target is pushed
+        try:
+            self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applySmoke()
+        except KeyError: # self.game.board[False].applySmoke()
+            pass # totally fine, if your butt is against the wall you just don't fart out any smoke
+
+class Weapon_Repulse(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base):
+    "Default weapon for Pulse mech"
+    def __init__(self, power1=False, power2=False):
+        if power1:
+            self.shieldself = True
+        else:
+            self.shieldself = False
+        if power2:
+            self.shieldally = True
+        else:
+            self.shieldally = False
+    def shoot(self):
+        if self.shieldself:
+            self.wieldingunit.applyShield()
+        for d in Direction.gen():
+            targetsquare = self._getRelSquare(d, 1)
+            try:
+                targetunit = self.game.board[targetsquare].unit
+            except KeyError: # self.game.board[False]
+                continue # targetsquare was invalid, move on
+            else: # targetsquare is a valid square on the board
+                if self.shieldally and (targetunit.alliance == Alliance.FRIENDLY or targetunit.isBuilding()): # try to shield allies if needed
+                    targetunit.applyShield()
+                self.game.board[targetsquare].push(d)
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.

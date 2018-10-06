@@ -3189,6 +3189,167 @@ def t_WeaponAerialBombsGen1():
     else:
         assert False # there shouldn't be any more valid shots to generate in this configuration
 
+def t_WeaponRocketArtillery1():
+    "Shoot the Rocket Artillery weapon with default power with its back against the edge."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set() # no change for shooter
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(3, 1)].effects == set() # no effects change to the tile
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 dmg
+    assert g.board[(4, 1)].effects == set()  # no effects change to the tile
+
+def t_WeaponRocketArtillery2():
+    "Shoot the Rocket Artillery weapon with 1 power with its back against the edge."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set() # no change for shooter
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(3, 1)].effects == set() # no effects change to the tile
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek took 3 dmg
+    assert g.board[(4, 1)].effects == set()  # no effects change to the tile
+    
+def t_WeaponRocketArtillery3():
+    "Shoot the Rocket Artillery weapon with full power with its back against the edge."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set() # no change for shooter
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(3, 1)].effects == set() # no effects change to the tile
+    assert g.board[(4, 1)].unit.currenthp == 1 # vek took 4 dmg
+    assert g.board[(4, 1)].effects == set()  # no effects change to the tile
+
+def t_WeaponRocketArtillery4():
+    "Shoot the Rocket Artillery weapon with full power with a tile for it to fart smoke onto"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(2, 1)].unit.currenthp == 3 # no change for shooter
+    assert g.board[(2, 1)].unit.effects == set() # no change for shooter
+    assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(4, 1)].unit == None # vek pushed off this tile
+    assert g.board[(4, 1)].effects == set() # no effects change to the tile
+    assert g.board[(5, 1)].unit.currenthp == 1 # vek took 4 dmg
+    assert g.board[(5, 1)].effects == set()  # no effects change to the tile
+    assert g.board[(1, 1)].effects == {Effects.SMOKE} # smoke was farted behind the wielder
+
+def t_WeaponRepulse1():
+    "Shoot the Repulse weapon with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # no change for shooter
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit == None # vek pushed off here
+    assert g.board[(3, 1)].unit.currenthp == 5  # no change for vek
+    assert g.board[(3, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(3, 1)].effects == set()  # no change for vek's tile
+    assert g.board[(1, 2)].unit == None  # ally pushed off here
+    assert g.board[(1, 3)].unit.currenthp == 3  # no change for ally
+    assert g.board[(1, 3)].unit.effects == set()  # no change for vally
+    assert g.board[(1, 3)].effects == set()  # no change for ally's tile
+
+def t_WeaponRepulse2():
+    "Shoot the Repulse weapon with 1 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD} # shooter shielded
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit == None # vek pushed off here
+    assert g.board[(3, 1)].unit.currenthp == 5  # no change for vek
+    assert g.board[(3, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(3, 1)].effects == set()  # no change for vek's tile
+    assert g.board[(1, 2)].unit == None  # ally pushed off here
+    assert g.board[(1, 3)].unit.currenthp == 3  # no change for ally
+    assert g.board[(1, 3)].unit.effects == set()  # no change for ally
+    assert g.board[(1, 3)].effects == set()  # no change for ally's tile
+
+def t_WeaponRepulse3():
+    "Shoot the Repulse weapon with 2nd power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=False, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set() # no change for shooter
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit == None # vek pushed off here
+    assert g.board[(3, 1)].unit.currenthp == 5  # no change for vek
+    assert g.board[(3, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(3, 1)].effects == set()  # no change for vek's tile
+    assert g.board[(1, 2)].unit == None  # ally pushed off here
+    assert g.board[(1, 3)].unit.currenthp == 3  # no change for ally
+    assert g.board[(1, 3)].unit.effects == {Effects.SHIELD}  # ally is shielded
+    assert g.board[(1, 3)].effects == set()  # no change for ally's tile
+
+def t_WeaponRepulse4():
+    "Shoot the Repulse weapon with full power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # shooter shielded
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit == None # vek pushed off here
+    assert g.board[(3, 1)].unit.currenthp == 5  # no change for vek
+    assert g.board[(3, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(3, 1)].effects == set()  # no change for vek's tile
+    assert g.board[(1, 2)].unit == None  # ally pushed off here
+    assert g.board[(1, 3)].unit.currenthp == 3  # no change for ally
+    assert g.board[(1, 3)].unit.effects == {Effects.SHIELD}  # ally is shielded
+    assert g.board[(1, 3)].effects == set()  # no change for ally's tile
+
+def t_WeaponRepulse5():
+    "Shoot the Repulse weapon with full power and a building to get shielded. And a mountain for the vek to bump into."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 2)].createUnitHere(Unit_Building(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # shooter shielded
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit.currenthp == 4  # vek took 1 bump damage
+    assert g.board[(2, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(2, 1)].effects == set()  # no change for vek's tile
+    assert g.board[(3, 1)].unit.type == 'mountaindamaged' # mountain got bumped into
+    assert g.board[(1, 2)].unit.currenthp == 1  # no change for building
+    assert g.board[(1, 2)].unit.effects == {Effects.SHIELD}  # building is shielded
+    assert g.board[(1, 2)].effects == set()  # no change for ally's tile
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

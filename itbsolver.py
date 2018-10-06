@@ -136,8 +136,8 @@ class NullWeaponShot(Exception):
     "This is raised when a friendly unit fires a weapon that has no effect at all on the game. This prompts the logic to avoid continuing the current simulation. It's a bug if a user ever sees this."
 
 ############# THE MAIN GAME BOARD!
-class GameBoard():
-    "This represents the game board and some of the most basic rules of the game."
+class Game():
+    "This represents the a single instance of a game. This is the highest level of the game."
     def __init__(self, board=None, powergrid_hp=7, environmentaleffect=None, vekemerge=None):
         """board is a dict of tiles to use. If it's left blank, a default board full of empty ground tiles is generated.
         powergrid_hp is the amount of power (hp) you as a player have. When this reaches 0, the entire game ends.
@@ -154,14 +154,14 @@ class GameBoard():
         self.powergrid_hp = powergrid_hp # max is 7
         self.environmentaleffect = environmentaleffect
         try:
-            self.environmentaleffect.gboard = self
+            self.environmentaleffect.game = self
         except AttributeError:
             pass # no environmental effect being used
         if vekemerge:
             self.vekemerge = vekemerge
         else:
             self.vekemerge = Environ_VekEmerge()
-        self.vekemerge.gboard = self
+        self.vekemerge.game = self
         self.playerpassives = {} # a dict of passive effects being applied to the player's mechs
         self.vekpassives = {}
         self.playerunits = set() # All the units that the player has direct control over
@@ -201,8 +201,8 @@ class GameBoard():
 ##############################################################################
 class TileUnit_Base():
     "This is the base object that forms both Tiles and Units."
-    def __init__(self, gboard, square=None, type=None, effects=None):
-        self.gboard = gboard  # this is a link back to the game board instance so tiles and units can change it
+    def __init__(self, game, square=None, type=None, effects=None):
+        self.game = game  # this is a link back to the game board instance so tiles and units can change it
         self.square = square # This is the (x, y) coordinate of the Tile or Unit. This is required for Tiles, but not for Units which have their square set when they are placed on a square.
         self.type = type # the name of the unit or tile
         if not effects:
@@ -218,8 +218,8 @@ class TileUnit_Base():
 
 class Tile_Base(TileUnit_Base):
     """The base class for all Tiles, all other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
-    def __init__(self, gboard, square=None, type=None, effects=None, unit=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type=None, effects=None, unit=None):
+        super().__init__(game, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
     def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False):
         """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
@@ -234,8 +234,8 @@ class Tile_Base(TileUnit_Base):
             isshielded = False
         if not isshielded:
             self._tileTakeDamage() # Tile takes damage first.
-        if self.gboard.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
-            self.gboard.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) #  the non-garbage-collected unit that's no longer attached to the gameboard which is a waste.
+        if self.game.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
+            self.game.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) #  the non-garbage-collected unit that's no longer attached to the Game which is a waste.
     def hasShieldedUnit(self):
         "If there is a unit on this tile that is shielded, return True, return False otherwise."
         try:
@@ -309,11 +309,11 @@ class Tile_Base(TileUnit_Base):
             return # bail, the unit has been replaced by nothing which is ok.
         self._spreadEffects()
     def createUnitHere(self, unit):
-        "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the gboard."
+        "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the game."
         if unit.alliance == Alliance.FRIENDLY:
-            self.gboard.playerunits.add(unit)
+            self.game.playerunits.add(unit)
         elif unit.alliance == Alliance.ENEMY:
-            self.gboard.enemyunits.add(unit)
+            self.game.enemyunits.add(unit)
         self.putUnitHere(unit)
     def replaceTile(self, newtile, keepeffects=True):
         """replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods.
@@ -322,12 +322,12 @@ class Tile_Base(TileUnit_Base):
         unit = self.unit
         if keepeffects:
             newtile.effects.update(self.effects)
-        self.gboard.board[self.square] = newtile
-        self.gboard.board[self.square].square = self.square
-        self.gboard.board[self.square].putUnitHere(unit)
+        self.game.board[self.square] = newtile
+        self.game.board[self.square].square = self.square
+        self.game.board[self.square].putUnitHere(unit)
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
-        self.gboard.board[destsquare].putUnitHere(self.unit)
+        self.game.board[destsquare].putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
         """push unit on this tile direction.
@@ -342,11 +342,11 @@ class Tile_Base(TileUnit_Base):
         else: # push the unit
             destinationsquare = self.getRelSquare(direction, 1)
             try:
-                self.gboard.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
+                self.game.board[destinationsquare].unit.takeBumpDamage() # try to have the destination unit take bump damage
             except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
                 self.moveUnit(destinationsquare) # move the unit from this tile to destination square
             except KeyError:
-                return  # raised by self.board[None], attempted to push unit off the gameboard, no action is taken
+                return  # raised by self.board[None], attempted to push unit off the Game, no action is taken
             else:
                 self.unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
     def getRelSquare(self, direction, distance):
@@ -365,13 +365,13 @@ class Tile_Base(TileUnit_Base):
         else:
             raise Exception("Invalid direction given.")
         try:
-            self.gboard.board[destinationsquare]
+            self.game.board[destinationsquare]
         except KeyError:
             return False
         return destinationsquare
     def teleport(self, destsquare):
         "Teleport from this tile to destsquare, swapping units if there is one on destsquare."
-        unitfromdest = self.gboard.board[destsquare].unit # grab the unit that's about to be overwritten on the destination
+        unitfromdest = self.game.board[destsquare].unit # grab the unit that's about to be overwritten on the destination
         self.moveUnit(destsquare) # move unit from this square to destination
         self.putUnitHere(unitfromdest)
     def getEdgeSquare(self, direction):
@@ -390,8 +390,8 @@ class Tile_Base(TileUnit_Base):
 
 class Tile_Ground(Tile_Base):
     "This is a normal ground tile."
-    def __init__(self, gboard, square=None, type='ground', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='ground', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyAcid(self):
         super().applyAcid()
         if not self.unit:
@@ -415,19 +415,19 @@ class Tile_Ground(Tile_Base):
 
 class Tile_Forest_Sand_Base(Tile_Base):
     "This is the base class for both Forest and Sand Tiles since they both share the same applyAcid mechanics."
-    def __init__(self, gboard, square=None, type=None, effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type=None, effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyAcid(self):
         try:
             self.unit.applyAcid() # give the unit acid if present
         except AttributeError:
-            self.gboard.board[self.square].replaceTile(Tile_Ground(self.gboard, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
+            self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
         # The tile doesn't get acid effects if the unit takes it instead.
 
 class Tile_Forest(Tile_Forest_Sand_Base):
     "If damaged, lights on fire."
-    def __init__(self, gboard, square=None, type='forest', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='forest', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def _tileTakeDamage(self):
         "tile gains the fire effect"
         self.applyFire()
@@ -441,24 +441,24 @@ class Tile_Forest(Tile_Forest_Sand_Base):
 
 class Tile_Sand(Tile_Forest_Sand_Base):
     "If damaged, turns into Smoke. Units in Smoke cannot attack or repair."
-    def __init__(self, gboard, square=None, type='sand', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='sand', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyFire(self):
         "Fire converts the sand tile to a ground tile"
-        self.gboard.board[self.square].replaceTile(Tile_Ground(self.gboard, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
+        self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
         super().applyFire()
     def _tileTakeDamage(self):
         self.applySmoke()
 
 class Tile_Water_Ice_Damaged_Base(Tile_Base):
     "This is the base unit for Water tiles, Ice tiles, and Ice_Damaged tiles."
-    def __init__(self, gboard, square=None, type=None, effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type=None, effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyIce(self):
         "replace the tile with ice and give ice to the unit if present."
         if not self.hasShieldedUnit():
-            self.gboard.board[self.square].replaceTile(Tile_Ice(self.gboard))
-            self.gboard.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
+            self.game.board[self.square].replaceTile(Tile_Ice(self.game))
+            self.game.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -467,7 +467,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
             self.removeEffect(e)
-        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard))
+        self.game.board[self.square].replaceTile(Tile_Water(self.game))
         try:
             self.unit.applyFire()
         except AttributeError:
@@ -482,8 +482,8 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
 
 class Tile_Water(Tile_Water_Ice_Damaged_Base):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
-    def __init__(self, gboard, square=None, type='water', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='water', effects=None):
+        super().__init__(game, square, type, effects=effects)
         self.effects.add(Effects.SUBMERGED)
     def applyFire(self):
         "Water can't be set on fire"
@@ -511,8 +511,8 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
 
 class Tile_Ice(Tile_Water_Ice_Damaged_Base):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
-    def __init__(self, gboard, square=None, type='ice', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='ice', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyIce(self):
         "Nothing happens when ice is frozen again"
         try:
@@ -520,18 +520,18 @@ class Tile_Ice(Tile_Water_Ice_Damaged_Base):
         except AttributeError:
             return
     def _tileTakeDamage(self):
-        self.gboard.board[self.square].replaceTile(Tile_Ice_Damaged(self.gboard))
+        self.game.board[self.square].replaceTile(Tile_Ice_Damaged(self.game))
 
 class Tile_Ice_Damaged(Tile_Water_Ice_Damaged_Base):
-    def __init__(self, gboard, square=None, type='ice_damaged', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='ice_damaged', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def _tileTakeDamage(self):
-        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard))
+        self.game.board[self.square].replaceTile(Tile_Water(self.game))
 
 class Tile_Chasm(Tile_Base):
     "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
-    def __init__(self, gboard, square=None, type='chasm', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='chasm', effects=None):
+        super().__init__(game, square, type, effects=effects)
     def applyFire(self):
         try:
             self.unit.applyFire()
@@ -560,8 +560,8 @@ class Tile_Chasm(Tile_Base):
             self.unit.repair(hp)
 
 class Tile_Lava(Tile_Water):
-    def __init__(self, gboard, square=None, type='lava', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='lava', effects=None):
+        super().__init__(game, square, type, effects=effects)
         self.effects.add(Effects.FIRE)
     def repair(self, hp):
         "No effects can be removed from lava from repairing on it."
@@ -592,20 +592,20 @@ class Tile_Lava(Tile_Water):
 
 class Tile_Grassland(Tile_Base):
     "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
-    def __init__(self, gboard, square=None, type='grassland', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='grassland', effects=None):
+        super().__init__(game, square, type, effects=effects)
 
 class Tile_Terraformed(Tile_Base):
     "This tile was terraformed as part of your bonus objective. Also just a regular ground tile."
-    def __init__(self, gboard, square=None, type='terraformed', effects=None):
-        super().__init__(gboard, square, type, effects=effects)
+    def __init__(self, game, square=None, type='terraformed', effects=None):
+        super().__init__(game, square, type, effects=effects)
 
 class Tile_Teleporter(Tile_Base):
     "End movement here to warp to the matching pad. Swap with any present unit."
-    def __init__(self, gboard, square=None, type='teleporter', effects=None, companion=None):
+    def __init__(self, game, square=None, type='teleporter', effects=None, companion=None):
         "companion is the square of the other tile linked to this one."
         # teleporters can have smoke, fire and acid just like a normal ground tile.
-        super().__init__(gboard, square, type, effects=effects)
+        super().__init__(game, square, type, effects=effects)
         self.companion = companion
         self.suppressteleport = False # this is set true when in the process of teleporting so we don't then teleport the unit back and fourth in an infinite loop.
     def _spreadEffects(self):
@@ -618,7 +618,7 @@ class Tile_Teleporter(Tile_Base):
             except AttributeError: # unit didn't have suppressteleport attribute, only corpses do.
                 self.suppressteleport = True # suppress further teleports here until this finishes
                 try:
-                    self.gboard.board[self.companion].suppressteleport = True # suppress teleport on the companion too
+                    self.game.board[self.companion].suppressteleport = True # suppress teleport on the companion too
                 except KeyError:
                     raise MissingCompanionTile(self.type, self.square)
                 self.teleport(self.companion)
@@ -629,16 +629,16 @@ class Tile_Teleporter(Tile_Base):
 ##############################################################################
 class Unit_Base(TileUnit_Base):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, gboard, type, currenthp, maxhp, effects=None, attributes=None):
+    def __init__(self, game, type, currenthp, maxhp, effects=None, attributes=None):
         """
-        gboard is the GameBoard instance
+        game is the Game instance
         type is the name of the unit (str)
         currenthp is the unit's current hitpoints (int)
         maxhp is the unit's maximum hitpoints (int)
         effects is a set of effects applied to this unit. Use Effects.EFFECTNAME for this.
         attributes is a set of attributes or properties that the unit has. use Attributes.ATTRNAME for this.
         """
-        super().__init__(gboard=gboard, type=type, effects=effects)
+        super().__init__(game=game, type=type, effects=effects)
         self.currenthp = currenthp
         self.maxhp = maxhp
         if not attributes:
@@ -658,9 +658,9 @@ class Unit_Base(TileUnit_Base):
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
         self.removeEffect(Effects.FIRE)
-        self.gboard.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
+        self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
-        if Effects.SUBMERGED in self.gboard.board[self.square].effects: # if we're in some kind of water...
+        if Effects.SUBMERGED in self.game.board[self.square].effects: # if we're in some kind of water...
             self.effects.add(Effects.ACID) # you get acid regardless of shield
         else:
             self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
@@ -677,7 +677,7 @@ class Unit_Base(TileUnit_Base):
             except KeyError:
                 pass
             else:
-                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
+                self.game.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading
                 return # and then stop processing things, the shield or ice took the damage.
         if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects: # if you have both armor and acid...
             pass # acid cancels out armored
@@ -697,17 +697,17 @@ class Unit_Base(TileUnit_Base):
             self.die()
     def die(self):
         "Make the unit die. This method is not ok for mechs to use as they never leave acid where they die. They leave corpses which are also units."
-        self.gboard.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
+        self.game.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
-            self.gboard.board[self.square].applyAcid()
+            self.game.board[self.square].applyAcid()
         self.explode()
     def explode(self):
         "Make the unit explode only if it is explosive (to be used after death). Explosion damage ignores acid and armor."
         if Effects.EXPLOSIVE in self.effects:
             for d in Direction.gen():
-                relsquare = self.gboard.board[self.square].getRelSquare(d, 1)
+                relsquare = self.game.board[self.square].getRelSquare(d, 1)
                 if relsquare:
-                    self.gboard.board[relsquare].takeDamage(1, ignorearmor=True, ignoreacid=True)
+                    self.game.board[relsquare].takeDamage(1, ignorearmor=True, ignoreacid=True)
     def isBuilding(self):
         "Return True if unit is a building or objectivebuilding, False if it is not."
         try:
@@ -719,27 +719,27 @@ class Unit_Base(TileUnit_Base):
 
 class Unit_Fighting_Base(Unit_Base):
     "The base class of all units that have weapons."
-    def __init__(self, gboard, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
-        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
+        super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         try: # try to set the wielding unit of this weapon
             weapon1.wieldingunit = self
         except AttributeError: # it's none and that's fine
             pass
-        else: # it worked so assign the weapon to this unit and set gboard.
+        else: # it worked so assign the weapon to this unit and set game.
             self.weapon1 = weapon1
-            self.weapon1.gboard = self.gboard
+            self.weapon1.game = self.game
         try: # do it again with 2. I'm on the fence if I should do this programmatically. Seems hacky for no benefit, I don't want to go through locals and do string slicing and stuff
             weapon2.wieldingunit = self
         except AttributeError:
             pass
         else:
             self.weapon2 = weapon2
-            self.weapon2.gboard = self.gboard
+            self.weapon2.game = self.game
 
 class Unit_Repairable_Base(Unit_Fighting_Base):
     "The base class of all mechs and vek."
-    def __init__(self, gboard, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
-        super().__init__(gboard=gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, weapon1=weapon1, weapon2=weapon2, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
+        super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, weapon1=weapon1, weapon2=weapon2, attributes=attributes)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -757,33 +757,33 @@ class Unit_NoDelayedDeath_Base(Unit_Base):
 ##############################################################################
 class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
-    def __init__(self, gboard, type, currenthp=1, maxhp=1, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type, currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
         self.blocksbeamshot = True # this unit blocks beam shots that penetrate almost all other units.
     def applyFire(self):
         raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
 
 class Unit_Mountain(Unit_Mountain_Building_Base):
-    def __init__(self, gboard, type='mountain', attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+    def __init__(self, game, type='mountain', attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def applyAcid(self):
         pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.gboard.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.gboard))
+        self.game.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.game))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
-    def __init__(self, gboard, type='mountaindamaged', effects=None):
-        super().__init__(gboard, type=type, effects=effects)
+    def __init__(self, game, type='mountaindamaged', effects=None):
+        super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.gboard.board[self.square].putUnitHere(None)
+        self.game.board[self.square].putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
-    def __init__(self, gboard, type='volcano', effects=None):
-        super().__init__(gboard, type=type, effects=effects)
+    def __init__(self, game, type='volcano', effects=None):
+        super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         return # what part of indestructible do you not understand?!
@@ -791,33 +791,33 @@ class Unit_Volcano(Unit_Mountain):
         return # indestructible!
 
 class Unit_Building(Unit_Mountain_Building_Base):
-    def __init__(self, gboard, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self._isbuilding = True # a flag to indicate this is a building rather than do string comparisons
     def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
 
 class Unit_Building_Objective(Unit_Building):
-    def __init__(self, gboard, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, game, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self._isbuilding = True
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base):
-    def __init__(self, gboard, type='acidvat', currenthp=2, maxhp=2, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
+    def __init__(self, game, type='acidvat', currenthp=2, maxhp=2, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        self.gboard.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
-        self.gboard.board[self.square].replaceTile(Tile_Water(self.gboard, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
-        self.gboard.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
-        self.gboard.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
+        self.game.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
+        self.game.board[self.square].replaceTile(Tile_Water(self.game, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
+        self.game.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
 class Unit_Rock(Unit_NoDelayedDeath_Base):
-    def __init__(self, gboard, type='rock', currenthp=1, maxhp=1, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
+    def __init__(self, game, type='rock', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
 
 ############################################################################################################################
@@ -825,44 +825,44 @@ class Unit_Rock(Unit_NoDelayedDeath_Base):
 ############################################################################################################################
 class Sub_Unit_Base(Unit_Fighting_Base):
     "The base unit for smaller sub-units that the player controls as well as objective units that the player controls.."
-    def __init__(self, gboard, type, currenthp, maxhp, moves, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, moves, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves
         self.alliance = Alliance.FRIENDLY
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.gboard.hurtplayerunits.append(self)
+        self.game.hurtplayerunits.append(self)
         super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
     def die(self):
-        self.gboard.playerunits.remove(self)
+        self.game.playerunits.remove(self)
         super().die()
 
 class Unit_AcidTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_FreezeTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ArchiveTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_OldArtillery(Sub_Unit_Base):
-    def __init__(self, gboard, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ShieldTank(Sub_Unit_Base):
-    def __init__(self, gboard, type='shieldtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='shieldtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
 
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
 class Unit_MultiTile_Base(Unit_Base):
     "This is the base class for multi-tile units such as the Dam and Train. Effects and damage to one unit also happens to the other."
-    def __init__(self, gboard, type, currenthp, maxhp, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type, currenthp, maxhp, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE)) # these attributes are shared by the dam and train
         self.alliance = Alliance.NEUTRAL
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
@@ -874,13 +874,13 @@ class Unit_MultiTile_Base(Unit_Base):
                 self.companion
             except AttributeError: # only once
                 self._setCompanion()
-            self.gboard.board[self.companion].unit.replicate = False
+            self.game.board[self.companion].unit.replicate = False
             try: # try running the companion's method as takeDamage() with keyword arguments
-                getattr(self.gboard.board[self.companion].unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
+                getattr(self.game.board[self.companion].unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
             except KeyError: # else it's an applySomething() method with no args
-                #getattr(self.gboard.board[self.companion].unit, meth)() # this is how we used to run the companion unit's method instead of the tile's
-                getattr(self.gboard.board[self.companion], meth)()
-            self.gboard.board[self.companion].unit.replicate = True
+                #getattr(self.game.board[self.companion].unit, meth)() # this is how we used to run the companion unit's method instead of the tile's
+                getattr(self.game.board[self.companion], meth)()
+            self.game.board[self.companion].unit.replicate = True
     def applyIce(self):
         self.applyEffectUnshielded(Effects.ICE)
         self._replicate('applyIce')
@@ -898,7 +898,7 @@ class Unit_MultiTile_Base(Unit_Base):
             except KeyError:
                 pass
             else:
-                self.gboard.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading.
+                self.game.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading.
                 return # and then stop processing things, the shield or ice took the damage.
         if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
@@ -912,8 +912,8 @@ class Unit_MultiTile_Base(Unit_Base):
 
 class Unit_Dam(Unit_MultiTile_Base):
     "When the Dam dies, it floods the middle of the map."
-    def __init__(self, gboard, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type='dam', currenthp=2, maxhp=2, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.MASSIVE)
     def _setCompanion(self):
         "Set self.companion to the square of this unit's companion."
@@ -923,58 +923,58 @@ class Unit_Dam(Unit_MultiTile_Base):
             self.companion = (8, 4)
     def die(self):
         "Make the unit die."
-        self.gboard.board[self.square].putUnitHere(Unit_Volcano(self.gboard)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+        self.game.board[self.square].putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
-            self.gboard.board[(x, self.square[1])].replaceTile(Tile_Water(self.gboard))
-            self.gboard.vekemerge.remove((x, self.square[1])) # don't let vek emerge from these newly created water tiles
+            self.game.board[(x, self.square[1])].replaceTile(Tile_Water(self.game))
+            self.game.vekemerge.remove((x, self.square[1])) # don't let vek emerge from these newly created water tiles
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 
 class Unit_Train(Unit_MultiTile_Base):
-    def __init__(self, gboard, type='train', currenthp=1, maxhp=1, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type='train', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.beamally = True
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
         for xoffset in -1, 1: # check the tiles ahead of and behind this one on the X axis for another train unit.
-            if self.gboard.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
+            if self.game.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
                 self.companion = (self.square[0]+xoffset, self.square[1])
 
 class Unit_Terraformer(Sub_Unit_Base):
-    def __init__(self, gboard, type='terraformer', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+    def __init__(self, game, type='terraformer', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
 
 class Unit_DisposalUnit(Unit_Terraformer):
-    def __init__(self, gboard, type='disposalunit', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+    def __init__(self, game, type='disposalunit', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
 
 class Unit_SatelliteRocket(Sub_Unit_Base):
-    def __init__(self, gboard, type='satelliterocket', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+    def __init__(self, game, type='satelliterocket', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
         self.beamally = False
 
 class Unit_EarthMover(Sub_Unit_Base):
-    def __init__(self, gboard, type='earthmover', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+    def __init__(self, game, type='earthmover', currenthp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
         self.beamally = True
 
 class Unit_PrototypeRenfieldBomb(Unit_Base):
-    def __init__(self, gboard, type='prototypebomb', currenthp=1, maxhp=1, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type='prototypebomb', currenthp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self.effects.add(Effects.EXPLOSIVE)
         self.attributes.add(Attributes.IMMUNEFIRE)
         self.beamally = True
 
 class Unit_RenfieldBomb(Unit_Base):
-    def __init__(self, gboard, type='renfieldbomb', currenthp=4, maxhp=4, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def __init__(self, game, type='renfieldbomb', currenthp=4, maxhp=4, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.IMMUNEFIRE)
         self.beamally = True
@@ -983,290 +983,290 @@ class Unit_RenfieldBomb(Unit_Base):
 ############################################################################################################################
 class Unit_Enemy_Base(Unit_Repairable_Base):
     "A base class for almost all enemies."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.alliance = Alliance.ENEMY
     def die(self):
         try:
-            self.gboard.enemyunits.remove(self) # try to remove this dead unit from enemyunits
+            self.game.enemyunits.remove(self) # try to remove this dead unit from enemyunits
         except KeyError: # It's possible for an enemy to "die twice" in some circumstances, e.g. when you punch a vek and push him onto a mine.
-            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurtUnits() yet. It lands on the mine tile first where the mine detonates and kills it, removing it from gboard.enemyunits
+            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurtUnits() yet. It lands on the mine tile first where the mine detonates and kills it, removing it from game.enemyunits
                     # if this is the case we can stop processing its death here.
         super().die()
 
 class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     "This is the base unit of all enemies that are not psions. Enemies have 1 weapon."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
-        self.gboard.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
+        self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
         super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Flying_Base(Unit_Enemy_Base):
     "A simple base unit for flying vek."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Psion_Base(Unit_Enemy_Flying_Base):
     "Base unit for vek psions. When psions are hurt, their deaths are resolved first before your mechs or other vek/bots."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
-        self.gboard.hurtpsions.add(self)  # add it to the queue of units to be killed at the same time
+        self.game.hurtpsions.add(self)  # add it to the queue of units to be killed at the same time
         super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Burrower_Base(Unit_EnemyNonPsion_Base):
     "A simple base class for the only 2 burrowers in the game."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.attributes.update((Attributes.BURROWER, Attributes.STABLE))
 
 class Unit_Enemy_Leader_Base(Unit_EnemyNonPsion_Base):
     "A simple base class for Massive bosses."
-    def __init__(self, gboard, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
 
 class Unit_Blobber(Unit_EnemyNonPsion_Base):
     "The Blobber doesn't have a direct attack."
-    def __init__(self, gboard, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='blobber', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Blobber(Unit_EnemyNonPsion_Base):
     "Also has no attack."
-    def __init__(self, gboard, type='alphablobber', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphablobber', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='scorpion', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='scorpion', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Acid_Scorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='acidscorpion', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='acidscorpion', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='firefly', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='firefly', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Firefly(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Leaper(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='leaper', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='leaper', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Leaper(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphaleaper', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphaleaper', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='beetle', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='beetle', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Beetle(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphabeetle', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphabeetle', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Scarab(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='scarab', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='scarab', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Scarab(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphascarab', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphascarab', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Crab(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='crab', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='crab', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Crab(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphacrab', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphacrab', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Centipede(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='centipede', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='centipede', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Centipede(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphacentipede', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphacentipede', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Digger(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='digger', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='digger', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Digger(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphadigger', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphadigger', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Hornet(Unit_Enemy_Flying_Base):
-    def __init__(self, gboard, type='hornet', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='hornet', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Acid_Hornet(Unit_Enemy_Flying_Base):
-    def __init__(self, gboard, type='acidhornet', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='acidhornet', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Hornet(Unit_Enemy_Flying_Base):
-    def __init__(self, gboard, type='alphahornet', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphahornet', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Soldier_Psion(Unit_Psion_Base):
-    def __init__(self, gboard, type='soldierpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='soldierpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Shell_Psion(Unit_Psion_Base):
-    def __init__(self, gboard, type='shellpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='shellpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blood_Psion(Unit_Psion_Base):
-    def __init__(self, gboard, type='bloodpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='bloodpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blast_Psion(Unit_Psion_Base):
-    def __init__(self, gboard, type='blastpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='blastpsion', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Psion_Tyrant(Unit_Psion_Base):
-    def __init__(self, gboard, type='psiontyrant', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='psiontyrant', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spider(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='spider', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='spider', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spider(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphaspider', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphaspider', currenthp=4, maxhp=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Burrower(Unit_Enemy_Burrower_Base):
-    def __init__(self, gboard, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='burrower', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Burrower(Unit_Enemy_Burrower_Base):
-    def __init__(self, gboard, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphaburrower', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Beetle_Leader(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='beetleleader', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Large_Goo(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='largegoo', currenthp=3, maxhp=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Medium_Goo(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='mediumgoo', currenthp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='mediumgoo', currenthp=2, maxhp=2, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Small_Goo(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='smallgoo', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='smallgoo', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Hornet_Leader(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='hornetleader', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Psion_Abomination(Unit_Psion_Base):
-    def __init__(self, gboard, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='psionabomination', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
 
 class Unit_Scorpion_Leader(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='scorpionleader', currenthp=7, maxhp=7, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Firefly_Leader(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='fireflyleader', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Spider_Leader(Unit_Enemy_Leader_Base):
-    def __init__(self, gboard, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='spiderleader', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Blob(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphablob', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphablob', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Blob(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='blob', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='blob', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling_Egg(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='spiderlingegg', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='spiderlingegg', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Spiderling(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='spiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='spiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_Alpha_Spiderling(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type='alphaspiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphaspiderling', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_EnemyBot_Base(Unit_EnemyNonPsion_Base):
-    def __init__(self, gboard, type, currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         self.robot = True # we must identify these enemy bots as separately since they don't get vek passives.
 
 class Unit_CannonBot(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='cannonbot', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='cannonbot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_CannonMech(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='cannonmech', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='cannonmech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_ArtilleryBot(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='artillerybot', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='artillerybot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_ArtilleryMech(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='artillerymech', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='artillerymech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_LaserBot(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='laserbot', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='laserbot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_LaserMech(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='lasermech', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='lasermech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_MineBot(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='minebot', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='minebot', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_MineMech(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='minemech', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='minemech', currenthp=1, maxhp=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_BotLeader(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='botleader', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='botleader', currenthp=5, maxhp=5, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_BotLeaderHard(Unit_EnemyBot_Base):
-    def __init__(self, gboard, type='botleaderhard', currenthp=6, maxhp=6, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='botleaderhard', currenthp=6, maxhp=6, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
 ############################################################################################################################
 class Unit_Mech_Base(Unit_Repairable_Base):
     "This is the base unit of Mechs."
-    def __init__(self, gboard, type, currenthp, maxhp, moves, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, moves, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
         self.pilot = pilot # the pilot in this mech that might provide bonuses or extra abilities
         self.attributes.add(Attributes.MASSIVE) # all mechs are massive
@@ -1274,8 +1274,8 @@ class Unit_Mech_Base(Unit_Repairable_Base):
     def die(self):
         "Make the mech die."
         self.currenthp = 0
-        self.gboard.board[self.square].putUnitHere(Unit_Mech_Corpse(self.gboard, oldunit=self)) # it's dead, replace it with a mech corpse
-        self.gboard.playerunits.discard(self)
+        self.game.board[self.square].putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
+        self.game.playerunits.discard(self)
     def repair(self, hp):
         "Repair the unit healing HP and removing bad effects."
         self.repairHP(hp)
@@ -1287,19 +1287,19 @@ class Unit_Mech_Base(Unit_Repairable_Base):
 
 class Unit_Mech_Flying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
-    def __init__(self, gboard, type, currenthp=2, maxhp=2, moves=4, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, weapon1=weapon1, weapon2=weapon2, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp=2, maxhp=2, moves=4, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, weapon1=weapon1, weapon2=weapon2, pilot=pilot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Mech_Corpse(Unit_Mech_Base):
     "This is a player mech after it dies. It's invincible but can be pushed around. It can be repaired back to an alive mech. It has no weapons."
-    def __init__(self, gboard, type='mechcorpse', currenthp=1, maxhp=1, moves=0, oldunit=None, attributes=None, effects=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+    def __init__(self, game, type='mechcorpse', currenthp=1, maxhp=1, moves=0, oldunit=None, attributes=None, effects=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.oldunit = oldunit # This is the unit that died to create this corpse. You can repair mech corpses to get your mech back.
         self.attributes.add(Attributes.MASSIVE)
         self.suppressteleport = True # Mech corpses can never be teleported through a teleporter. They can be teleported by the teleport mech/weapon however
-        self.gboard.hurtplayerunits.append(self)
-        if Passives.PSIONICRECEIVER in self.gboard.playerpassives and Passives.EXPLOSIVEDECAY in self.gboard.vekpassives:
+        self.game.hurtplayerunits.append(self)
+        if Passives.PSIONICRECEIVER in self.game.playerpassives and Passives.EXPLOSIVEDECAY in self.game.vekpassives:
             self.effects.add(Effects.EXPLOSIVE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
@@ -1313,117 +1313,117 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         "repair the mech corpse back to unit it was."
         self.oldunit.repairHP(hp)
         self.oldunit.removeEffect(Effects.FIRE) # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
-        self.gboard.board[self.square].createUnitHere(self.oldunit)
+        self.game.board[self.square].createUnitHere(self.oldunit)
 
 class Unit_Combat_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Laser_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Lightning_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Judo_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Flame_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Aegis_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Leap_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Cannon_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Jet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Charge_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Hook_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Mirror_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Unstable_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Artillery_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Rocket_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Boulder_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Siege_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Meteor_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Ice_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Pulse_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Defense_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Gravity_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Swap_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Nano_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoBeetle_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoHornet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, gboard, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoScarab_Mech(Unit_Mech_Base):
-    def __init__(self, gboard, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(gboard, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 ##############################################################################
 ########################## ENVIRONMENTAL EFFECTS #############################
@@ -1436,21 +1436,21 @@ class Environ_Base():
         effects is a tuple of strings. Each string is a method to apply on each tile in squares.
         newtile is a tile class (not object!) that will replace the tiles on squares.
         removevekemerge will remove emerging vek from self.squares if set true
-        the attribute self.gboard is set when the GameBoard instance initializes this object."""
+        the attribute self.game is set when the Game instance initializes this object."""
         self.squares = squares
         self.effects = effects
         self.newtile = newtile
         self.removevekemerge = removevekemerge
     def run(self):
-        "Run the environmental effect on the gameboard."
+        "Run the environmental effect on the Game."
         for square in self.squares:
             if self.effects:
                 for effect in self.effects:
-                    getattr(self.gboard.board[square], effect)()
+                    getattr(self.game.board[square], effect)()
             if self.newtile:
-                self.gboard.board[square].replaceTile(self.newtile(self.gboard))
+                self.game.board[square].replaceTile(self.newtile(self.game))
             if self.removevekemerge:
-                self.gboard.vekemerge.remove(square)
+                self.game.vekemerge.remove(square)
 
 class Environ_IceStorm(Environ_Base):
     def __init__(self, squares):
@@ -1463,8 +1463,8 @@ class Environ_AirStrike(Environ_Base):
         super().__init__(squares, effects=('takeDamage', 'die'))
     def run(self):
         super().run()
-        self.gboard.hurtplayerunits = self.gboard.hurtenemies = []  # reset all the hurt units that took damage from this since they're dead anyway.
-        self.gboard.hurtpsions = set()
+        self.game.hurtplayerunits = self.game.hurtenemies = []  # reset all the hurt units that took damage from this since they're dead anyway.
+        self.game.hurtpsions = set()
 
 class Environ_Tsunami(Environ_Base):
     def __init__(self, squares):
@@ -1479,7 +1479,7 @@ class Environ_Cataclysm(Environ_Base):
         super().run()
         for square in self.squares:
             for e in Effects.FIRE, Effects.ACID: # remove fire and acid from the newly created chasm tiles as they can't have these effects.
-                self.gboard.board[square].removeEffect(e)
+                self.game.board[square].removeEffect(e)
 
 class Environ_FallingRock(Environ_Base):
     def __init__(self, squares):
@@ -1519,7 +1519,7 @@ class Environ_ConveyorBelts():
         solution = []
         while self.squaresdirs:
             for c in self.squaresdirs:
-                if self.gboard.board[c].getRelSquare(self.squaresdirs[c], 1) not in self.squaresdirs: # if this square does NOT push to another square that needs to be pushed...
+                if self.game.board[c].getRelSquare(self.squaresdirs[c], 1) not in self.squaresdirs: # if this square does NOT push to another square that needs to be pushed...
                     solution.append((c, self.squaresdirs.pop(c)))
                     break # start a new iter of squaresdirs since we can't iterate over something that changes
         self.squaresdirs = solution
@@ -1529,7 +1529,7 @@ class Environ_ConveyorBelts():
         if not self.sorted:
             self.sort()
         for sqd in self.squaresdirs: # this is now a list of [((x, y), Direction.DIR), ...]
-            self.gboard.board[sqd[0]].push(sqd[1])
+            self.game.board[sqd[0]].push(sqd[1])
 
 class Environ_VekEmerge():
     "This one is a bit special and different from other environmental effects as you can imagine."
@@ -1542,11 +1542,11 @@ class Environ_VekEmerge():
     def run(self):
         for square in self.squares:
             try:
-                self.gboard.board[square].unit.takeBumpDamage()
+                self.game.board[square].unit.takeBumpDamage()
             except AttributeError: # there was no unit
                 pass # TODO: the vek emerges
             else:
-                self.gboard.flushHurtUnits() # let units that took this bump damage die
+                self.game.flushHurtUnits() # let units that took this bump damage die
     def remove(self, square):
         "remove square from self.squares, ignoring if it wasn't there in the first place. returns nothing."
         try:
@@ -1564,7 +1564,7 @@ class Environ_VekEmerge():
 # All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield arguments to the weapons shoot() method.
 # All weapons that deal damage should store the amount of damage as self.damage
 # Weapons with limited uses must accept the argument usesremaining=int() in __init__(). Set the number of uses left as self.usesremaining
-# self.gboard will be set by the unit that owns the weapon.
+# self.game will be set by the unit that owns the weapon.
 # self.wieldingunit is the unit that owns the weapon. It will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
 
@@ -1575,7 +1575,7 @@ class Weapon_DirectionalGen_Base():
         """A shot generator that yields each direction unless the weapon wielder is on the edge and trying to shoot off the board.
         For example, if you have a unit in the bottom left corner (1, 1), you can only shoot up and right, but not left or down."""
         for d in Direction.gen():
-            if self.gboard.board[self.wieldingunit.square].getRelSquare(d, 1):  # false if it goes off the board
+            if self.game.board[self.wieldingunit.square].getRelSquare(d, 1):  # false if it goes off the board
                 yield d
 
 class Weapon_ArtilleryGen_Base():
@@ -1585,7 +1585,7 @@ class Weapon_ArtilleryGen_Base():
         for direction in Direction.gen():
             relativedistance = 2  # artillery weapons can't shoot the tile next to them, they start at one tile past that.
             while True:
-                if self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relativedistance):
+                if self.game.board[self.wieldingunit.square].getRelSquare(direction, relativedistance):
                     yield (direction, relativedistance)
                     relativedistance += 1
                 else:  # square was false, we went off the board
@@ -1605,30 +1605,30 @@ class Weapon_hurtAndPush_Base():
     "A base class for weapons that need to hurt and push a unit and a tile in a single action."
     def _hurtAndPush(self, square, direction):
         "have a tile takeDamage() from self.damage and get pushed."
-        self.gboard.board[square].takeDamage(self.damage)
-        self.gboard.board[square].push(direction)
+        self.game.board[square].takeDamage(self.damage)
+        self.game.board[square].push(direction)
 
 class Weapon_getSquareOfUnitInDirection_Base():
     def _getSquareOfUnitInDirection(self, direction, edgeok=False):
         """Travel from the weapon wielder's tile in direction, returning the square of the first unit we find.
         If none is found, return False.
         If none is found and edgeok is True, return the square on the edge of the board."""
-        targetsquare = self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
+        targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
         while True:
             try:
-                if self.gboard.board[targetsquare].unit:
+                if self.game.board[targetsquare].unit:
                     return targetsquare  # found the unit
-            except KeyError:  # raised from if gboard.board[False].unit: targetsquare being false means we never found a unit and went off the board
+            except KeyError:  # raised from if game.board[False].unit: targetsquare being false means we never found a unit and went off the board
                 if edgeok:
                     return targetsquare
                 return False
-            targetsquare = self.gboard.board[targetsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
 
 class Weapon_getRelSquare_Base():
     "A base class that provides a helper method to get the relative square from the weaponwielder"
     def _getRelSquare(self, direction, distance):
         "return the target square in direction and distance of wieldingunit. returns false if it's off the board."
-        return self.gboard.board[self.wieldingunit.square].getRelSquare(direction, distance)
+        return self.game.board[self.wieldingunit.square].getRelSquare(direction, distance)
 
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPush_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -1638,11 +1638,11 @@ class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPush_Base, We
         victimtile = self._getSquareOfUnitInDirection(direction, edgeok=False)
         try:
             self._hurtAndPush(victimtile, direction)
-        except KeyError: # raised from _hurtAndPush doing self.gboard.board[False]... meaning there was no unit on victimtile
-            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[self.wieldingunit.square].getEdgeSquare(direction)) # move the wielder to victimtile which is the edge of the board
+        except KeyError: # raised from _hurtAndPush doing self.game.board[False]... meaning there was no unit on victimtile
+            self.game.board[self.wieldingunit.square].moveUnit(self.game.board[self.wieldingunit.square].getEdgeSquare(direction)) # move the wielder to victimtile which is the edge of the board
             return False
         else: # victimtile was actually a tile and we hurt and push the unit there
-            self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
+            self.game.board[self.wieldingunit.square].moveUnit(self.game.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
             return True
 
 class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
@@ -1664,7 +1664,7 @@ class Weapon_TitanFist(Weapon_Charge_Base):
         else: # it's 2 by default
             self.damage = 2
     def shoot_punch(self, direction):
-        self._hurtAndPush(self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
+        self._hurtAndPush(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
 class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPush_Base):
     "Cannon Mech's default weapon."
@@ -1689,12 +1689,12 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base):
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
         targetsquare = self._getRelSquare(direction, distance)
-        if self.buildingsimmune and self.gboard.board[targetsquare].unit.isBuilding():
+        if self.buildingsimmune and self.game.board[targetsquare].unit.isBuilding():
            pass
         else:
-            self.gboard.board[targetsquare].takeDamage(self.damage)
+            self.game.board[targetsquare].takeDamage(self.damage)
         for d in Direction.gen(): # now push all the tiles around targetsquare
-            self.gboard.board[self.gboard.board[targetsquare].getRelSquare(d, 1)].push(d)
+            self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
 
 class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
     """Laser Mech's default weapon.
@@ -1725,8 +1725,8 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
         currentdamage = self.damage # damage being dealt as the beam travels. This decreases the further we go until we reach 1
         while True:
             try:
-                targettile = self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
-            except KeyError: # self.gboard.board[False] means we went off the board
+                targettile = self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
+            except KeyError: # self.game.board[False] means we went off the board
                 break # no more pew pew
             if self.allyimmune and self.isBeamAlly(targettile.unit):
                 pass # no damage
@@ -1763,7 +1763,7 @@ class Weapon_RammingEngines(Weapon_Charge_Base):
             self.damage += 1
     def shoot(self, direction):
         if super().shoot(direction):
-            self.gboard.board[self.wieldingunit.square].takeDamage(self.selfdamage)
+            self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
 
 class Weapon_AttractionPulse(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base):
     "Defense Mech's first default primary weapon."
@@ -1771,8 +1771,8 @@ class Weapon_AttractionPulse(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitI
         pass # this weapon has no power upgrades
     def shoot(self, direction):
         try:
-            self.gboard.board[self._getSquareOfUnitInDirection(direction, edgeok=False)].push(Direction.opposite(direction))
-        except KeyError: # raised by self.gboard.board[False]...
+            self.game.board[self._getSquareOfUnitInDirection(direction, edgeok=False)].push(Direction.opposite(direction))
+        except KeyError: # raised by self.game.board[False]...
             raise NullWeaponShot
 
 class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquare_Base): # does not use the artillery base since we need the limited generator
@@ -1789,16 +1789,16 @@ class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquar
     def shoot(self, direction, distance):
         self.usesremaining -= 1
         targetsquare = self._getRelSquare(direction, distance)
-        self.gboard.board[targetsquare].applyShield() # the target tile itself is shielded
+        self.game.board[targetsquare].applyShield() # the target tile itself is shielded
         if self.bigarea:
             for d in Direction.gen(): # do all tiles around the target if we have the +3 area upgrade
                 try:
-                    self.gboard.board[self.gboard.board[targetsquare].getRelSquare(d, 1)].applyShield()
+                    self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].applyShield()
                 except KeyError:
                     pass # tried to shield off the board
         else:
             try:
-                self.gboard.board[self.gboard.board[targetsquare].getRelSquare(direction, 1)].applyShield() # just shield one tile past the target in the same direction
+                self.game.board[self.game.board[targetsquare].getRelSquare(direction, 1)].applyShield() # just shield one tile past the target in the same direction
             except KeyError:
                 pass # tried to shield off the board
 
@@ -1816,19 +1816,19 @@ class Weapon_ViceFist(Weapon_getRelSquare_Base):
         "Yield squares next to the wieldingunit that have units on them. Empty squares can't be attacked."
         for dir in Direction.gen():
             try:
-                if self.gboard.board[self._getRelSquare(dir, 1)].unit and Attributes.STABLE not in self.gboard.board[self._getRelSquare(dir, 1)].unit and not self.gboard.board[self._getRelSquare(Direction.opposite(dir), 1)].unit:
+                if self.game.board[self._getRelSquare(dir, 1)].unit and Attributes.STABLE not in self.game.board[self._getRelSquare(dir, 1)].unit and not self.game.board[self._getRelSquare(Direction.opposite(dir), 1)].unit:
                     # if there is a unit one square in direction from wielder and it's not stable and there is NO unit on the other side of the wielder...
                     yield dir
             except KeyError: # either the target square or the destination square was off the board
                 pass
     def shoot(self, direction):
         destsquare = self._getRelSquare(Direction.opposite(direction), 1) # where the tossed unit lands
-        self.gboard.board[self._getRelSquare(direction, 1)].moveUnit(destsquare) # move the unit from the attack direction to the other side of the wielder
+        self.game.board[self._getRelSquare(direction, 1)].moveUnit(destsquare) # move the unit from the attack direction to the other side of the wielder
         try:
-            if self.allyimmune and self.gboard.board[destsquare].unit.alliance == Alliance.FRIENDLY:
+            if self.allyimmune and self.game.board[destsquare].unit.alliance == Alliance.FRIENDLY:
                 pass # no damage to friendlies if allies are immune
             else:
-                self.gboard.board[destsquare].takeDamage(self.damage)
+                self.game.board[destsquare].takeDamage(self.damage)
         except AttributeError: # raised from None.alliance. This happens when you throw the unit into a chasm or such and it immediately dies
             pass # unit died, no point in damaging the tile that killed it.
 
@@ -1845,13 +1845,13 @@ class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPush_Base):
     def shoot(self, direction, distance):
         targetsquare = self._getRelSquare(direction, distance) # indicates where the shot landed. Nothing actually happens on this tile for this weapon, it's all around it instead.
         for d in Direction.gen():
-            currenttargetsquare = self.gboard.board[targetsquare].getRelSquare(d, 1) # set the square we're working on
+            currenttargetsquare = self.game.board[targetsquare].getRelSquare(d, 1) # set the square we're working on
             try:
-                if self.buildingsimmune and self.gboard.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
+                if self.buildingsimmune and self.game.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
                     pass # don't damage it
                 else: # there was a unit and it was not a building or there was a building that's not immune
                     self._hurtAndPush(currenttargetsquare, d)
-            except (KeyError, AttributeError): # KeyError raised from currentsquare being False, self.gboard.board[False]. AttributeError raised from None.isBuilding()
+            except (KeyError, AttributeError): # KeyError raised from currentsquare being False, self.game.board[False]. AttributeError raised from None.isBuilding()
                 pass # this square was off the board
 
 class Weapon_GravWell(Weapon_Artillery_Base):
@@ -1859,7 +1859,7 @@ class Weapon_GravWell(Weapon_Artillery_Base):
     def __init__(self, power1=False, power2=False):
         pass # grav well can't be upgraded at all
     def shoot(self, direction, distance):
-        self.gboard.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
+        self.game.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
 
 # TODO Weapon_VekHormones()
 
@@ -1874,7 +1874,7 @@ class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base)
         if power2:
             self.damage += 1
     def shoot(self, direction):
-        self.gboard.board[self._getRelSquare(direction, 1)].takeDamage(self.damage)
+        self.game.board[self._getRelSquare(direction, 1)].takeDamage(self.damage)
         # TODO: Implement direction flipping!
         if self.gainshield:
             self.wieldingunit.applyShield()
@@ -1899,8 +1899,8 @@ class Weapon_CryoLauncher(Weapon_Artillery_Base):
         pass # cryolauncher doesn't take power
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
-        self.gboard.board[self._getRelSquare(direction, distance)].applyIce() # freeze the target
-        self.gboard.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
+        self.game.board[self._getRelSquare(direction, distance)].applyIce() # freeze the target
+        self.game.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
 
 class Weapon_AerialBombs(Weapon_getRelSquare_Base):
     def __init__(self, power1=False, power2=False):
@@ -1914,7 +1914,7 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base):
         for d in Direction.gen():
             for r in range(1, self.range+1):
                 try:
-                    if self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(d, r+1)].unit == None: # if the square where the wielder lands is clear...
+                    if self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, r+1)].unit == None: # if the square where the wielder lands is clear...
                         yield (d, r)
                 except KeyError:
                     continue
@@ -1922,10 +1922,19 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
         targetsquare = self.wieldingunit.square # start where the unit is
         for r in range(distance):
-            targetsquare = self.gboard.board[targetsquare].getRelSquare(direction, 1)
-            self.gboard.board[targetsquare].takeDamage(self.damage) # damage the target
-            self.gboard.board[targetsquare].applySmoke() # smoke the target
-        self.gboard.board[self.wieldingunit.square].moveUnit(self.gboard.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)
+            self.game.board[targetsquare].takeDamage(self.damage) # damage the target
+            self.game.board[targetsquare].applySmoke() # smoke the target
+        self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
+
+class Weapon_RocketArtillery(Weapon_Artillery_Base):
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        for p in power1, power2:
+            if p:
+                self.damage += 1
+    def shoot(self, direction, distance):
+        self.game.board[self._getRelSquare(direction, distance)].push(Direction.opposite(direction))
 
 class Weapon_ElectricWhip():
     """This is the lightning mech's default weapon.
@@ -1948,14 +1957,14 @@ class Weapon_ElectricWhip():
         self.hitsquares = [False, self.wieldingunit.square]  # squares that have already been hit so we don't travel back through them in circles.
         # False is included because getRelSquare will return False when you go off the board. We can use this in the branching logic to tell it that anything off the board has been visited.
         # we also include the unit that shot the weapon since you can NEVER chain through yourself!
-        self.branchChain(backwards=Direction.opposite(direction), targetsquare=self.gboard.board[self.wieldingunit.square].getRelSquare(direction, 1))
+        self.branchChain(backwards=Direction.opposite(direction), targetsquare=self.game.board[self.wieldingunit.square].getRelSquare(direction, 1))
         # done with the recursive method, now skip False and and the wielder's square and make all the units that need to take damage take damage
         for hs in self.hitsquares[2:]:
-            if self.gboard.board[hs].unit.type not in ('building', 'buildingobjective'): # don't damage buildings. If they're here they're already not effected.
-                self.gboard.board[hs].takeDamage(self.damage)
+            if self.game.board[hs].unit.type not in ('building', 'buildingobjective'): # don't damage buildings. If they're here they're already not effected.
+                self.game.board[hs].takeDamage(self.damage)
     def genShots(self):
         for dir in Direction.gen():
-            if self.unitIsChainable(self.gboard.board[self.gboard.board[self.wieldingunit.square].getRelSquare(dir, 1)].unit):
+            if self.unitIsChainable(self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(dir, 1)].unit):
                 yield dir
     def unitIsChainable(self, unit):
         "Pass a unit to this method and it will return true if you can chain through it, false if not or if there is no unit."
@@ -1975,8 +1984,8 @@ class Weapon_ElectricWhip():
         for d in Direction.gen():
             if d == backwards:
                 continue
-            nextsquare = self.gboard.board[targetsquare].getRelSquare(d, 1)
+            nextsquare = self.game.board[targetsquare].getRelSquare(d, 1)
             if nextsquare in self.hitsquares:
                 continue
-            if self.unitIsChainable(self.gboard.board[nextsquare].unit):
+            if self.unitIsChainable(self.game.board[nextsquare].unit):
                 self.branchChain(backwards=Direction.opposite(d), targetsquare=nextsquare)

@@ -38,6 +38,7 @@ class Constant():
         return [self.value2name[x] for x in iter]
 
 class DirectionConst(Constant):
+    "This is the up/down/left/right directions with a couple other methods. THIS SET OF CONSTANTS MUST BE FIRST SO IT GETS THE FIRST 4 NUMBERS!"
     def opposite(self, dir):
         "return the opposite of the direction provided as dir."
         dir += 2
@@ -48,8 +49,14 @@ class DirectionConst(Constant):
         "A generator that yields each direction."
         for d in Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT:
             yield d
+    def genPerp(self, dir):
+        "A generator that yields 2 directions that are perpendicular to dir"
+        dir += 1
+        if dir == 5:
+            dir = 1
+        yield dir
+        yield self.opposite(dir)
 
-# These are up/down/left/right directions with a method to get the opposite direction. THIS SET OF CONSTANTS MUST BE FIRST SO IT GETS THE FIRST 4 NUMBERS!
 Direction = DirectionConst(thegen, (
     'UP',
     'RIGHT',
@@ -1635,6 +1642,13 @@ class Weapon_getRelSquare_Base():
         "return the target square in direction and distance of wieldingunit. returns false if it's off the board."
         return self.game.board[self.wieldingunit.square].getRelSquare(direction, distance)
 
+class Weapon_IncreaseDamageWithPowerInit_Base():
+    "A base class that increases self.damage by 1 for each power that present. self.damage must be set by the child class first."
+    def __init__(self, power1=False, power2=False):
+        for p in power1, power2:
+            if p:
+                self.damage += 1
+
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPush_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for charge weapons."
@@ -1671,13 +1685,11 @@ class Weapon_TitanFist(Weapon_Charge_Base):
     def shoot_punch(self, direction):
         self._hurtAndPush(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
-class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPush_Base):
+class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPush_Base, Weapon_IncreaseDamageWithPowerInit_Base):
     "Cannon Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
-        for p in power1, power2:
-            if p:
-                self.damage += 1
+        super().__init__(power1, power2)
     def shoot(self, direction):
         self._hurtAndPush(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
 
@@ -1884,13 +1896,11 @@ class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base)
         if self.gainshield:
             self.wieldingunit.applyShield()
 
-class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPush_Base):
+class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPush_Base, Weapon_IncreaseDamageWithPowerInit_Base):
     "Default weapon for Mirror Mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 1
-        for p in power1, power2:
-            if p:
-                self.damage += 1
+        super().__init__(power1, power2)
     def genShots(self):
         "There are only 2 possible shots here since it shoots out of both sides at once. Being in a corner can't invalidate a shot."
         yield Direction.UP
@@ -1934,13 +1944,11 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base):
             self.game.board[targetsquare].applySmoke() # smoke the target
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
-class Weapon_RocketArtillery(Weapon_Artillery_Base):
+class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base):
     "Default weapon for the Rocket mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
-        for p in power1, power2:
-            if p:
-                self.damage += 1
+        super().__init__(power1, power2)
     def shoot(self, direction, distance):
         targetsquare = self._getRelSquare(direction, distance)
         self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
@@ -2028,3 +2036,47 @@ class Weapon_ElectricWhip():
                 continue
             if self.unitIsChainable(self.game.board[nextsquare].unit):
                 self.branchChain(backwards=Direction.opposite(d), targetsquare=nextsquare)
+
+class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base):
+    def __init__(self, power1=False, power2=False):
+        if power1:
+            self.shieldally = True
+        else:
+            self.shieldally = False
+        # power2 is unused
+    def genShots():
+        for d in Direction.gen():
+            try:
+                if self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, 1)].unit: # if there's a unit directly next to this one, we can't fire even just to get the shield.
+                    continue
+            except KeyError: # board[False] means we went off the board
+                continue
+            else: # There was an available square without a unit
+                yield d.unit
+    def shoot(self, direction):
+        try:
+            targetunit = self.game.board[self._getSquareOfUnitInDirection(direction)].unit
+        except KeyError: # board[False], there was no unit to grapple
+            raise NullWeaponShot
+        if Attributes.STABLE in targetunit.attributes:
+            self.game.board[self.wieldingunit.square].moveUnit( self.game.board[targetunit.square].getRelSquare(Direction.opposite(direction), 1) ) # move the weapon wielder next to the stable unit it just grappled
+        else: # unit is not stable
+            self.game.board[targetunit.square].moveUnit( self.game.board[self.wieldingunit.square].getRelSquare(direction, 1) ) # move the targetunit next to the wielder
+        if self.shieldally and (Alliance.FRIENDLY == targetunit.alliance or targetunit.isBuilding()):
+            targetunit.applyShield()
+
+class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        super().__init__(power1, power2)
+    def shoot(self, direction, distance):
+        targetsquare = self._getRelSquare(direction, distance)
+        if self.game.board[targetsquare].unit: # the tile only takes damage if a unit is present
+            self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
+        else: # otherwise we just place a rock there
+            self.game.board[targetsquare].putUnitHere(Unit_Rock(self.game))
+        for d in Direction.genPerp(direction):
+            try:
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+            except KeyError:
+                pass # tried to push off the board

@@ -3350,6 +3350,240 @@ def t_WeaponRepulse5():
     assert g.board[(1, 2)].unit.effects == {Effects.SHIELD}  # building is shielded
     assert g.board[(1, 2)].effects == set()  # no change for ally's tile
 
+def t_WeaponGrapplingHook1():
+    "Shoot the grappling hook weapon at an enemy with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # unit moved from here
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 5  # vek is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(2, 1)].effects == set()  # no change for vek's tile
+
+def t_WeaponGrapplingHook2():
+    "Shoot the grappling hook weapon at an enemy with 1 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # unit moved from here
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 5  # vek is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # no change for vek
+    assert g.board[(2, 1)].effects == set()  # no change for vek's tile
+
+def t_WeaponGrapplingHook3():
+    "Shoot the grappling hook weapon at a friendly with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Hook_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # unit moved from here
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # ally is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # no change for ally
+    assert g.board[(2, 1)].effects == set()  # no change for ally's tile
+
+def t_WeaponGrapplingHook4():
+    "Shoot the grappling hook weapon at a friendly with power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Hook_Mech(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit == None # unit moved from here
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # ally is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # ally is shielded
+    assert g.board[(2, 1)].effects == set()  # no change for ally's tile
+
+def t_WeaponGrapplingHook5():
+    "Shoot the grappling hook weapon at a mountain with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit == None  # wielder moved from this spot
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.type == 'mountain'
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set() # wielder gets no new effect
+    assert g.board[(2, 1)].effects == set()  # no change for wielder's new tile
+
+def t_WeaponGrapplingHook6():
+    "Shoot the grappling hook weapon at a mountain with power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit == None  # wielder moved from this spot
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.type == 'mountain'
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set() # wielder gets no new effect
+    assert g.board[(2, 1)].effects == set()  # no change for wielder's new tile
+
+def t_WeaponGrapplingHook7():
+    "Shoot the grappling hook weapon at a building with power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Building(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit == None  # wielder moved from this spot
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.type == 'building'
+    assert g.board[(3, 1)].unit.effects == {Effects.SHIELD} # building is now shielded
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set() # wielder gets no new effect
+    assert g.board[(2, 1)].effects == set()  # no change for wielder's new tile
+
+def t_WeaponGrapplingHook8():
+    "Shoot the grappling hook weapon at a building with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
+    g.board[(3, 1)].createUnitHere(Unit_Building(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits() # redundant as no units are hurt
+    assert g.board[(1, 1)].unit == None  # wielder moved from this spot
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.type == 'building'
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder is now here, took no damage
+    assert g.board[(2, 1)].unit.effects == set() # wielder gets no new effect
+    assert g.board[(2, 1)].effects == set()  # no change for wielder's new tile
+
+def t_WeaponRockLaundher1():
+    "Shoot the Rock Launcher with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.effects == set() # target gets no new effects
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+
+def t_WeaponRockLaundher2():
+    "Shoot the Rock Launcher with 1 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.effects == set() # target gets no new effects
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(3, 1)].unit.currenthp == 2 # vek took 3 damage
+    assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+
+def t_WeaponRockLaundher3():
+    "Shoot the Rock Launcher with full power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.effects == set() # target gets no new effects
+    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(3, 1)].unit.currenthp == 1 # vek took 4 damage
+    assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+
+def t_WeaponRockLaundher4():
+    "Shoot the Rock Launcher with full power, but with a forest under the target vek"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
+    g.board[(3, 1)].replaceTile(Tile_Forest(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.effects == {Effects.FIRE} # target is set on fire
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile on fire
+    assert g.board[(3, 1)].unit.currenthp == 1 # vek took 4 damage
+    assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+
+def t_WeaponRockLaundher5():
+    "Shoot the Rock Launcher with full power, but with a forest with no target vek on it"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
+    g.board[(3, 1)].replaceTile(Tile_Forest(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(3, 1)].unit.type == 'rock' # rock landed here and survives
+    assert g.board[(3, 1)].effects == set() # tile doesn't catch fire since no damage was actually done to the tile
+    assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+########### write tests for these:
+# shielded blobber bombs still explode normally
+# If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
+# mech corpses that fall into chasms cannot be revived.
+# if a vek with acid is on a forest and is then hit with an airstrike, the tile is damaged and catches fire, then the unit dies leaving its acid and removing the fire and forest.
+
+########## special objective units:
+# Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
+# Train: 1 hp, Fire immune, smoke immune, stable, "choo choo" weapon move forward 2 spaces but will be destroyed if blocked. kills whatever unit it runs into, stops dead on the tile before that unit. It is multi-tile, shielding one tile shields both.
+    # when attacked and killed, becomes a "damaged train" that is also stable and fire immune. When that is damaged again, it becomes a damaged train corpse that can't be shielded, is no longer fire immune, and is flying like a normal corpse.
+    # units can bump into the corpse
+# ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
+
+
+########## Weapons stuff for later
+# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

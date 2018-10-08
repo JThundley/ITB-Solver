@@ -30,6 +30,10 @@ def testTheTests():
                 print("Duplicate docstring detected:", docstring)
             docstrings.add(line.strip())
             commentisnext = False
+        elif line.startswith("if __name__ == '__main__':"):
+            return
+        elif line.startswith('    print') and funcname.startswith('t_'):
+            print("print statment left in", funcname)
 
 def t_BumpDamage():
     "2 units bump into each other and take 1 damage each."
@@ -367,7 +371,7 @@ def t_IceGroundUnitDiesInChasm():
     assert g.board[(1, 1)].unit == None
 
 def t_IceFlyingUnitDiesInChasm():
-    "when a flying unit is frozen with ice and then moved to a chasm, it does because it's not really flying anymore."
+    "when a flying unit is frozen with ice and then moved to a chasm, it dies because it's not really flying anymore."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Chasm(g))
     g.board[(1, 2)].createUnitHere(Unit_Hornet(g))
@@ -816,8 +820,8 @@ def t_AcidVatWithSmokeKeepsSmokeAfterKilled():
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED, Effects.SMOKE}
     assert g.board[(1, 1)].unit == None
 
-def t_AcidUnitAttackedonDesertLeavesAcidNoSmoke():
-    "If a unit with acid stands on a desert tile and is attacked and killed, an acid pool is left on the tile along with smoke. The sand is removed."
+def t_AcidUnitAttackedOnSandLeavesAcidNoSmoke():
+    "If a unit with acid stands on a sand tile and is attacked and killed, an acid pool is left on the tile along with smoke. The sand is removed."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].createUnitHere(Unit_Blobber(g))
@@ -3568,6 +3572,244 @@ def t_WeaponRockLaundher5():
     assert g.board[(3, 1)].effects == set() # tile doesn't catch fire since no damage was actually done to the tile
     assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
     assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
+
+def t_WeaponFlameThrower1():
+    "Shoot the Flame Thrower with default power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=False, power2=False)))
+    g.board[(2, 1)].replaceTile(Tile_Sand(g))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
+    assert g.board[(2, 1)].unit == None # vek pushed
+    assert g.board[(3, 1)].effects == set() # no change to destination
+    assert g.board[(3, 1)].unit.effects == {Effects.FIRE} # vek is now on fire
+    assert g.board[(3, 1)].unit.currenthp == 5  # vek took no damage
+
+def t_WeaponFlameThrower2():
+    "Shoot the Flame Thrower with one more range/power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=False)))
+    g.board[(2, 1)].replaceTile(Tile_Sand(g))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(2, 1)].unit.currenthp == 5  # vek took no damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile past the vek caught fire
+    assert g.board[(4, 1)].effects == set() # no change to push destination
+
+def t_WeaponFlameThrower3():
+    "Shoot the Flame Thrower with max range/power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
+    g.board[(2, 1)].replaceTile(Tile_Sand(g))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(2, 1)].unit.currenthp == 5  # vek took no damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile past the vek caught fire
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # this tile caught fire too
+    assert g.board[(5, 1)].effects == set() # no change to push destination
+
+def t_WeaponFlameThrower4():
+    "Shoot the Flame Thrower twice with max range/power to cause damage."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
+    g.board[(2, 1)].replaceTile(Tile_Sand(g))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
+    g.flushHurtUnits()
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
+    g.flushHurtUnits() # redundant as the first shot didn't kill anything
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(2, 1)].unit.currenthp == 3  # vek took 2 damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile past the vek caught fire
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # this tile caught fire too
+    assert g.board[(5, 1)].effects == set() # no change to push destination
+
+def t_WeaponFlameThrowerMountain():
+    "Shoot the Flame Thrower with max range/power through a mountain."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
+    g.board[(2, 1)].replaceTile(Tile_Sand(g))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
+    except NullWeaponShot: # This is expected
+        pass
+    else:
+        assert False # this is not good
+
+def t_WeaponFlameThrowerOffBoard():
+    "Shoot the Flame Thrower with max range/power off the board."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
+    g.board[(1, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    try:
+        g.board[(2, 1)].unit.weapon1.shoot(Direction.LEFT, 3)
+    except NullWeaponShot: # This is expected
+        pass
+    else:
+        assert False # this is not good
+
+def t_WeaponVulcanArtillery1():
+    "Shoot the Vulcan Artillery with low power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(3, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(3, 1)].unit.currenthp == 5 # no damage
+    assert g.board[(3, 2)].unit == None # vek pushed from here
+    assert g.board[(3, 3)].effects == set()
+    assert g.board[(3, 3)].unit.effects == set()
+    assert g.board[(3, 3)].unit.currenthp == 5  # no damage
+
+def t_WeaponVulcanArtillery2():
+    "Shoot the Vulcan Artillery with backburn power up against a wall."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(3, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(3, 1)].unit.currenthp == 5 # no damage
+    assert g.board[(3, 2)].unit == None # vek pushed from here
+    assert g.board[(3, 3)].effects == set()
+    assert g.board[(3, 3)].unit.effects == set()
+    assert g.board[(3, 3)].unit.currenthp == 5  # no damage
+
+def t_WeaponVulcanArtillery3():
+    "Shoot the Vulcan Artillery with backburn power NOT up against a wall."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(4, 1)].unit.currenthp == 5 # no damage
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # fire farted
+
+def t_WeaponVulcanArtillery4():
+    "Shoot the Vulcan Artillery withOUT backburn power NOT up against a wall."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(4, 1)].unit.currenthp == 5 # no damage
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == set() # NO fire farted
+
+def t_WeaponVulcanArtillery5():
+    "Shoot the Vulcan Artillery withOUT backburn power NOT up against a wall and WITH damage power."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(4, 1)].unit.currenthp == 3 # 2 damage
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == set() # NO fire farted
+
+def t_WeaponVulcanArtillery6():
+    "Shoot the Vulcan Artillery with backburn power NOT up against a wall and WITH damage power."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
+    assert g.board[(4, 1)].unit.currenthp == 3 # 2 damage
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == {Effects.FIRE}  # fire farted
+
+def t_WeaponVulcanArtillery7():
+    "Shoot the Vulcan Artillery with full power against a mountain for some reason."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == set()  # mountains can't catch on fire
+    assert g.board[(4, 1)].unit.type == 'mountaindamaged'
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == {Effects.FIRE}  # fire farted
+
+def t_WeaponVulcanArtillery8():
+    "Shoot the Vulcan Artillery with no damage power against a mountain for some reason."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
+    assert g.board[(4, 1)].unit.effects == set()  # mountains can't catch on fire
+    assert g.board[(4, 1)].unit.type == 'mountain'
+    assert g.board[(4, 2)].unit == None # vek pushed from here
+    assert g.board[(4, 3)].effects == set()
+    assert g.board[(4, 3)].unit.effects == set()
+    assert g.board[(4, 3)].unit.currenthp == 5  # no damage
+    assert g.board[(1, 1)].effects == {Effects.FIRE}  # fire farted
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
@@ -3632,7 +3874,7 @@ def t_WeaponRockLaundher5():
 ########## Research these:
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket (leaves a corpse that is invincible and can't be pushed. It's friendly so you can move through it), earth mover.
-# what happens if lightning strikes a desert or forest tile with a vek with acid on it? Does it create smoke first, then kill the enemy, then drop the acid and convert the tile to a regular ground tile? Or does the acid drop first converting the tiel before it does anything?
+# what happens if lightning strikes a sand or forest tile with a vek with acid on it? Does it create smoke first, then kill the enemy, then drop the acid and convert the tile to a regular ground tile? Or does the acid drop first converting the tiel before it does anything?
 # Can mech corpses be revived after falling into a chasm?
 
 ########## Do these ones even matter?

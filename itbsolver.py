@@ -142,6 +142,8 @@ class MissingCompanionTile(Exception):
 class NullWeaponShot(Exception):
     "This is raised when a friendly unit fires a weapon that has no effect at all on the game. This prompts the logic to avoid continuing the current simulation. It's a bug if a user ever sees this."
 
+class FakeException(Exception):
+    "This is raised to do some more effecient try/except if/else statements"
 ############# THE MAIN GAME BOARD!
 class Game():
     "This represents the a single instance of a game. This is the highest level of the game."
@@ -231,18 +233,19 @@ class Tile_Base(TileUnit_Base):
     def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False):
         """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
         There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs which never has an effect on the tile.
-        Damage is an int of how much damage to take.
+        Damage is an int of how much damage to take. DO NOT PASS 0 DAMAGE TO THIS or the tile will still take damage!
         ignorearmor and ignoreacid have no effect on the tile and are passed onto the unit's takeDamage method.
         returns nothing.
         """
         try:
-            isshielded = Effects.SHIELD in self.unit.effects
-        except AttributeError: # raised from Effects.SHIELD in None
-            isshielded = False
-        if not isshielded:
-            self._tileTakeDamage() # Tile takes damage first.
-        if self.game.board[self.square].unit: # use the square of the board in case this tile taking damage caused it to get replaced. If we don't do this, then a tile could turn from ice to water and kill the unit but we'd keep operating on
-            self.game.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) #  the non-garbage-collected unit that's no longer attached to the Game which is a waste.
+            if Effects.SHIELD not in self.unit.effects: # if the unit on this tile was NOT shielded...
+                raise FakeException
+        except AttributeError: # raised from Effects.SHIELD in None meaning there was no unit to check for shields
+            self._tileTakeDamage() # so we only damage the tile
+            return
+        except FakeException: # there was an unshielded unit present
+            self._tileTakeDamage()  # Tile takes damage first.
+        self.game.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) # then the unit takes damage. If the unit was shielded, then only the unit took damage and not the tile
     def hasShieldedUnit(self):
         "If there is a unit on this tile that is shielded, return True, return False otherwise."
         try:
@@ -337,15 +340,15 @@ class Tile_Base(TileUnit_Base):
         self.game.board[destsquare].putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
-        """push unit on this tile direction.
+        """push unit on this tile in direction.
         direction is a Direction.UP type direction
         This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same action e.g. conveyor belts or wind torrent
-        returns nothing"""
+        returns True if a unit was pushed, False if nothing happened."""
         try:
             if Attributes.STABLE in self.unit.attributes:
-                return # stable units can't be pushed
+                return False # stable units can't be pushed
         except AttributeError:
-            return # There was no unit to push
+            return False# There was no unit to push
         else: # push the unit
             destinationsquare = self.getRelSquare(direction, 1)
             try:
@@ -353,9 +356,10 @@ class Tile_Base(TileUnit_Base):
             except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
                 self.moveUnit(destinationsquare) # move the unit from this tile to destination square
             except KeyError:
-                return  # raised by self.board[None], attempted to push unit off the Game, no action is taken
+                return False # raised by self.board[None], attempted to push unit off the Game, no action is taken
             else:
                 self.unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
+            return True
     def getRelSquare(self, direction, distance):
         """return the coordinates of the tile that starts at this tile and goes direction direction a certain distance. return False if that tile would be off the board.
         direction is a Direction.UP type global constant
@@ -769,12 +773,13 @@ class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base):
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
         self.blocksbeamshot = True # this unit blocks beam shots that penetrate almost all other units.
     def applyFire(self):
-        raise AttributeError # mountains can't be set on fire, but the tile they're on can!. Raise attribute error so the tile that tried to give fire to the present unit gets it instead.
+        pass # mountains can't be set on fire, but the tile they're on can!
 
 class Unit_Mountain(Unit_Mountain_Building_Base):
     def __init__(self, game, type='mountain', attributes=None, effects=None):
         super().__init__(game, type=type, currenthp=1, maxhp=1, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
+        self._mountain = True
     def applyAcid(self):
         pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
@@ -1649,6 +1654,15 @@ class Weapon_IncreaseDamageWithPowerInit_Base():
             if p:
                 self.damage += 1
 
+class Weapon_PushAdjacent_Base():
+    "A base class that provides a method to push all tiles around a target."
+    def _pushAdjacent(self, targetsquare):
+        for d in Direction.gen(): # now push all the tiles around targetsquare
+            try:
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+            except KeyError: # game.board[False]
+                pass
+
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPush_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for charge weapons."
@@ -1693,7 +1707,7 @@ class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPush_Base, Weapo
     def shoot(self, direction):
         self._hurtAndPush(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
 
-class Weapon_ArtemisArtillery(Weapon_Artillery_Base):
+class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
     "Artillery Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -1710,8 +1724,7 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base):
            pass
         else:
             self.game.board[targetsquare].takeDamage(self.damage)
-        for d in Direction.gen(): # now push all the tiles around targetsquare
-            self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+        self._pushAdjacent(targetsquare) # now push all the tiles around targetsquare
 
 class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
     """Laser Mech's default weapon.
@@ -2038,6 +2051,7 @@ class Weapon_ElectricWhip():
                 self.branchChain(backwards=Direction.opposite(d), targetsquare=nextsquare)
 
 class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base):
+    "Default weapon for Hook Mech"
     def __init__(self, power1=False, power2=False):
         if power1:
             self.shieldally = True
@@ -2066,6 +2080,7 @@ class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base):
             targetunit.applyShield()
 
 class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+    "Default weapon for Boulder Mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         super().__init__(power1, power2)
@@ -2080,3 +2095,69 @@ class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerI
                 self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
             except KeyError:
                 pass # tried to push off the board
+
+class Weapon_FlameThrower(Weapon_getRelSquare_Base):
+    "Default weapon for Flame Mech"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        self.range = 1
+        for p in power1, power2:
+            if p:
+                self.range += 1
+    def genShots(self):
+        for d in Direction.gen():
+            for r in range(1, self.range+1):
+                yield (d, r)
+    def shoot(self, direction, distance):
+        for r in range(1, distance+1):
+            targetsquare = self._getRelSquare(direction, r)
+            if not targetsquare: # went off the board
+                raise NullWeaponShot
+            try: # unit takes damage if it was already on fire
+                if Effects.FIRE in self.game.board[targetsquare].unit.effects:
+                    raise FakeException
+            except FakeException: # The unit was on fire
+                self.game.board[targetsquare].unit.takeDamage(self.damage)
+            except AttributeError: # None.effects, there was no unit
+                pass
+            self.game.board[targetsquare].applyFire() # light it up
+            if self.isMountain(self.game.board[targetsquare].unit) and r < self.range: # if the unit on the targetsquare is a mountain (which stops flamethrower from going through it) and there was range remaining...
+                raise NullWeaponShot # bail since this shot was already taken with less range
+        self.game.board[targetsquare].push(direction) # and finally push the last tile
+    def isMountain(self, unit):
+        try:
+            return unit._mountain
+        except AttributeError:
+            return False
+
+#class Weapon_FlameShielding(): # passive for later
+
+class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
+    "Default Weapon for Meteor Mech"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 0
+        if power1:
+            self.backburn = True
+        else:
+            self.backburn = False
+        if power2:
+            self.damage += 2
+            self.shoot = self.shoot_damage
+        else:
+            self.shoot = self.shoot_nodamage
+    def shoot_damage(self, direction, distance):
+        self.shoot_nodamage(direction, distance)
+        self.game.board[self.targetsquare].takeDamage(self.damage)
+    def shoot_nodamage(self, direction, distance):
+        "This shoot method doesn't cause any damage to the tile or unit."
+        self.targetsquare = self._getRelSquare(direction, distance)
+        self.game.board[self.targetsquare].applyFire()
+        self._pushAdjacent(self.targetsquare)
+        if self.backburn:
+            try:
+                self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applyFire()
+            except KeyError:  # self.game.board[False].applyFire()
+                pass  # totally fine, if your butt is against the wall you just don't fart out any fire
+
+class Weapon_Teleporter():
+    "Default weapon for Swap Mech"

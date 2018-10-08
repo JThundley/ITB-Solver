@@ -140,7 +140,8 @@ class MissingCompanionTile(Exception):
         return self.message
 
 class NullWeaponShot(Exception):
-    "This is raised when a friendly unit fires a weapon that has no effect at all on the game. This prompts the logic to avoid continuing the current simulation. It's a bug if a user ever sees this."
+    """This is raised when a friendly unit fires a weapon that has no effect at all on the game or an invalid shot (like one that went off the board).
+    This prompts the logic to avoid continuing the current simulation. It's a bug if a user ever sees this."""
 
 class FakeException(Exception):
     "This is raised to do some more effecient try/except if/else statements"
@@ -337,6 +338,7 @@ class Tile_Base(TileUnit_Base):
         self.game.board[self.square].putUnitHere(unit)
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
+        assert Attributes.STABLE not in self.unit.attributes
         self.game.board[destsquare].putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
@@ -381,7 +383,8 @@ class Tile_Base(TileUnit_Base):
             return False
         return destinationsquare
     def teleport(self, destsquare):
-        "Teleport from this tile to destsquare, swapping units if there is one on destsquare."
+        "Teleport from this tile to destsquare, swapping units if there is one on destsquare. This method does NOT make sure the unit is not stable!"
+        assert Attributes.STABLE not in self.unit.attributes
         unitfromdest = self.game.board[destsquare].unit # grab the unit that's about to be overwritten on the destination
         self.moveUnit(destsquare) # move unit from this square to destination
         self.putUnitHere(unitfromdest)
@@ -1574,7 +1577,8 @@ class Environ_VekEmerge():
 # all weapons must accept power1 and power2 arguments even if the weapon doesn't actually support upgrades.
 # All weapons must have a shoot() method to shoot the weapon.
 # All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield arguments to the weapons shoot() method.
-# All weapons that deal damage should store the amount of damage as self.damage
+# Any weapons that deal damage should store the amount of damage as self.damage
+# Any weapons that have limited range must store their range as self.range
 # Weapons with limited uses must accept the argument usesremaining=int() in __init__(). Set the number of uses left as self.usesremaining
 # self.game will be set by the unit that owns the weapon.
 # self.wieldingunit is the unit that owns the weapon. It will be set by the unit that owns the weapon.
@@ -1582,7 +1586,7 @@ class Environ_VekEmerge():
 
 # Generator base classes:
 class Weapon_DirectionalGen_Base():
-    "The base class for all weapons that must have a direction to be shot."
+    "The base class for weapons that need a direction to be shot."
     def genShots(self):
         """A shot generator that yields each direction unless the weapon wielder is on the edge and trying to shoot off the board.
         For example, if you have a unit in the bottom left corner (1, 1), you can only shoot up and right, but not left or down."""
@@ -1592,10 +1596,12 @@ class Weapon_DirectionalGen_Base():
 
 class Weapon_ArtilleryGen_Base():
     "The generator for artillery weapons."
-    def genShots(self):
-        "Generate every possible shot that the weapon wielder can take from their position with an artillery weapon. Yields a tuple of (direction, relativedistance)."
+    def genShots(self, minimumdistance=2):
+        """Generate every possible shot that the weapon wielder can take from their position with an artillery weapon. Yields a tuple of (direction, relativedistance).
+        minimumdistance is how near the wielder the weapon can shoot. Artillery weapons typically can't shoot the square next to them, but Hydraulic Legs can.
+        genShots() methods usually don't take arguments, only child objects should use this argument."""
         for direction in Direction.gen():
-            relativedistance = 2  # artillery weapons can't shoot the tile next to them, they start at one tile past that.
+            relativedistance = minimumdistance  # artillery weapons can't shoot the tile next to them, they start at one tile past that.
             while True:
                 if self.game.board[self.wieldingunit.square].getRelSquare(direction, relativedistance):
                     yield (direction, relativedistance)
@@ -1617,11 +1623,18 @@ class Weapon_NoChoiceGen_Base():
     def genShots(self):
         yield ()
 
+class Weapon_RangedGen_Base(Weapon_DirectionalGen_Base):
+    "A generator for weapons with a limited range. The weapon must use self.range and check to make sure the destination square exists."
+    def genShots(self):
+        for d in super().genShots():
+            for r in range(1, self.range+1):
+                yield (d, r)
+
 # Low-level shared weapon functionality:
 class Weapon_hurtAndPush_Base():
-    "A base class for weapons that need to hurt and push a unit and a tile in a single action."
+    "A base class for weapons that need to hurt and push a unit."
     def _hurtAndPush(self, square, direction):
-        "have a tile takeDamage() from self.damage and get pushed."
+        "have a tile takeDamage() from self.damage and get pushed. This will raise KeyError if square is not on the board."
         self.game.board[square].takeDamage(self.damage)
         self.game.board[square].push(direction)
 
@@ -1663,6 +1676,13 @@ class Weapon_PushAdjacent_Base():
             except KeyError: # game.board[False]
                 pass
 
+class Weapon_MirrorGen_Base():
+    "A base class for weapons that shoot out of both sides of the wielder"
+    def genShots(self):
+        "There are only 2 possible shots here since it shoots out of both sides at once. Being in a corner can't invalidate a shot."
+        yield Direction.UP
+        yield Direction.RIGHT
+
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPush_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for charge weapons."
@@ -1684,6 +1704,16 @@ class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
 class Weapon_Projectile_Base(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for Projectile weapons."
 
+class Weapon_HydraulicLegsUnstableInit_Base():
+    "init shared by Hydraulic Legs and Unstable Cannon."
+    def __init__(self, power1=False, power2=False):
+        self.selfdamage = 1
+        self.damage = 1
+        if power1:
+            self.selfdamage += 1
+            self.damage += 1
+        if power2:
+            self.damage += 1
 ##################### Actual standalone weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base):
     """Combat mech's default weapon.
@@ -1909,15 +1939,11 @@ class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base)
         if self.gainshield:
             self.wieldingunit.applyShield()
 
-class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPush_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPush_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_MirrorGen_Base):
     "Default weapon for Mirror Mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         super().__init__(power1, power2)
-    def genShots(self):
-        "There are only 2 possible shots here since it shoots out of both sides at once. Being in a corner can't invalidate a shot."
-        yield Direction.UP
-        yield Direction.RIGHT
     def shoot(self, direction):
         for d in direction, Direction.opposite(direction):
             self._hurtAndPush(self._getSquareOfUnitInDirection(d, edgeok=True), d)
@@ -1931,7 +1957,7 @@ class Weapon_CryoLauncher(Weapon_Artillery_Base):
         self.game.board[self._getRelSquare(direction, distance)].applyIce() # freeze the target
         self.game.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
 
-class Weapon_AerialBombs(Weapon_getRelSquare_Base):
+class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
     "Default weapon for the Jet mech."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -1941,13 +1967,12 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base):
         if power2:
             self.range += 1
     def genShots(self):
-        for d in Direction.gen():
-            for r in range(1, self.range+1):
-                try:
-                    if self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, r+1)].unit == None: # if the square where the wielder lands is clear...
-                        yield (d, r)
-                except KeyError:
-                    continue
+        for (d, r) in super().genShots():
+            try:
+                if self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, r+1)].unit == None: # if the square where the wielder lands is clear...
+                    yield (d, r)
+            except KeyError:
+                continue
     def shoot(self, direction, distance):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
         targetsquare = self.wieldingunit.square # start where the unit is
@@ -2066,7 +2091,7 @@ class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base):
             except KeyError: # board[False] means we went off the board
                 continue
             else: # There was an available square without a unit
-                yield d.unit
+                yield d
     def shoot(self, direction):
         try:
             targetunit = self.game.board[self._getSquareOfUnitInDirection(direction)].unit
@@ -2096,7 +2121,7 @@ class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerI
             except KeyError:
                 pass # tried to push off the board
 
-class Weapon_FlameThrower(Weapon_getRelSquare_Base):
+class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
     "Default weapon for Flame Mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
@@ -2104,10 +2129,6 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base):
         for p in power1, power2:
             if p:
                 self.range += 1
-    def genShots(self):
-        for d in Direction.gen():
-            for r in range(1, self.range+1):
-                yield (d, r)
     def shoot(self, direction, distance):
         for r in range(1, distance+1):
             targetsquare = self._getRelSquare(direction, r)
@@ -2135,13 +2156,12 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base):
 class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
     "Default Weapon for Meteor Mech"
     def __init__(self, power1=False, power2=False):
-        self.damage = 0
         if power1:
             self.backburn = True
         else:
             self.backburn = False
         if power2:
-            self.damage += 2
+            self.damage = 2
             self.shoot = self.shoot_damage
         else:
             self.shoot = self.shoot_nodamage
@@ -2159,5 +2179,45 @@ class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
             except KeyError:  # self.game.board[False].applyFire()
                 pass  # totally fine, if your butt is against the wall you just don't fart out any fire
 
-class Weapon_Teleporter():
+class Weapon_Teleporter(Weapon_RangedGen_Base, Weapon_getRelSquare_Base):
     "Default weapon for Swap Mech"
+    def __init__(self, power1=False, power2=False):
+        self.range = 1
+        if power1:
+            self.range += 1
+        if power2:
+            self.range += 2
+    def shoot(self, direction, distance):
+        targetsquare = self._getRelSquare(direction, distance)
+        try:
+            if Attributes.STABLE in self.game.board[targetsquare].unit.attributes: # can't teleport stable units
+                raise NullWeaponShot
+        except KeyError: # tried to teleport off the board
+            raise NullWeaponShot
+        except AttributeError: # there was no unit to check for stability
+            pass
+        self.game.board[self.wieldingunit.square].teleport(targetsquare)
+
+class Weapon_HydraulicLegs(Weapon_Artillery_Base, Weapon_hurtAndPush_Base, Weapon_HydraulicLegsUnstableInit_Base):
+    "The default weapon for Leap Mech"
+    def shoot(self, direction, distance):
+        targetsquare = self._getRelSquare(direction, distance)
+        if self.game.board[targetsquare].unit:
+            raise NullWeaponShot # the tile you're leaping to must be clear of units
+        self.game.board[self.wieldingunit.square].moveUnit(targetsquare) # move the wielder first
+        self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # then the wielder takes damage on the new tile
+        for d in Direction.gen():
+            targetsquare = self._getRelSquare(d, 1)
+            try:
+                self._hurtAndPush(targetsquare, d)
+            except KeyError: # tried to hurt and push a square off the board
+                pass
+
+class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projectile_Base, Weapon_hurtAndPush_Base):
+    def __init__(self, power1=False, power2=False):
+        super().__init__(power1, power2)
+        self.damage += 1 # unstable cannon does 1 more damage by default
+    def shoot(self, direction):
+        self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # take self-damage first
+        self.game.board[self.wieldingunit.square].push(Direction.opposite(direction)) # and push back
+        self._hurtAndPush(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)

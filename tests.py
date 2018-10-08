@@ -3810,6 +3810,260 @@ def t_WeaponVulcanArtillery8():
     assert g.board[(4, 3)].unit.currenthp == 5  # no damage
     assert g.board[(1, 1)].effects == {Effects.FIRE}  # fire farted
 
+def t_WeaponTeleporter1():
+    "Shoot the teleporter with no power and no unit to swap with"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=False, power2=False)))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 2  # no change for shooter who is now here
+    assert g.board[(2, 1)].unit.type == 'swap'
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit == None
+
+def t_WeaponTeleporter2():
+    "Shoot the teleporter with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(2, 1)].unit.currenthp == 2  # no change for shooter who is now here
+    assert g.board[(2, 1)].unit.type == 'swap'
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 5  # no damage to vek who is now here
+
+def t_WeaponTeleporter3():
+    "Shoot the teleporter with full power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=True, power2=True)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
+    g.flushHurtUnits() # no units actually hurt
+    assert g.board[(5, 1)].unit.currenthp == 2  # no change for shooter who is now here
+    assert g.board[(5, 1)].unit.type == 'swap'
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 5  # no damage to vek who is now here
+
+def t_WeaponTeleporterOffBoard():
+    "Shoot the teleporter with some power off the board"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=True, power2=False)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(Direction.LEFT, 2)
+    except NullWeaponShot:
+        pass # expected
+    else:
+        assert False # WRONG
+
+def t_WeaponHydraulicLegsLowPower():
+    "Shoot the Hydraulic Legs with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    for x in range(1, 5):
+        for y in range(1, 4):
+            g.board[(x, y)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(1, 1)].unit == None # wielder leaped from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # wielder caught fire
+    assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE}
+    assert g.board[(3, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].unit.currenthp == 4 # vek took 1 damage
+    assert g.board[(2, 2)].effects == {Effects.FIRE}
+    assert g.board[(2, 2)].unit == None # no unit here
+    assert g.board[(2, 3)].effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.currenthp == 4 # took 1 damage
+
+def t_WeaponHydraulicLegsPower1():
+    "Shoot the Hydraulic Legs with 1 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    for x in range(1, 5):
+        for y in range(1, 4):
+            g.board[(x, y)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(1, 1)].unit == None # wielder leaped from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # wielder caught fire
+    assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE}
+    assert g.board[(3, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert g.board[(2, 2)].effects == {Effects.FIRE}
+    assert g.board[(2, 2)].unit == None # no unit here
+    assert g.board[(2, 3)].effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.currenthp == 3 # took 2 damage
+
+def t_WeaponHydraulicLegsPower2():
+    "Shoot the Hydraulic Legs with second power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    for x in range(1, 5):
+        for y in range(1, 4):
+            g.board[(x, y)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(1, 1)].unit == None # wielder leaped from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # wielder caught fire
+    assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE}
+    assert g.board[(3, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert g.board[(2, 2)].effects == {Effects.FIRE}
+    assert g.board[(2, 2)].unit == None # no unit here
+    assert g.board[(2, 3)].effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.currenthp == 3 # took 2 damage
+
+def t_WeaponHydraulicLegsMaxPower():
+    "Shoot the Hydraulic Legs with maximum power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    for x in range(1, 5):
+        for y in range(1, 4):
+            g.board[(x, y)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(1, 1)].unit == None # wielder leaped from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # wielder caught fire
+    assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE}
+    assert g.board[(3, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
+    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek took 3 damage
+    assert g.board[(2, 2)].effects == {Effects.FIRE}
+    assert g.board[(2, 2)].unit == None # no unit here
+    assert g.board[(2, 3)].effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].unit.currenthp == 2 # took 3 damage
+
+def t_WeaponUnstableCannonLowPower():
+    "Shoot the Unstable Cannon with no power"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # No new effects
+    assert g.board[(1, 1)].unit.currenthp == 2 # took 1 self-damage
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit == None # wielder pushed from here
+    assert g.board[(3, 1)].effects == set() # no tile effects
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(4, 1)].effects == set() # no tile effects
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
+
+def t_WeaponUnstableCannonPower1():
+    "Shoot the Unstable Cannon with first power"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # No new effects
+    assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit == None # wielder pushed from here
+    assert g.board[(3, 1)].effects == set() # no tile effects
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(4, 1)].effects == set() # no tile effects
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek took 3 damage
+
+def t_WeaponUnstableCannonPower2():
+    "Shoot the Unstable Cannon with second power"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # No new effects
+    assert g.board[(1, 1)].unit.currenthp == 2 # took 1 self-damage
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit == None # wielder pushed from here
+    assert g.board[(3, 1)].effects == set() # no tile effects
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(4, 1)].effects == set() # no tile effects
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek took 3 damage
+
+def t_WeaponUnstableCannonMaxPower():
+    "Shoot the Unstable Cannon with max power"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # No new effects
+    assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit == None # wielder pushed from here
+    assert g.board[(3, 1)].effects == set() # no tile effects
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(4, 1)].effects == set() # no tile effects
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1 # vek took 4 damage
+
+def t_WeaponUnstableCannonWielderForest():
+    "Shoot the Unstable Cannon with max power with the weapon wielder starting a forest"
+    g = Game()
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurtUnits()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # No new effects, the wielder does NOT catch on fire because he's pushed off before it happens.
+    assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught on fire
+    assert g.board[(2, 1)].unit == None # wielder pushed from here
+    assert g.board[(3, 1)].effects == set() # no tile effects
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(4, 1)].effects == set() # no tile effects
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1 # vek took 4 damage
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

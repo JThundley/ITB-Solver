@@ -15,25 +15,27 @@ def testTheTests():
     funcs = set()
     docstrings = set()
     commentisnext = False
+    lineno = 0
     for line in open('tests.py'):
+        lineno += 1
         if line.startswith('def '):
             commentisnext = True
             funcname = line.split()[1].split('()')[0]
             if funcname in funcs:
-                print("Duplicate function detected:", funcname)
+                print("#%s Duplicate function detected:" % lineno, funcname)
             funcs.add(funcname)
         elif commentisnext:
             docstring = line.strip()
             if not docstring or not docstring.startswith('"'):
-                print("Blank docstring for", funcname)
+                print("#%s Blank docstring for" % lineno, funcname)
             elif docstring in docstrings:
-                print("Duplicate docstring detected:", docstring)
+                print("#%s Duplicate docstring detected:" % lineno, docstring)
             docstrings.add(line.strip())
             commentisnext = False
         elif line.startswith("if __name__ == '__main__':"):
             return
         elif line.startswith('    print') and funcname.startswith('t_'):
-            print("print statment left in", funcname)
+            print("#%s print statment left in" % lineno, funcname)
 
 def t_BumpDamage():
     "2 units bump into each other and take 1 damage each."
@@ -44,7 +46,7 @@ def t_BumpDamage():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(2, 1)].unit.currenthp == 5
     g.board[(2, 1)].push(Direction.LEFT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 4
 
@@ -55,7 +57,7 @@ def t_ForestCatchesFire():
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
 
 def t_FireTurnsIceToWater():
@@ -66,7 +68,7 @@ def t_FireTurnsIceToWater():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].type == "water"
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -79,7 +81,7 @@ def t_ShieldBlocksTileFire():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
@@ -92,7 +94,7 @@ def t_IceAndShieldHitWithFire():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ICE, Effects.SHIELD}
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
@@ -102,7 +104,7 @@ def t_ShieldRemovedOnFireTile():
     g.board[(1, 1)].applyFire()
     g.board[(1, 1)].createUnitHere(Unit_Blobber(g, effects={Effects.SHIELD}))
     g.board[(1, 1)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -115,7 +117,7 @@ def t_MountainOverkill():
     g.board[(1, 1)].takeDamage(5)
     assert g.board[(1, 1)].unit.type == 'mountaindamaged'
     g.board[(1, 1)].takeDamage(5)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None
     assert g.board[(1, 1)].effects == set()
 
@@ -128,7 +130,7 @@ def t_FlyingUnitOnFireOverWater():
     assert g.board[(1, 2)].effects == set()
     g.board[(1, 2)].applyFire()
     g.board[(1, 2)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.type == 'hornet'
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -143,7 +145,7 @@ def t_FlyingUnitCatchesFireOverWater():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.type == 'hornet'
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -156,7 +158,7 @@ def t_FlyingUnitIcedOverWater():
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.type == 'hornet'
     assert g.board[(1, 1)].type == 'ice'
     assert g.board[(1, 1)].unit.effects == {Effects.ICE}
@@ -180,7 +182,7 @@ def t_WaterRemovesIceFromUnit():
     assert g.board[(1, 2)].type == 'water'
     g.board[(2, 1)].push(Direction.LEFT)
     g.board[(2, 2)].push(Direction.LEFT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 2)].unit == None # the ground unit didn't survive the water
 
@@ -189,7 +191,7 @@ def t_WaterTileTurnsToIceWhenIce():
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].type == 'ice'
 
 def t_WaterTilePutsOutUnitFire():
@@ -202,7 +204,7 @@ def t_WaterTilePutsOutUnitFire():
     g.board[(2, 1)].applyFire()
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == set()
@@ -213,7 +215,7 @@ def t_RepairWaterAcidTileDoesntRemoveAcid():
     g.board[(1, 1)].replaceTile(Tile_Water(g, effects={Effects.ACID}))
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
 
 def t_IceAcidWaterThenThawingWithFireRemovesAcid():
@@ -225,7 +227,7 @@ def t_IceAcidWaterThenThawingWithFireRemovesAcid():
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].type == 'ice'
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'water'
 
@@ -238,10 +240,11 @@ def t_IceAcidWaterThenThawingWithDamageLeavesAcid():
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].type == 'ice'
     g.board[(1, 1)].takeDamage(10) # we only damage it once, it needs 2 hits like a mountain.
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].type == 'ice_damaged'
     g.board[(1, 1)].takeDamage(10) # now the ice should be gone
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.ACID}
     assert g.board[(1, 1)].type == 'water'
 
@@ -257,7 +260,7 @@ def t_UnitDoesntGetAcidFromIcedAcidWater():
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].type == 'ice'
     g.board[(1, 1)].createUnitHere(Unit_Blobber(g))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -267,7 +270,7 @@ def t_RepairingInSmokeLeavesSmoke():
     g.board[(1, 1)].applySmoke()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
 
 def t_FlyingDoesntGetAcidFromAcidWater():
@@ -278,7 +281,7 @@ def t_FlyingDoesntGetAcidFromAcidWater():
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(2, 1)].unit.effects == set()
     g.board[(2, 1)].push(Direction.LEFT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -288,7 +291,7 @@ def t_IceDoesntEffectAcidPool():
     g.board[(1, 1)].applyAcid()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
 
 def t_IceDoesNothingToLava():
@@ -297,7 +300,7 @@ def t_IceDoesNothingToLava():
     g.board[(1, 1)].replaceTile(Tile_Lava(g))
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'lava'
 
@@ -310,7 +313,7 @@ def t_LavaSetsMassiveOnFire():
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     g.board[(1, 2)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -324,7 +327,7 @@ def t_UnitTakesAcidFromTile():
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     g.board[(1, 2)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
@@ -339,7 +342,7 @@ def t_UnitLeavesAcidWhenKilled():
     g.board[(1, 2)].applyAcid()
     g.board[(1, 2)].moveUnit((1, 1))
     g.board[(1, 1)].die()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 2)].effects == set()
 
@@ -350,7 +353,7 @@ def t_MountainTileCantGainAcid():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -365,7 +368,7 @@ def t_IceGroundUnitDiesInChasm():
     g.board[(1, 2)].applyIce()
     assert g.board[(1, 2)].unit.effects == {Effects.ICE}
     g.board[(1, 2)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 1)].unit == None
@@ -381,7 +384,7 @@ def t_IceFlyingUnitDiesInChasm():
     g.board[(1, 2)].applyIce()
     assert g.board[(1, 2)].unit.effects == {Effects.ICE}
     g.board[(1, 2)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 1)].unit == None
@@ -393,7 +396,7 @@ def t_AcidPutsOutTileFire():
     g.board[(1, 1)].applyFire()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     g.board[(1, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
 
 def t_AcidFromDeadUnitPutsOutTileFire():
@@ -409,7 +412,7 @@ def t_AcidFromDeadUnitPutsOutTileFire():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
     g.board[(1, 1)].takeDamage(10)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit == None
 
@@ -422,7 +425,7 @@ def t_RockWithAcidLeavesAcidWhenKilled():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
     g.board[(1, 1)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit == None
 
@@ -437,7 +440,7 @@ def t_UnitsOnFireDontLightTileOnDeath():
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     g.board[(1, 1)].moveUnit((2, 1))
     g.board[(2, 1)].die()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit == None
@@ -454,7 +457,7 @@ def t_SmallGroundUnitBringsAcidIntoWater():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == {Effects.ACID}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit == None # unit wasn't massive so it died.
@@ -476,7 +479,7 @@ def t_MassiveGroundUnitBringsAcidIntoWater():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID} # unit is massive so it survived.
     g.board[(1, 1)].moveUnit((2, 1)) # the unit moves out and still has acid
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == {Effects.ACID}  # unit still has acid
@@ -494,7 +497,7 @@ def t_GroundUnitWithAcidAndFireDies():
     assert g.board[(2, 1)].unit.effects == {Effects.ACID, Effects.FIRE}
     g.board[(2, 1)].moveUnit((1, 1))
     g.board[(1, 1)].die()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit == None
@@ -506,7 +509,7 @@ def t_MountainCantBeSetOnFire():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -516,9 +519,10 @@ def t_SmokePutsOutFire():
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     g.board[(1, 1)].applySmoke()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'forest'
 
@@ -528,12 +532,13 @@ def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     g.board[(1, 1)].applySmoke()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'forest' # until here, now let's attack it again!
     g.board[(1, 1)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
 
 def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
@@ -547,7 +552,7 @@ def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'ground'
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
 
 def t_SettingFireToSmokedWaterTileDoesNothing():
@@ -561,7 +566,7 @@ def t_SettingFireToSmokedWaterTileDoesNothing():
     assert g.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'water'
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
 
 def t_SettingFireToSmokedChasmTileDoesNothing():
@@ -575,7 +580,7 @@ def t_SettingFireToSmokedChasmTileDoesNothing():
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'chasm'
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
 
 def t_SettingFireToSmokedIceTileRemovesSmokeAndTurnsToWater():
@@ -589,7 +594,7 @@ def t_SettingFireToSmokedIceTileRemovesSmokeAndTurnsToWater():
     assert g.board[(1, 1)].effects == {Effects.SMOKE, Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'water'
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.SMOKE}
 
 def t_BuildingAcidGoesToTile():
@@ -599,7 +604,7 @@ def t_BuildingAcidGoesToTile():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -616,7 +621,7 @@ def t_FlyingUnitWithAcidDiesInWater():
     assert g.board[(2, 1)].unit.effects == {Effects.ACID}
     g.board[(2, 1)].moveUnit((1, 1))
     g.board[(1, 1)].die()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
@@ -635,7 +640,7 @@ def t_IceGroundUnitWithAcidDiesInWater():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == {Effects.ACID, Effects.ICE}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
@@ -649,7 +654,7 @@ def t_IceFlyingUnitOverChasmKillsIt():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
 
@@ -665,7 +670,7 @@ def t_UnitsOnFireCatchForestsOnFireByMovingToThem():
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -683,7 +688,7 @@ def t_UnitsOnFireCatchSmokedForestsOnFireByMovingToThem():
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
@@ -698,7 +703,7 @@ def t_ShieldedUnitOnForestWontIgnightForest():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
     g.board[(1, 1)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()  # no fire on tile
     assert g.board[(1, 1)].unit.effects == set()  # shield gone, but not on fire
 
@@ -711,7 +716,7 @@ def t_UnitSetOnFireThenShieldedNothingWeird():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     g.board[(1, 1)].applyShield()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
@@ -729,7 +734,7 @@ def t_UnitFireAndShieldMovedToForestSetOnFire():
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
@@ -742,7 +747,7 @@ def t_IceRemovesFireFromUnitAndTile():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ICE}
 
@@ -758,7 +763,7 @@ def t_ShieldBlocksIceFromFire():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
@@ -771,7 +776,7 @@ def t_ShieldBlocksIce():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
@@ -787,7 +792,7 @@ def t_FireBreaksIceWithShield():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ICE, Effects.SHIELD}
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
 
@@ -802,7 +807,7 @@ def t_AcidVatOnFireDoesntCreateFireAcidWater():
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     g.board[(1, 1)].takeDamage(10)
     #print(g.board[(1, 1)])
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(1, 1)].unit == None
 
@@ -816,7 +821,7 @@ def t_AcidVatWithSmokeKeepsSmokeAfterKilled():
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].takeDamage(10)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED, Effects.SMOKE}
     assert g.board[(1, 1)].unit == None
 
@@ -831,7 +836,7 @@ def t_AcidUnitAttackedOnSandLeavesAcidNoSmoke():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
     g.board[(1, 1)].takeDamage(10)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SMOKE}
     assert g.board[(1, 1)].unit == None
     assert g.board[(1, 1)].type == 'ground'
@@ -842,7 +847,7 @@ def t_AcidRemovesSand():
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit == None
     assert g.board[(1, 1)].type == 'ground'
@@ -853,7 +858,7 @@ def t_AcidRemovesForest():
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit == None
     assert g.board[(1, 1)].type == 'ground'
@@ -896,7 +901,7 @@ def t_FireImmuneUnitDoesntCatchFire():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.IMMUNEFIRE, Attributes.FLYING}
     g.board[(1, 1)].applyFire()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # tile on fire
     assert g.board[(1, 1)].unit.effects == set() # unit is not
 
@@ -907,7 +912,7 @@ def t_MechCorpsePush():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     g.board[(1, 1)].push(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].unit.attributes == {Attributes.MASSIVE}
@@ -922,7 +927,7 @@ def t_MechCorpsePushIntoChasm():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit ==  None
     g.board[(1, 1)].push(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].unit == None
@@ -934,7 +939,7 @@ def t_MechCorpseCantBeIced():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
 
@@ -953,7 +958,7 @@ def t_MechCorpseSpreadsFire():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit == None
     g.board[(1, 1)].push(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -974,7 +979,7 @@ def t_MechCorpseSpreadsAcid():
     assert g.board[(2, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(2, 1)].unit == None
     g.board[(1, 1)].push(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].effects == {Effects.SUBMERGED, Effects.ACID}
@@ -991,7 +996,7 @@ def t_MechCorpseInvulnerable():
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyAcid()
     g.board[(1, 1)].takeDamage(100)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
 
@@ -1003,7 +1008,7 @@ def t_MechCorpseCantBeShielded():
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyShield()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
     assert g.board[(1, 1)].unit.effects == set()
@@ -1019,7 +1024,7 @@ def t_UnitWithAcidKilledOnSandThenSetOnFire():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
     g.board[(1, 1)].takeDamage(10)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SMOKE}
     assert g.board[(1, 1)].unit == None
     assert g.board[(1, 1)].type == 'ground'
@@ -1035,9 +1040,10 @@ def t_DamagedIceBecomesIceWhenFrozen():
     g.board[(1, 1)].applyIce()
     assert g.board[(1, 1)].type == 'ice'
     g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
     assert g.board[(1, 1)].type == 'ice_damaged'
     g.board[(1, 1)].applyIce()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].type == 'ice'
 
 def t_BrokenTeleporter():
@@ -1074,7 +1080,7 @@ def t_WorkingTeleporter():
     assert g.board[(8, 8)].unit == None
     assert g.board[(7, 8)].unit.effects == set() # unit is here
     g.board[(7, 8)].moveUnit((8, 8)) # move it back to far teleporter
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set() # unit is here
     assert g.board[(8, 8)].unit == None
     assert g.board[(7, 8)].unit == None
@@ -1097,7 +1103,7 @@ def t_TeleporterSwaps2Units():
     assert g.board[(2, 1)].unit == None
     assert g.board[(8, 8)].unit.type == 'scarab' # unit is on far teleporter
     g.board[(1, 1)].createUnitHere(Unit_Hornet_Leader(g)) # they instantly swap
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.type == 'scarab' # is hornetleader
     assert g.board[(8, 8)].unit.type == 'hornetleader'
 
@@ -1114,7 +1120,7 @@ def t_TeleporterWithFire():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == set()
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(8, 8)].effects == set()
     assert g.board[(2, 1)].unit == None
@@ -1133,7 +1139,7 @@ def t_TeleporterWithAcid():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == set()
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(8, 8)].effects == set()
     assert g.board[(2, 1)].unit == None
@@ -1154,7 +1160,7 @@ def t_DamDies():
     assert g.board[(8, 3)].unit.currenthp == 1
     assert g.board[(8, 4)].unit.currenthp == 1
     g.board[(8, 4)].takeDamage(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(8, 3)].unit.type == 'volcano'
     assert g.board[(8, 4)].unit.type == 'volcano'
     for y in (3, 4):
@@ -1185,7 +1191,7 @@ def t_DamDiesWithAcidUnits():
     for y in (3, 4):
         for x in range(1, 8):
             assert g.board[(x, y)].type == 'water'
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(7, 3)].unit == None # the blobber died
     assert g.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the blobber left acid in the water
     assert g.board[(7, 4)].unit.type == 'hornet' # the hornet survived
@@ -1212,7 +1218,7 @@ def t_DamDiesWithAcidOnGround():
     for y in (3, 4):
         for x in range(1, 8):
             assert g.board[(x, y)].type == 'water'
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the acid on the ground left acid in the water
     assert g.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
 
@@ -1227,7 +1233,7 @@ def t_ShieldedDamHitWithAcidGetsAcid():
     assert g.board[(8, 3)].unit.effects == {Effects.SHIELD}
     assert g.board[(8, 4)].unit.effects == {Effects.SHIELD}
     g.board[(8, 3)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(8, 3)].unit.effects == {Effects.SHIELD, Effects.ACID}
     assert g.board[(8, 4)].unit.effects == {Effects.SHIELD, Effects.ACID}
 
@@ -1246,7 +1252,7 @@ def t_ShieldedUnitDoesntGetAcidFromGround():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == {Effects.SHIELD}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID} # still acid on the ground
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD} # still shielded only
     assert g.board[(2, 1)].effects == set() # nothing on that tile
@@ -1272,7 +1278,7 @@ def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
     assert g.board[(2, 1)].effects == set() # nothing on that tile
     assert g.board[(2, 1)].unit == None  # nothing on that tile
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}  # still acid on the ground
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # still shielded only
     assert g.board[(2, 1)].effects == set()  # nothing on that tile
@@ -1294,7 +1300,7 @@ def t_ShieldedUnitGetsAcidFromWater():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(2, 1)].unit.effects == {Effects.SHIELD}
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED} # still acid in the water
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD, Effects.ACID} # Shielded and acid!
     assert g.board[(2, 1)].effects == set() # nothing on that tile
@@ -1308,6 +1314,7 @@ def t_MechRepairsRemovesBadEffectsTileAndUnit():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -1316,7 +1323,7 @@ def t_MechRepairsRemovesBadEffectsTileAndUnit():
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
     assert g.board[(1, 1)].unit.currenthp == 2
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1342,7 +1349,7 @@ def t_MechRepairsRemovesIceFromUnit():
     assert g.board[(1, 1)].unit.effects == {Effects.ICE, Effects.ACID}
     assert g.board[(1, 1)].unit.currenthp == 2
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1357,7 +1364,7 @@ def t_BurrowerWithAcidLeavesItWhenKilled():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
     g.board[(1, 1)].takeDamage(2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 1)].unit == None
 
@@ -1375,7 +1382,7 @@ def t_LavaDoesntRemoveAcidFromUnit():
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.ACID}
     g.board[(1, 1)].push(Direction.UP)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 2)].unit.effects == {Effects.FIRE, Effects.ACID}
 
@@ -1390,7 +1397,7 @@ def t_UnitWithAcidDiesInLava():
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 2)].unit.effects == {Effects.ACID}
     g.board[(1, 2)].push(Direction.DOWN)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 1)].unit == None
 
@@ -1404,7 +1411,7 @@ def t_MechCorpseIsRepairedBackToLife():
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.type == 'mechcorpse'
     g.board[(1, 1)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.type == 'judo'
     assert g.board[(1, 1)].unit.currenthp == 1
@@ -1432,7 +1439,7 @@ def t_MechDiesAndRevivedOnTeleporter():
     assert g.board[(8, 8)].unit.effects == set()  # unit is on far teleporter
     assert g.board[(8, 8)].unit.type == 'mechcorpse'
     g.board[(8, 8)].repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(8, 8)].effects == set()
     assert g.board[(8, 8)].unit == None  # no unit on far teleporter
@@ -1457,7 +1464,7 @@ def t_MechCorpsesDontGoThroughTelePorter():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(2, 1)].unit.type == 'mechcorpse'
     g.board[(2, 1)].moveUnit((1, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(8, 8)].effects == set()
     assert g.board[(2, 1)].unit == None
@@ -1483,7 +1490,7 @@ def t_RevivedMechCorpsesKeepAcidButNotFire():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(2, 1)].unit.type == 'mechcorpse'
     g.board[(2, 1)].unit.repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(2, 1)].unit.effects == {Effects.ACID}
     assert g.board[(2, 1)].unit.type == 'cannon'
@@ -1503,14 +1510,14 @@ def t_ReviveMechCorpseKeepsAcidGetsFireFromTile():
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.type == 'mechcorpse'
     g.board[(1, 1)].unit.repair(1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.ACID, Effects.FIRE}
     assert g.board[(1, 1)].unit.type == 'jet'
 
 def t_IceStormEnvironmental():
     "Test an ice storm."
-    g = Game(environmentaleffect=Environ_IceStorm({(x,y) for x in range(1, 5) for y in range(1, 5)}))
+    g = Game(environeffect=Environ_IceStorm({(x,y) for x in range(1, 5) for y in range(1, 5)}))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g))
     g.board[(2, 1)].replaceTile(Tile_Water(g))
     g.board[(3, 1)].applyFire()
@@ -1518,8 +1525,8 @@ def t_IceStormEnvironmental():
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(3, 1)].effects == {Effects.FIRE}
-    g.environmentaleffect.run()
-    g.flushHurtUnits()
+    g.environeffect.run()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == {Effects.ICE}
     assert g.board[(2, 1)].effects == set()
@@ -1528,7 +1535,7 @@ def t_IceStormEnvironmental():
 
 def t_AirStrikeEnvironmental():
     "test an airstrike"
-    g = Game(environmentaleffect=Environ_AirStrike({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
+    g = Game(environeffect=Environ_AirStrike({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
     g.board[(1, 2)].createUnitHere(Unit_Charge_Mech(g))
     g.board[(2, 3)].replaceTile(Tile_Water(g))
     g.board[(2, 2)].replaceTile(Tile_Forest(g))
@@ -1540,8 +1547,8 @@ def t_AirStrikeEnvironmental():
     assert g.board[(2, 2)].effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 2)].effects == set()
-    g.environmentaleffect.run()
-    g.flushHurtUnits()
+    g.environeffect.run()
+    g.flushHurt()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     assert g.board[(1, 2)].unit.type == 'mechcorpse'
@@ -1552,7 +1559,7 @@ def t_AirStrikeEnvironmental():
 
 def t_LightningEnvironmental():
     "lol literally the same thing as AirStrike"
-    g = Game(environmentaleffect=Environ_Lightning({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
+    g = Game(environeffect=Environ_Lightning({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
     g.board[(1, 2)].createUnitHere(Unit_Charge_Mech(g))
     g.board[(2, 3)].replaceTile(Tile_Water(g))
     g.board[(2, 2)].replaceTile(Tile_Forest(g))
@@ -1564,8 +1571,8 @@ def t_LightningEnvironmental():
     assert g.board[(2, 2)].effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 2)].effects == set()
-    g.environmentaleffect.run()
-    g.flushHurtUnits()
+    g.environeffect.run()
+    g.flushHurt()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     assert g.board[(1, 2)].unit.type == 'mechcorpse'
@@ -1576,7 +1583,7 @@ def t_LightningEnvironmental():
 
 def t_TsunamiEnvironmental():
     "test a tsunami"
-    g = Game(environmentaleffect=Environ_Tsunami(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_Tsunami(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Blood_Psion(g))
@@ -1587,7 +1594,7 @@ def t_TsunamiEnvironmental():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.SUBMERGED}
@@ -1595,13 +1602,13 @@ def t_TsunamiEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.SUBMERGED, Effects.SMOKE} # smoke remains
     assert g.board[(3, 1)].unit.effects == set() # so does this flying unit
     g.board[(1, 1)].applyIce() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].type == 'ice'
 
 def t_CataclysmEnvironmental():
     "test a cataclysm"
-    g = Game(environmentaleffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Mirror_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Acid_Scorpion(g))
     g.board[(2, 1)].applyFire()
@@ -1613,7 +1620,7 @@ def t_CataclysmEnvironmental():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None # mech died, so did the corpse
     assert g.board[(2, 1)].effects == set() # no more fire since the ground is gone lol
@@ -1621,13 +1628,13 @@ def t_CataclysmEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.SMOKE} # smoke remains
     assert g.board[(3, 1)].unit.effects == set() # so does this flying unit
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'chasm'
 
 def t_FallingRockEnvironmental():
     "test falling rocks from the volcano level."
-    g = Game(environmentaleffect=Environ_FallingRock(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_FallingRock(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Unstable_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].applyFire()
@@ -1639,7 +1646,7 @@ def t_FallingRockEnvironmental():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.type == 'mechcorpse' # mech died, the corpse remains
     assert g.board[(2, 1)].effects == {Effects.FIRE} # fire remains after rocks fall
@@ -1647,13 +1654,13 @@ def t_FallingRockEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.SMOKE} # smoke remains
     assert g.board[(3, 1)].unit == None # flying unit died
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'ground'
 
 def t_TentaclesEnvironmental():
     "test the tentacles."
-    g = Game(environmentaleffect=Environ_Tentacles(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_Tentacles(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Artillery_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Firefly(g))
     g.board[(2, 1)].applyFire()
@@ -1665,7 +1672,7 @@ def t_TentaclesEnvironmental():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.type == 'mechcorpse' # mech died, the corpse remains
     assert g.board[(2, 1)].effects == {Effects.FIRE, Effects.SUBMERGED} # fire doubly so
@@ -1673,13 +1680,13 @@ def t_TentaclesEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.SMOKE, Effects.FIRE, Effects.SUBMERGED} # smoke remains
     assert g.board[(3, 1)].unit == None # flying unit died
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE, Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'lava'
 
 def t_LavaFlowEnvironmental():
     "test the lava flow environmental"
-    g = Game(environmentaleffect=Environ_LavaFlow(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_LavaFlow(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Firefly(g))
     g.board[(2, 1)].applyFire()
@@ -1691,7 +1698,7 @@ def t_LavaFlowEnvironmental():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # mech survived but is now in lava
     assert g.board[(2, 1)].effects == {Effects.FIRE, Effects.SUBMERGED} # fire doubly so
@@ -1699,13 +1706,13 @@ def t_LavaFlowEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.SMOKE, Effects.FIRE, Effects.SUBMERGED} # smoke remains
     assert g.board[(3, 1)].unit.effects == set() # flying unit survived and did not catch on fire
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE, Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 1)].type == 'lava'
 
 def t_VolcanicProjectileEnvironmental():
     "test volcanic projectile"
-    g = Game(environmentaleffect=Environ_VolcanicProjectile(((1, 1), (2, 1), (3, 1))))
+    g = Game(environeffect=Environ_VolcanicProjectile(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Firefly(g))
     g.board[(2, 1)].applyFire()
@@ -1717,7 +1724,7 @@ def t_VolcanicProjectileEnvironmental():
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.type == 'mechcorpse' # mech died
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -1725,7 +1732,7 @@ def t_VolcanicProjectileEnvironmental():
     assert g.board[(3, 1)].effects == {Effects.FIRE} # smoke removed by fire
     assert g.board[(3, 1)].unit == None # flying unit died
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'ground'
 
@@ -1757,13 +1764,13 @@ def t_VekEmergeEnvironmental():
     assert g.board[(4, 1)].unit.currenthp == 1 # corpse didn't take damage
     assert g.board[(4, 1)].unit.type == 'mechcorpse' # and is a corpse
     g.board[(1, 1)].applySmoke() # make sure these new tiles are tied to this Game instance:
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'ground'
 
 def t_TsunamiEnvironmentalReplaceTile():
     "make sure that when Tsunami replaces tiles with water, they are in fact different tile objects and not the same one."
-    g = Game(environmentaleffect=Environ_Tsunami({(1, 1), (2, 1), (3, 1)}))
+    g = Game(environeffect=Environ_Tsunami({(1, 1), (2, 1), (3, 1)}))
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Blood_Psion(g))
@@ -1774,7 +1781,7 @@ def t_TsunamiEnvironmentalReplaceTile():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(3, 1)].effects == {Effects.SMOKE}
     assert g.board[(3, 1)].unit.effects == set()
-    g.environmentaleffect.run()
+    g.environeffect.run()
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.SUBMERGED}
@@ -1783,7 +1790,7 @@ def t_TsunamiEnvironmentalReplaceTile():
     assert g.board[(3, 1)].unit.effects == set()  # so does this flying unit
     g.board[(1, 1)].applyIce()
     g.board[(2, 1)].applyAcid()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # one tile is frozen, one has acid, the last has smoke
     assert g.board[(1, 1)].type == 'ice'
     assert g.board[(2, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
@@ -1793,7 +1800,7 @@ def t_TsunamiEnvironmentalReplaceTile():
 
 def t_ConveyorBeltsEnviron():
     "make sure that converyor belts works."
-    g = Game(environmentaleffect=Environ_ConveyorBelts({(1, x): Direction.UP for x in range(1, 9)})) # all tiles against the left border pushing up
+    g = Game(environeffect=Environ_ConveyorBelts({(1, x): Direction.UP for x in range(1, 9)})) # all tiles against the left border pushing up
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g))
     g.board[(1, 2)].createUnitHere(Unit_Beetle(g))
     g.board[(1, 7)].createUnitHere(Unit_Spider_Leader(g))
@@ -1802,8 +1809,8 @@ def t_ConveyorBeltsEnviron():
     assert g.board[(1, 2)].unit.currenthp == 4
     assert g.board[(1, 7)].unit.currenthp == 6
     assert g.board[(1, 8)].unit.currenthp == 2
-    g.environmentaleffect.run()
-    g.flushHurtUnits()
+    g.environeffect.run()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # meteor got pushed off this tile
     assert g.board[(1, 2)].unit.currenthp == 3 # meteor still has 3 hp
     assert g.board[(1, 3)].unit.currenthp == 4 # beetle took no damage as well
@@ -1822,7 +1829,7 @@ def t_WeaponTitanFistFirst():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(2, 1)].unit.currenthp == 3
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1843,7 +1850,7 @@ def t_WeaponTitanFistChargeSecond():
     assert g.board[(6, 1)].unit.effects == set()
     assert g.board[(6, 1)].unit.currenthp == 3
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None # Combat dashed off of this tile
     assert g.board[(5, 1)].unit.effects == set() # and he's now here
@@ -1865,7 +1872,7 @@ def t_WeaponTitanFistChargeToEdge():
     assert g.board[(8, 1)].unit == None
     assert g.board[(8, 1)].type == 'forest'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # he's not here anymore
     assert g.board[(8, 1)].effects == set() # still no fire
     assert g.board[(8, 1)].unit.effects == set() # no change
@@ -1888,7 +1895,7 @@ def t_HurtAndPushedVekOnFireSetsForestOnFire():
     assert g.board[(3, 1)].unit == None
     assert g.board[(3, 1)].type == 'forest'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no change for punchbot
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1914,7 +1921,7 @@ def t_HurtAndPushedMechOnFireDoesNotSetForestOnFire():
     assert g.board[(3, 1)].unit == None
     assert g.board[(3, 1)].type == 'forest'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no change for punchbot
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1941,7 +1948,7 @@ def t_HurtAndPushedVekRemovesMine():
     assert g.board[(3, 1)].unit == None
     assert g.board[(3, 1)].type == 'ground'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no change for punchbot
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1967,7 +1974,7 @@ def t_HurtAndPushedVekRemovesFreezeMine():
     assert g.board[(3, 1)].unit == None
     assert g.board[(3, 1)].type == 'ground'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no change for punchbot
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -1988,7 +1995,7 @@ def t_MechMovesToMine():
     assert g.board[(2, 1)].effects == {Effects.MINE}
     assert g.board[(2, 1)].unit == None
     g.board[(1, 1)].moveUnit((2, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].effects == set() # mine tripped
@@ -2005,7 +2012,7 @@ def t_MechMovesToFreezeMine():
     assert g.board[(2, 1)].effects == {Effects.FREEZEMINE}
     assert g.board[(2, 1)].unit == None
     g.board[(1, 1)].moveUnit((2, 1))
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].effects == set() # mine tripped
@@ -2040,7 +2047,7 @@ def t_WeaponElectricWhipLowPower():
     assert g.board[(8, 1)].unit.currenthp == 6 # safe spider 1
     assert g.board[(3, 8)].unit.currenthp == 6  # safe spider 2
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # lightning mech untouched
     assert g.board[(2, 1)].unit.currenthp == 4  # spider bosses lose 2 hp
     assert g.board[(3, 1)].unit.currenthp == 4
@@ -2085,7 +2092,7 @@ def t_WeaponElectricWhipBuildingChainHighPower():
     assert g.board[(8, 1)].unit.currenthp == 6 # safe spider 1
     assert g.board[(3, 8)].unit.currenthp == 6  # building chain  spider 2
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # lightning mech untouched
     assert g.board[(2, 1)].unit.currenthp == 4  # spider bosses lose 2 hp
     assert g.board[(3, 1)].unit.currenthp == 4
@@ -2116,7 +2123,7 @@ def t_WeaponElectricWhipDoesntChainInCicle():
     assert g.board[(1, 2)].unit.currenthp == 6
     assert g.board[(2, 3)].unit.currenthp == 6
     g.board[(2, 2)].unit.weapon1.shoot(Direction.DOWN)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 3  # lightning mech
     assert g.board[(1, 1)].unit.currenthp == 3  # spider bosses took 3 damage
     assert g.board[(2, 1)].unit.currenthp == 3
@@ -2139,7 +2146,7 @@ def t_WeaponArtemisArtilleryDefault():
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
     g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
     assert g.board[(3, 2)].unit.type == 'mountain' # mountain unchanged
@@ -2166,7 +2173,7 @@ def t_WeaponArtemisArtilleryPower1():
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
     g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
     assert g.board[(3, 2)].unit.type == 'mountain'  # mountain unchanged
@@ -2193,7 +2200,7 @@ def t_WeaponArtemisArtilleryPower2():
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
     g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
     assert g.board[(3, 2)].unit.type == 'mountain' # mountain unchanged
@@ -2220,7 +2227,7 @@ def t_WeaponArtemisArtilleryFullPower():
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
     g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
     assert g.board[(3, 2)].unit.type == 'mountain'  # mountain unchanged
@@ -2244,7 +2251,7 @@ def t_WeaponBurstBeamNoPower():
     assert g.board[(4, 1)].unit.currenthp == 2
     assert g.board[(5, 1)].unit.type == 'mountain'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert g.board[(2, 1)].unit == None # still nothing here
     assert g.board[(2, 1)].effects == set()
@@ -2267,7 +2274,7 @@ def t_WeaponBurstBeamAllyPower():
     assert g.board[(5, 1)].unit.type == 'mountain'
     assert g.board[(6, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert g.board[(2, 1)].unit == None # still nothing here
     assert g.board[(2, 1)].effects == set()
@@ -2291,7 +2298,7 @@ def t_WeaponBurstBeamShieldedAllyPower():
     assert g.board[(5, 1)].unit.type == 'mountain'
     assert g.board[(6, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert g.board[(2, 1)].unit == None # still nothing here
     assert g.board[(2, 1)].effects == set()
@@ -2314,7 +2321,7 @@ def t_WeaponBurstBeamDamagePower():
     assert g.board[(4, 1)].unit.currenthp == 2
     assert g.board[(5, 1)].unit.type == 'mountain'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert g.board[(2, 1)].unit == None # still nothing here
     assert g.board[(2, 1)].effects == set()
@@ -2335,7 +2342,7 @@ def t_WeaponBurstBeamFullPower():
     assert g.board[(4, 1)].unit.currenthp == 2
     assert g.board[(5, 1)].unit.type == 'mountain'
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
     assert g.board[(2, 1)].unit == None # still nothing here
     assert g.board[(2, 1)].effects == set()
@@ -2356,7 +2363,7 @@ def t_WeaponBurstBeamFullPower():
 #     assert g.board[(4, 1)].unit.currenthp == 2
 #     assert g.board[(5, 1)].unit.type == 'mountain'
 #     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-#     g.flushHurtUnits()
+#     g.flushHurt()
 #     assert g.board[(1, 1)].unit.currenthp == 3 # wielder untouched
 #     assert g.board[(2, 1)].unit == None # still nothing here
 #     assert g.board[(2, 1)].effects == set()
@@ -2376,7 +2383,7 @@ def t_ExplosiveUnitDies():
     assert g.board[(3, 1)].unit.currenthp == 2 # defense mech
     assert g.board[(2, 2)].unit.currenthp == 3 # vek to take damage from explosion
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # laser mech took damage from explosion
     assert g.board[(2, 1)].unit == None  # explosive vek died and exploded
     assert g.board[(3, 1)].unit.type == 'mechcorpse'  # defense mech died from shot, then the corpse got exploded on
@@ -2390,7 +2397,7 @@ def t_WeaponRammingEnginesDefault():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2404,7 +2411,7 @@ def t_WeaponRammingEnginesPower1():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2418,7 +2425,7 @@ def t_WeaponRammingEnginesPower2():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2432,7 +2439,7 @@ def t_WeaponRammingEnginesFullPower():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2452,7 +2459,7 @@ def t_WeaponRammingEnginesTileDamage():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(3, 1)].effects == set()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2476,7 +2483,7 @@ def t_WeaponRammingEnginesShieldedTileDamage():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(3, 1)].effects == set()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2495,7 +2502,7 @@ def t_WeaponRammingEnginesIntoChasm():
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].effects == set() # normal chasm tile
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit == None # wielder and mech corpse died in the chasm
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2514,7 +2521,7 @@ def t_WeaponRammingEnginesOverChasm():
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     #for x in range(1, 6):
     #    print(g.board[x, 1])
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(3, 1)].unit.currenthp == 2 # wielder took 1 damage
     assert g.board[(4, 1)].unit == None # vek pushed off this tile
@@ -2530,7 +2537,7 @@ def t_WeaponRammingEnginesShield():
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder moved
     assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
     assert g.board[(3, 1)].unit == None # vek pushed off this tile
@@ -2547,7 +2554,7 @@ def t_WeaponRammingEnginesMiss():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(8, 1)].effects == set()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None  # wielder moved
     assert g.board[(8, 1)].unit.currenthp == 3  # wielder took 0 damage
     assert g.board[(1, 1)].effects == set() # original forest tile didn't take damage
@@ -2558,7 +2565,7 @@ def t_NoOffBoardShotsGenCorner():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert next(gs) == Direction.UP
     assert next(gs) == Direction.RIGHT
     try:
@@ -2573,7 +2580,7 @@ def t_NoOffBoardShotsGenSide():
     g = Game()
     g.board[(1, 2)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     gs = g.board[(1, 2)].unit.weapon1.genShots()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert next(gs) == Direction.UP
     assert next(gs) == Direction.RIGHT
     assert next(gs) == Direction.DOWN
@@ -2596,7 +2603,7 @@ def t_WeaponTaurusCannonDefaultPower():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2617,7 +2624,7 @@ def t_WeaponTaurusCannonDefaultPower1():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2638,7 +2645,7 @@ def t_WeaponTaurusCannonPower2():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2659,7 +2666,7 @@ def t_WeaponTaurusCannonFullPower():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2680,7 +2687,7 @@ def t_WeaponAttractionPulseDefault():
     assert g.board[(4, 1)].unit.effects == set()
     assert g.board[(4, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -2701,7 +2708,7 @@ def t_WeaponAttractionPulseFullPower():
     assert g.board[(4, 1)].unit.effects == set()
     assert g.board[(4, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -2724,7 +2731,7 @@ def t_WeaponAttractionPulseBump():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no fire
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 1 # took 1 damage
@@ -2749,7 +2756,7 @@ def t_WeaponShieldProjectorDefaultPower():
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()  # no change
     assert g.board[(2, 1)].unit.effects == set() # shot over this one
     assert g.board[(3, 1)].unit.effects == {Effects.SHIELD}
@@ -2778,7 +2785,7 @@ def t_WeaponShieldProjectorPower2():
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()  # no change
     assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # shot over this one but he got shielded anyway
     assert g.board[(3, 1)].unit.effects == {Effects.SHIELD}
@@ -2795,7 +2802,7 @@ def t_WeaponShieldProjectorGen():
     g = Game()
     g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
     gs = g.board[(5, 5)].unit.weapon1.genShots()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert next(gs) == (Direction.UP, 2) # generator generates what we expect
     g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
     try:
@@ -2814,7 +2821,7 @@ def t_WeaponViceFistNoPower():
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 4
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit == None
@@ -2828,7 +2835,7 @@ def t_WeaponViceFistPower1():
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 4 # no additional effect since this was an enemy
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit == None
@@ -2842,7 +2849,7 @@ def t_WeaponViceFistPower2():
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2 # took additional damage
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit == None
@@ -2856,7 +2863,7 @@ def t_WeaponViceFistPower1Friendly():
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 2
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2 # friendly unit took no damage
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit == None
@@ -2871,7 +2878,7 @@ def t_WeaponViceFistPower1FriendlyChasm():
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 2
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # friendly unit died in the chasm
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit == None
@@ -2888,7 +2895,7 @@ def t_WeaponClusterArtilleryNoPower():
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 5
     g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1  # building
     assert g.board[(4, 3)].unit == None # vek pushed
@@ -2908,7 +2915,7 @@ def t_WeaponClusterArtilleryPower1():
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 1 # attacked building
     g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1  # building
     assert g.board[(4, 3)].unit == None # vek pushed
@@ -2927,7 +2934,7 @@ def t_WeaponClusterArtilleryFullPower():
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 1 # attacked building
     g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1  # building
     assert g.board[(4, 3)].unit == None # vek pushed
@@ -2942,7 +2949,7 @@ def t_WeaponGravWellNormal():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit == None # vek pushed
     assert g.board[(2, 1)].unit.currenthp == 5 # to here with no damage
@@ -2955,7 +2962,7 @@ def t_WeaponGravWellStable():
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 1
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit.currenthp == 1 # mountain not moved and undamaged
     assert g.board[(3, 1)].unit.type == 'mountain'
@@ -2971,7 +2978,7 @@ def t_WeaponGravWellBump():
     assert g.board[(2, 1)].unit.type == 'mountain'
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit.currenthp == 4 # vek pushed and bumped for 1 damage
     assert g.board[(2, 1)].unit.currenthp == 1 # damage mountain now
@@ -2987,7 +2994,7 @@ def t_WeaponJanusCannonLow():
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
     g.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].unit == None # alpha scorpion pushed from here
     assert g.board[(1, 1)].unit.currenthp == 4 # pushed here and took 1 damage
     assert g.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
@@ -2995,7 +3002,7 @@ def t_WeaponJanusCannonLow():
     assert g.board[(6, 1)].unit.currenthp == 4 # took a damage
     # shoot a second time, why not
     g.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # nowhere else to push, just takes another damage
     assert g.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
     assert g.board[(6, 1)].unit == None  # alpha scorpion pushed from here
@@ -3011,7 +3018,7 @@ def t_WeaponJanusCannon1():
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
     g.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].unit == None # alpha scorpion pushed from here
     assert g.board[(1, 1)].unit.currenthp == 3 # pushed here and took 2 damage
     assert g.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
@@ -3019,7 +3026,7 @@ def t_WeaponJanusCannon1():
     assert g.board[(6, 1)].unit.currenthp == 3 # took 2 damage
     # shoot a second time, why not
     g.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 1  # nowhere else to push, just takes another 2 damage
     assert g.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
     assert g.board[(6, 1)].unit == None  # alpha scorpion pushed from here
@@ -3035,7 +3042,7 @@ def t_WeaponJanusCannon2():
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
     g.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].unit == None # alpha scorpion pushed from here
     assert g.board[(1, 1)].unit.currenthp == 3 # pushed here and took 2 damage
     assert g.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
@@ -3043,7 +3050,7 @@ def t_WeaponJanusCannon2():
     assert g.board[(6, 1)].unit.currenthp == 3 # took 2 damage
     # shoot a second time, why not
     g.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 1  # nowhere else to push, just takes another 2 damage
     assert g.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
     assert g.board[(6, 1)].unit == None  # alpha scorpion pushed from here
@@ -3059,7 +3066,7 @@ def t_WeaponJanusCannonFullPower():
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
     g.board[(4, 1)].unit.weapon1.shoot(Direction.RIGHT) # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].unit == None # alpha scorpion pushed from here
     assert g.board[(1, 1)].unit.currenthp == 2 # pushed here and took 3 damage
     assert g.board[(4, 1)].unit.currenthp == 3 # no change to the shooter
@@ -3067,7 +3074,7 @@ def t_WeaponJanusCannonFullPower():
     assert g.board[(6, 1)].unit.currenthp == 2 # took 3 damage
     # shoot a second time, why not
     g.board[(4, 1)].unit.weapon1.shoot(Direction.LEFT)  # this shoots left and right
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None  # unit died
     assert g.board[(4, 1)].unit.currenthp == 3  # still no change to the shooter
     assert g.board[(6, 1)].unit == None  # alpha scorpion pushed from here
@@ -3081,7 +3088,7 @@ def t_WeaponCryoLauncher():
     g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
-    g.flushHurtUnits() # not necessary since nothing was hurt
+    g.flushHurt() # not necessary since nothing was hurt
     assert g.board[(1, 1)].type == 'ice' # tile is now frozen
     assert g.board[(1, 1)].effects == set() # not submerged
     assert g.board[(1, 1)].unit.effects == {Effects.ICE} # wielder was frozen
@@ -3095,7 +3102,7 @@ def t_WeaponCryoLauncherShielded():
     g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
-    g.flushHurtUnits() # not necessary since nothing was hurt
+    g.flushHurt() # not necessary since nothing was hurt
     assert g.board[(1, 1)].type == 'water' # no change since the wielder's shield prevented ice from being applied to the wielder and the tile it's on
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED} # no change
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD} # wielder was NOT frozen, still shielded
@@ -3107,7 +3114,7 @@ def t_WeaponAerialBombs1():
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=False, power2=False)))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
     assert g.board[(2, 1)].effects == {Effects.SMOKE}
     assert g.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
@@ -3120,7 +3127,7 @@ def t_WeaponAerialBombs2():
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=True, power2=False)))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
     assert g.board[(2, 1)].effects == {Effects.SMOKE}
     assert g.board[(2, 1)].unit.currenthp == 3 # hit for 2 dmg
@@ -3134,7 +3141,7 @@ def t_WeaponAerialBombs3():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
     assert g.board[(2, 1)].effects == {Effects.SMOKE}
     assert g.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
@@ -3150,7 +3157,7 @@ def t_WeaponAerialBombs4():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
     assert g.board[(2, 1)].effects == {Effects.SMOKE}
     assert g.board[(2, 1)].unit.currenthp == 3 # hit for 2 dmg
@@ -3167,7 +3174,7 @@ def t_WeaponAerialBombsForest():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
     assert g.board[(2, 1)].effects == {Effects.SMOKE}
     assert g.board[(2, 1)].unit.currenthp == 4 # hit for 1 dmg
@@ -3199,7 +3206,7 @@ def t_WeaponRocketArtillery1():
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3214,7 +3221,7 @@ def t_WeaponRocketArtillery2():
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3229,7 +3236,7 @@ def t_WeaponRocketArtillery3():
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3244,7 +3251,7 @@ def t_WeaponRocketArtillery4():
     g.board[(2, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(2, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(2, 1)].unit.effects == set() # no change for shooter
     assert g.board[(2, 1)].effects == set()  # no change for shooter's tile
@@ -3261,7 +3268,7 @@ def t_WeaponRepulse1():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # no change for shooter
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3281,7 +3288,7 @@ def t_WeaponRepulse2():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD} # shooter shielded
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3301,7 +3308,7 @@ def t_WeaponRepulse3():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3321,7 +3328,7 @@ def t_WeaponRepulse4():
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # shooter shielded
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3342,7 +3349,7 @@ def t_WeaponRepulse5():
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 2)].createUnitHere(Unit_Building(g))
     g.board[(1, 1)].unit.weapon1.shoot()
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # shooter shielded
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3360,7 +3367,7 @@ def t_WeaponGrapplingHook1():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3376,7 +3383,7 @@ def t_WeaponGrapplingHook2():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3392,7 +3399,7 @@ def t_WeaponGrapplingHook3():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3408,7 +3415,7 @@ def t_WeaponGrapplingHook4():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3424,7 +3431,7 @@ def t_WeaponGrapplingHook5():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit == None  # wielder moved from this spot
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
@@ -3441,7 +3448,7 @@ def t_WeaponGrapplingHook6():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit == None  # wielder moved from this spot
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
@@ -3458,7 +3465,7 @@ def t_WeaponGrapplingHook7():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Building(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit == None  # wielder moved from this spot
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
@@ -3476,7 +3483,7 @@ def t_WeaponGrapplingHook8():
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
     g.board[(3, 1)].createUnitHere(Unit_Building(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits() # redundant as no units are hurt
+    g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit == None  # wielder moved from this spot
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].unit.effects == set()  # shooter get no new effects
@@ -3495,7 +3502,7 @@ def t_WeaponRockLaundher1():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3512,7 +3519,7 @@ def t_WeaponRockLaundher2():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3529,7 +3536,7 @@ def t_WeaponRockLaundher3():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3547,7 +3554,7 @@ def t_WeaponRockLaundher4():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3564,7 +3571,7 @@ def t_WeaponRockLaundher5():
     g.board[(3, 1)].replaceTile(Tile_Forest(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
@@ -3580,7 +3587,7 @@ def t_WeaponFlameThrower1():
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
@@ -3596,7 +3603,7 @@ def t_WeaponFlameThrower2():
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
@@ -3612,7 +3619,7 @@ def t_WeaponFlameThrower3():
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
@@ -3629,9 +3636,9 @@ def t_WeaponFlameThrower4():
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
-    g.flushHurtUnits()
+    g.flushHurt()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
-    g.flushHurtUnits() # redundant as the first shot didn't kill anything
+    g.flushHurt() # redundant as the first shot didn't kill anything
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(2, 1)].type == 'ground' # tile converted from sand to ground
@@ -3675,7 +3682,7 @@ def t_WeaponVulcanArtillery1():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(3, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3692,7 +3699,7 @@ def t_WeaponVulcanArtillery2():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(3, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3709,7 +3716,7 @@ def t_WeaponVulcanArtillery3():
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3727,7 +3734,7 @@ def t_WeaponVulcanArtillery4():
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3745,7 +3752,7 @@ def t_WeaponVulcanArtillery5():
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3763,7 +3770,7 @@ def t_WeaponVulcanArtillery6():
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == {Effects.FIRE}  # vek is now on fire, he was not pushed
@@ -3781,7 +3788,7 @@ def t_WeaponVulcanArtillery7():
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == set()  # mountains can't catch on fire
@@ -3799,7 +3806,7 @@ def t_WeaponVulcanArtillery8():
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
     assert g.board[(4, 1)].unit.effects == set()  # mountains can't catch on fire
@@ -3815,7 +3822,7 @@ def t_WeaponTeleporter1():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=False, power2=False)))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 2  # no change for shooter who is now here
     assert g.board[(2, 1)].unit.type == 'swap'
     assert g.board[(2, 1)].unit.effects == set()
@@ -3829,7 +3836,7 @@ def t_WeaponTeleporter2():
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=False, power2=False)))
     g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 2  # no change for shooter who is now here
     assert g.board[(2, 1)].unit.type == 'swap'
     assert g.board[(2, 1)].unit.effects == set()
@@ -3844,7 +3851,7 @@ def t_WeaponTeleporter3():
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=True, power2=True)))
     g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
-    g.flushHurtUnits() # no units actually hurt
+    g.flushHurt() # no units actually hurt
     assert g.board[(5, 1)].unit.currenthp == 2  # no change for shooter who is now here
     assert g.board[(5, 1)].unit.type == 'swap'
     assert g.board[(5, 1)].unit.effects == set()
@@ -3875,7 +3882,7 @@ def t_WeaponHydraulicLegsLowPower():
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
@@ -3883,13 +3890,13 @@ def t_WeaponHydraulicLegsLowPower():
     assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
     assert g.board[(3, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 1)].unit == None # unit pushed from here
-    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
-    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].effects == set() # This forest DID NOT catch fire from the vek that was pushed here!
+    assert g.board[(4, 1)].unit.effects == set() # This vek never caught fire! He was pushed to the forest tile before it was lit on fire
     assert g.board[(4, 1)].unit.currenthp == 4 # vek took 1 damage
     assert g.board[(2, 2)].effects == {Effects.FIRE}
     assert g.board[(2, 2)].unit == None # no unit here
-    assert g.board[(2, 3)].effects == {Effects.FIRE}
-    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].effects == set()
+    assert g.board[(2, 3)].unit.effects == set()
     assert g.board[(2, 3)].unit.currenthp == 4 # took 1 damage
 
 def t_WeaponHydraulicLegsPower1():
@@ -3902,7 +3909,7 @@ def t_WeaponHydraulicLegsPower1():
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
@@ -3910,13 +3917,13 @@ def t_WeaponHydraulicLegsPower1():
     assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
     assert g.board[(3, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 1)].unit == None # unit pushed from here
-    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
-    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
     assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
     assert g.board[(2, 2)].effects == {Effects.FIRE}
     assert g.board[(2, 2)].unit == None # no unit here
-    assert g.board[(2, 3)].effects == {Effects.FIRE}
-    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].effects == set()
+    assert g.board[(2, 3)].unit.effects == set()
     assert g.board[(2, 3)].unit.currenthp == 3 # took 2 damage
 
 def t_WeaponHydraulicLegsPower2():
@@ -3929,7 +3936,7 @@ def t_WeaponHydraulicLegsPower2():
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
@@ -3937,13 +3944,13 @@ def t_WeaponHydraulicLegsPower2():
     assert g.board[(2, 1)].unit.currenthp == 2  # wielder took 1 damage
     assert g.board[(3, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 1)].unit == None # unit pushed from here
-    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
-    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
     assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
     assert g.board[(2, 2)].effects == {Effects.FIRE}
     assert g.board[(2, 2)].unit == None # no unit here
-    assert g.board[(2, 3)].effects == {Effects.FIRE}
-    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].effects == set()
+    assert g.board[(2, 3)].unit.effects == set()
     assert g.board[(2, 3)].unit.currenthp == 3 # took 2 damage
 
 def t_WeaponHydraulicLegsMaxPower():
@@ -3956,39 +3963,42 @@ def t_WeaponHydraulicLegsMaxPower():
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
-    g.flushHurtUnits()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None  # wielder leaped from here
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
-    assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage
     assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # wielder caught fire
     assert g.board[(2, 1)].unit.currenthp == 1  # wielder took 2 damage
     assert g.board[(3, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 1)].unit == None # unit pushed from here
-    assert g.board[(4, 1)].effects == {Effects.FIRE} # This forest caught fire from the vek that caught fire being pushed here
-    assert g.board[(4, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(4, 1)].effects == set() # the vek pushed from the tile that caught fire did not catch fire itself!
+    assert g.board[(4, 1)].unit.effects == set() # told ya so
     assert g.board[(4, 1)].unit.currenthp == 2 # vek took 3 damage
     assert g.board[(2, 2)].effects == {Effects.FIRE}
     assert g.board[(2, 2)].unit == None # no unit here
-    assert g.board[(2, 3)].effects == {Effects.FIRE}
-    assert g.board[(2, 3)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 3)].effects == set()
+    assert g.board[(2, 3)].unit.effects == set()
     assert g.board[(2, 3)].unit.currenthp == 2 # took 3 damage
 
 def t_WeaponUnstableCannonLowPower():
     "Shoot the Unstable Cannon with no power"
     g = Game()
+    for x in range(1, 5):
+        g.board[(x, 1)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(2, 1)].unit.currenthp == 3
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
-    assert g.board[(1, 1)].effects == set() # no tile effects
-    assert g.board[(1, 1)].unit.effects == set() # No new effects
-    assert g.board[(1, 1)].unit.currenthp == 2 # took 1 self-damage
-    assert g.board[(2, 1)].effects == set() # no tile effects
-    assert g.board[(2, 1)].unit == None # wielder pushed from here
-    assert g.board[(3, 1)].effects == set() # no tile effects
+    g.flushHurt()
+    assert g.board[(2, 1)].unit == None  # wielder pushed from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile caught fire from self-damage
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()  # No new unit effects
+    assert g.board[(1, 1)].unit.currenthp == 2  # took 1 self-damage
+    assert g.board[(3, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 1)].unit == None # vek pushed from here
-    assert g.board[(4, 1)].effects == set() # no tile effects
-    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].effects == set() # forest is not on fire
+    assert g.board[(4, 1)].unit.effects == set() # vek is not on fire
     assert g.board[(4, 1)].unit.currenthp == 3 # vek took 2 damage
 
 def t_WeaponUnstableCannonPower1():
@@ -3997,7 +4007,7 @@ def t_WeaponUnstableCannonPower1():
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set() # No new effects
     assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
@@ -4015,7 +4025,7 @@ def t_WeaponUnstableCannonPower2():
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set() # No new effects
     assert g.board[(1, 1)].unit.currenthp == 2 # took 1 self-damage
@@ -4033,7 +4043,7 @@ def t_WeaponUnstableCannonMaxPower():
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set() # No new effects
     assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
@@ -4052,7 +4062,7 @@ def t_WeaponUnstableCannonWielderForest():
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.flushHurtUnits()
+    g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set() # No new effects, the wielder does NOT catch on fire because he's pushed off before it happens.
     assert g.board[(1, 1)].unit.currenthp == 1 # took 2 self-damage
@@ -4065,6 +4075,7 @@ def t_WeaponUnstableCannonWielderForest():
     assert g.board[(4, 1)].unit.currenthp == 1 # vek took 4 damage
 
 ########### write tests for these:
+# if you punch a frozen unit on an ice tile, the ice tile isn't damaged.
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
 # mech corpses that fall into chasms cannot be revived.

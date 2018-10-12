@@ -148,10 +148,10 @@ class FakeException(Exception):
 ############# THE MAIN GAME BOARD!
 class Game():
     "This represents the a single instance of a game. This is the highest level of the game."
-    def __init__(self, board=None, powergrid_hp=7, environmentaleffect=None, vekemerge=None):
+    def __init__(self, board=None, powergrid_hp=7, environeffect=None, vekemerge=None):
         """board is a dict of tiles to use. If it's left blank, a default board full of empty ground tiles is generated.
         powergrid_hp is the amount of power (hp) you as a player have. When this reaches 0, the entire game ends.
-        environmentaleffect is an environmental effect object that should be run during a turn.
+        environeffect is an environmental effect object that should be run during a turn.
         vekemerge is the special VekEmerge environmental effect. If left blank, an empty one is created."""
         if board:
             self.board = board
@@ -162,9 +162,9 @@ class Game():
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-        self.environmentaleffect = environmentaleffect
+        self.environeffect = environeffect
         try:
-            self.environmentaleffect.game = self
+            self.environeffect.game = self
         except AttributeError:
             pass # no environmental effect being used
         if vekemerge:
@@ -176,36 +176,36 @@ class Game():
         self.vekpassives = {}
         self.playerunits = set() # All the units that the player has direct control over
         self.enemyunits = set() # all the enemy units
+        self.hurttiles = [] # a list of squares of tiles that were hit and need damaging. Not all damaged tiles go here, only tiles that need to delay taking their damage. (see Weapon_hurtAndPush_Base)
         self.hurtplayerunits = [] # a list of the player's units hurt by a single action. All units here must be checked for death after they all take damage and then this is reset.
-        self.hurtpsions = set() # a set of all psions that were damaged during a single action
+        self.hurtpsion = None # This is set to a single psion that was damaged since there can never be more than 1 psion on the board at at time
         self.hurtenemies = [] # a list of all enemy units that were hurt during a single action. This includes robots
-    def flushHurtUnits(self):
-        "resolve the deaths of hurt units, killing any units that need killing. returns nothing. Psions are killed first, then your mechs, then vek/bots"
+    def flushHurt(self):
+        "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
+        # print("hurttiles:", self.hurttiles)
         # print("hurtenemies:", self.hurtenemies)
         # print("hurtplayerunits:", self.hurtplayerunits)
-        # print("hurtpsions:", self.hurtpsions)
-        while self.hurtenemies or self.hurtplayerunits or self.hurtpsions:
-            hpu = self.hurtplayerunits # make temporary stores so that if these units explode and deal more damage, the next wave of hurt units die in the correct order.
+        # print("hurtpsion:", self.hurtpsion)
+        while True:
+            hurttiles = self.hurttiles # make temporary stores so that if these units explode and deal more damage, the next wave of hurt units are processed in the correct order.
+            hurtplayerunits = self.hurtplayerunits
+            hurtenemies = self.hurtenemies
+            self.hurttiles = []
             self.hurtplayerunits = []
-            he = self.hurtenemies
             self.hurtenemies = []
-            # before doing this, it was possible to have a vek die and explode, killing a psion and another vek in the process. The next unit to die in game would be the psion,
-            # but in this script the vek would have died first since he was added to the list we were actively processing. We don't do this for psions since there can only be one on the field at once anyway
-            while True:
-                try:
-                    self.hurtpsions.pop()._allowDeath()
-                except KeyError:
-                    break
-            while True:
-                try:
-                    hpu.pop(0).explode()
-                except IndexError:
-                    break
-            while True:
-                try:
-                    he.pop(0)._allowDeath()
-                except IndexError:
-                    break
+            for ht in hurttiles: # tiles
+                self.board[ht]._tileTakeDamage()
+            try:
+                self.hurtpsion._allowDeath()
+                self.hurtpsion = None
+            except AttributeError:
+                pass
+            for hpu in hurtplayerunits:
+                hpu.explode()
+            for he in hurtenemies:
+                he._allowDeath()
+            if not (self.hurttiles or self.hurtenemies or self.hurtplayerunits or self.hurtpsion):
+                return
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -231,21 +231,28 @@ class Tile_Base(TileUnit_Base):
     def __init__(self, game, square=None, type=None, effects=None, unit=None):
         super().__init__(game, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
-    def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False):
+    def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False, delay=False):
         """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
         There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs which never has an effect on the tile.
         Damage is an int of how much damage to take. DO NOT PASS 0 DAMAGE TO THIS or the tile will still take damage!
         ignorearmor and ignoreacid have no effect on the tile and are passed onto the unit's takeDamage method.
+        if delay is True, this hurt tile is added to the queue to be damaged when flushHurt() is run.
         returns nothing.
         """
         try:
             if Effects.SHIELD not in self.unit.effects: # if the unit on this tile was NOT shielded...
                 raise FakeException
         except AttributeError: # raised from Effects.SHIELD in None meaning there was no unit to check for shields
-            self._tileTakeDamage() # so we only damage the tile
+            if delay:
+                self.game.hurttiles.append(self.square) # so we only damage the tile
+            else:
+                self._tileTakeDamage()
             return
         except FakeException: # there was an unshielded unit present
-            self._tileTakeDamage()  # Tile takes damage first.
+            if delay:
+                self.game.hurttiles.append(self.square)  # Tile takes damage first.
+            else:
+                self._tileTakeDamage()
         self.game.board[self.square].unit.takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) # then the unit takes damage. If the unit was shielded, then only the unit took damage and not the tile
     def hasShieldedUnit(self):
         "If there is a unit on this tile that is shielded, return True, return False otherwise."
@@ -345,7 +352,7 @@ class Tile_Base(TileUnit_Base):
         """push unit on this tile in direction.
         direction is a Direction.UP type direction
         This method should only be used when there is NO possibility of a unit being pushed to a square that also needs to be pushed during the same action e.g. conveyor belts or wind torrent
-        returns True if a unit was pushed, False if nothing happened."""
+        returns True if a unit was pushed or took bump damage, False if nothing happened."""
         try:
             if Attributes.STABLE in self.unit.attributes:
                 return False # stable units can't be pushed
@@ -1005,7 +1012,7 @@ class Unit_Enemy_Base(Unit_Repairable_Base):
         try:
             self.game.enemyunits.remove(self) # try to remove this dead unit from enemyunits
         except KeyError: # It's possible for an enemy to "die twice" in some circumstances, e.g. when you punch a vek and push him onto a mine.
-            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurtUnits() yet. It lands on the mine tile first where the mine detonates and kills it, removing it from game.enemyunits
+            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurt() yet. It lands on the mine tile first where the mine detonates and kills it, removing it from game.enemyunits
                     # if this is the case we can stop processing its death here.
         super().die()
 
@@ -1030,7 +1037,7 @@ class Unit_Psion_Base(Unit_Enemy_Flying_Base):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
-        self.game.hurtpsions.add(self)  # add it to the queue of units to be killed at the same time
+        self.game.hurtpsion = self
         super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Burrower_Base(Unit_EnemyNonPsion_Base):
@@ -1453,15 +1460,17 @@ class Environ_Base():
         removevekemerge will remove emerging vek from self.squares if set true
         the attribute self.game is set when the Game instance initializes this object."""
         self.squares = squares
-        self.effects = effects
+        if not effects:
+            self.effects = []
+        else:
+            self.effects = effects
         self.newtile = newtile
         self.removevekemerge = removevekemerge
     def run(self):
         "Run the environmental effect on the Game."
         for square in self.squares:
-            if self.effects:
-                for effect in self.effects:
-                    getattr(self.game.board[square], effect)()
+            for effect in self.effects:
+                getattr(self.game.board[square], effect)()
             if self.newtile:
                 self.game.board[square].replaceTile(self.newtile(self.game))
             if self.removevekemerge:
@@ -1475,11 +1484,12 @@ class Environ_IceStorm(Environ_Base):
 class Environ_AirStrike(Environ_Base):
     def __init__(self, squares):
         "Use a set of squares here."
-        super().__init__(squares, effects=('takeDamage', 'die'))
+        super().__init__(squares, effects=('_tileTakeDamage', 'die'))
     def run(self):
         super().run()
-        self.game.hurtplayerunits = self.game.hurtenemies = []  # reset all the hurt units that took damage from this since they're dead anyway.
-        self.game.hurtpsions = set()
+        self.game.hurtplayerunits = [] # reset all the hurt units that took damage from this since they're dead anyway.
+        self.game.hurtenemies = []
+        self.game.hurtpsion = None
 
 class Environ_Tsunami(Environ_Base):
     def __init__(self, squares):
@@ -1561,7 +1571,7 @@ class Environ_VekEmerge():
             except AttributeError: # there was no unit
                 pass # TODO: the vek emerges
             else:
-                self.game.flushHurtUnits() # let units that took this bump damage die
+                self.game.flushHurt() # let units that took this bump damage die
     def remove(self, square):
         "remove square from self.squares, ignoring if it wasn't there in the first place. returns nothing."
         try:
@@ -1635,7 +1645,14 @@ class Weapon_hurtAndPush_Base():
     "A base class for weapons that need to hurt and push a unit."
     def _hurtAndPush(self, square, direction):
         "have a tile takeDamage() from self.damage and get pushed. This will raise KeyError if square is not on the board."
-        self.game.board[square].takeDamage(self.damage)
+        self.game.board[square].takeDamage(self.damage, delay=True)
+        self.game.board[square].push(direction)
+
+class Weapon_hurtAndPushSelfDamage_Base():
+    "A base class for weapons that need to hurt and push themselves."
+    def _hurtAndPushSelfDamage(self, square, direction):
+        "have a tile takeDamage() from self.damage and get pushed. This will raise KeyError if square is not on the board."
+        self.game.board[square].takeDamage(self.selfdamage, delay=True)
         self.game.board[square].push(direction)
 
 class Weapon_getSquareOfUnitInDirection_Base():
@@ -1753,7 +1770,7 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
         if self.buildingsimmune and self.game.board[targetsquare].unit.isBuilding():
            pass
         else:
-            self.game.board[targetsquare].takeDamage(self.damage)
+            self.game.board[targetsquare].takeDamage(self.damage, delay=True)
         self._pushAdjacent(targetsquare) # now push all the tiles around targetsquare
 
 class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
@@ -1982,15 +1999,16 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
             self.game.board[targetsquare].applySmoke() # smoke the target
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
-class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPush_Base):
     "Default weapon for the Rocket mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         super().__init__(power1, power2)
     def shoot(self, direction, distance):
         targetsquare = self._getRelSquare(direction, distance)
-        self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
-        self.game.board[targetsquare].push(direction) # target is pushed
+        self._hurtAndPush(targetsquare, direction)
+        #self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
+        #self.game.board[targetsquare].push(direction) # target is pushed
         try:
             self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applySmoke()
         except KeyError: # self.game.board[False].applySmoke()
@@ -2138,7 +2156,7 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
                 if Effects.FIRE in self.game.board[targetsquare].unit.effects:
                     raise FakeException
             except FakeException: # The unit was on fire
-                self.game.board[targetsquare].unit.takeDamage(self.damage)
+                self.game.board[targetsquare].unit.takeDamage(self.damage) # damage the unit only, not the tile!
             except AttributeError: # None.effects, there was no unit
                 pass
             self.game.board[targetsquare].applyFire() # light it up
@@ -2213,11 +2231,10 @@ class Weapon_HydraulicLegs(Weapon_Artillery_Base, Weapon_hurtAndPush_Base, Weapo
             except KeyError: # tried to hurt and push a square off the board
                 pass
 
-class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projectile_Base, Weapon_hurtAndPush_Base):
+class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projectile_Base, Weapon_hurtAndPush_Base, Weapon_hurtAndPushSelfDamage_Base):
     def __init__(self, power1=False, power2=False):
         super().__init__(power1, power2)
         self.damage += 1 # unstable cannon does 1 more damage by default
     def shoot(self, direction):
-        self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # take self-damage first
-        self.game.board[self.wieldingunit.square].push(Direction.opposite(direction)) # and push back
+        self._hurtAndPushSelfDamage(self.wieldingunit.square, Direction.opposite(direction)) # take self-damage first and push back
         self._hurtAndPush(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)

@@ -1755,7 +1755,7 @@ class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
         victimtile = self._getSquareOfUnitInDirection(direction, edgeok=False)
         try:
             self._hurtAndPushEnemy(victimtile, direction)
-        except KeyError: # raised from _hurtAndPushEnemy doing self.game.board[False]... meaning there was no unit on victimtile
+        except NullWeaponShot: # raised from _hurtAndPushEnemy doing self.game.board[False]... meaning there was no unit on victimtile
             self.game.board[self.wieldingunit.square].moveUnit(self.game.board[self.wieldingunit.square].getEdgeSquare(direction)) # move the wielder to victimtile which is the edge of the board
             return False
         else: # victimtile was actually a tile and we hurt and push the unit there
@@ -1942,12 +1942,11 @@ class Weapon_ViceFist(Weapon_getRelSquare_Base, Weapon_DirectionalGen_Base):
     def shoot(self, direction):
         destsquare = self._getRelSquare(Direction.opposite(direction), 1) # where the tossed unit lands
         try:
-            if destsquare.unit: # can't toss a unit to an occupied tile
+            if self.game.board[destsquare].unit: # can't toss a unit to an occupied tile
                 raise NullWeaponShot
         except AttributeError: # False.unit, square was invalid
             raise NullWeaponShot
-
-        targetsquare = self.game.board[self._getRelSquare(dir, 1)] # the tile where the victim is grabbed
+        targetsquare = self._getRelSquare(direction, 1) # the tile where the victim is grabbed
         try:
             if Attributes.STABLE in self.game.board[targetsquare].unit.attributes: # if target unit is stable...
                 raise NullWeaponShot # we can't toss it

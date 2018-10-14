@@ -3921,7 +3921,6 @@ def t_WeaponHydraulicLegsLowPower():
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
-    print(g.board[(1, 1)])
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage

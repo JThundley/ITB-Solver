@@ -1557,6 +1557,18 @@ def t_AirStrikeEnvironmental():
     assert g.board[(2, 1)].effects == {Effects.FIRE}
     assert g.board[(3, 2)].effects == {Effects.SMOKE}
 
+def t_AirStrikeEnvironmentalAcidForest():
+    "if a vek with acid is on a forest and is then hit with an airstrike, the tile is damaged and catches fire, then the unit dies leaving its acid and removing the fire and forest."
+    g = Game(environeffect=Environ_AirStrike({(1, 1)}))
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Scorpion(g, effects={Effects.ACID}))
+    assert g.board[(1, 1)].effects == set()
+    g.environeffect.run()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.ACID}
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(1, 1)].type == 'ground'
+
 def t_LightningEnvironmental():
     "lol literally the same thing as AirStrike"
     g = Game(environeffect=Environ_Lightning({(1, 2), (2, 3), (2, 2), (2, 1), (3, 2)}))
@@ -1878,6 +1890,29 @@ def t_WeaponTitanFistChargeToEdge():
     assert g.board[(8, 1)].unit.effects == set() # no change
     assert g.board[(8, 1)].unit.currenthp == 3 # no change
     assert g.board[(8, 1)].type == 'forest'
+
+def t_WeaponTitanFistIceOnIce():
+    "if you punch a frozen unit on an ice tile, the ice tile isn't damaged."
+    g = Game()
+    g.board[(2, 1)].replaceTile(Tile_Ice(g))
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, weapon1=Weapon_TitanFist()))
+    g.board[(2, 1)].createUnitHere(Unit_Judo_Mech(g, effects={Effects.ICE}))
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(2, 1)].unit.currenthp == 3
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(2, 1)].unit == None # judo was pushed off this square
+    assert g.board[(2, 1)].type == 'ice' # tile wasn't damaged
+    assert g.board[(3, 1)].effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 3 # he only lost 0 health because of ice
 
 def t_HurtAndPushedVekOnFireSetsForestOnFire():
     "This is testing the concept of the vek corpse. A vek is lit on fire, and then punched for 4 damage so it's killed, but it's fake corpse is pushed to a forest tile and sets it on fire."
@@ -4074,12 +4109,60 @@ def t_WeaponUnstableCannonWielderForest():
     assert g.board[(4, 1)].unit.effects == set()
     assert g.board[(4, 1)].unit.currenthp == 1 # vek took 4 damage
 
+def t_WeaponAcidProjector():
+    "Shoot the acid projector at a unit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt() # not needed here, nothing got hurt.
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit == None  # no unit here
+    assert g.board[(3, 1)].effects == set()  # no tile effects
+    assert g.board[(3, 1)].unit.effects == {Effects.ACID}
+    assert g.board[(3, 1)].unit.currenthp == 5
+
+def t_WeaponAcidProjectorShielded():
+    "Shoot the acid projector at a shielded unit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.SHIELD}))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt() # not needed here, nothing got hurt.
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit == None  # no unit here
+    assert g.board[(3, 1)].effects == set()  # no tile effects
+    assert g.board[(3, 1)].unit.effects == {Effects.ACID, Effects.SHIELD} # shield doesn't protect you from acid from this weapon
+    assert g.board[(3, 1)].unit.currenthp == 5
+
+def t_WeaponAcidProjectorBumpDeath():
+    "Shoot the acid projector at a unit that dies to bump damage."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=1))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].effects == {Effects.ACID} # dead vek left acid
+    assert g.board[(2, 1)].unit == None  # vek died
+    assert g.board[(3, 1)].effects == set()  # no tile effects
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.type == 'mountaindamaged'
+
+
 ########### write tests for these:
-# if you punch a frozen unit on an ice tile, the ice tile isn't damaged.
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
 # mech corpses that fall into chasms cannot be revived.
-# if a vek with acid is on a forest and is then hit with an airstrike, the tile is damaged and catches fire, then the unit dies leaving its acid and removing the fire and forest.
 
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.

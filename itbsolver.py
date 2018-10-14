@@ -226,16 +226,16 @@ class Tile_Base(TileUnit_Base):
         super().__init__(game, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
     def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False):
-        """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage should always be done to the tile, the tile will then pass it onto the unit.
+        """Process the tile taking damage and the unit (if any) on this tile taking damage. Damage is usually done to the tile, the tile will then pass it onto the unit.
         There are a few exceptions when takeDamage() will be called on the unit but not the tile, such as the Psion Tyrant damaging all player mechs which never has an effect on the tile.
         Damage is an int of how much damage to take. DO NOT PASS 0 DAMAGE TO THIS or the tile will still take damage!
         ignorearmor and ignoreacid have no effect on the tile and are passed onto the unit's takeDamage method.
         returns nothing.
         """
         try:
-            if Effects.SHIELD not in self.unit.effects: # if the unit on this tile was NOT shielded...
+            if (Effects.SHIELD not in self.unit.effects) and (Effects.ICE not in self.unit.effects): # if the unit on this tile was NOT shielded...
                 raise FakeException
-        except AttributeError: # raised from Effects.SHIELD in None meaning there was no unit to check for shields
+        except AttributeError: # raised from Effects.SHIELD in self.None.effects meaning there was no unit to check for shields/ice
             self._tileTakeDamage()
             return
         except FakeException: # there was an unshielded unit present
@@ -430,6 +430,7 @@ class Tile_Forest_Sand_Base(Tile_Base):
             self.unit.applyAcid() # give the unit acid if present
         except AttributeError:
             self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
+            self.game.board[self.square].removeEffect(Effects.FIRE) # fire is put out by acid.
         # The tile doesn't get acid effects if the unit takes it instead.
 
 class Tile_Forest(Tile_Forest_Sand_Base):
@@ -676,10 +677,23 @@ class Unit_Base(TileUnit_Base):
         self.effects.add(Effects.WEB)
     def applyShield(self):
         self.effects.add(Effects.SHIELD)
+    # def _blockDamage(self):
+    #     "Let the unit's Shield or Ice block damage. This is the first part of takeDamage(). return True if damage was blocked, False if there was no shield/ice to block it."
+    #     for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
+    #         try:
+    #             self.effects.remove(effect)
+    #         except KeyError:
+    #             pass
+    #         else:
+    #             self.game.board[self.square]._spreadEffects() # spread effects now that they lost a shield or ice
+    #             return True # and then stop processing things, the shield or ice took the damage.
+    #     return False
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         """Process this unit taking damage. All effects are considered unless the ignore* flags are set in the arguments.
         Units will not die after reaching 0 hp here, run _allowDeath() to allow them to die. This is needed for vek units that can be killed and then pushed to do bump damage or spread effects.
         return False if ice or a shield blocked the damage, True otherwise."""
+        # if self._blockDamage():
+        #     return False
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
@@ -707,7 +721,7 @@ class Unit_Base(TileUnit_Base):
             self.die()
     def die(self):
         "Make the unit die. This method is not ok for mechs to use as they never leave acid where they die. They leave corpses which are also units."
-        self.game.board[self.square].putUnitHere(None) # it's dead, replace it with nothing
+        self.game.board[self.square].unit = None # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.game.board[self.square].applyAcid()
         self.explode()
@@ -759,8 +773,9 @@ class Unit_Repairable_Base(Unit_Fighting_Base):
 class Unit_NoDelayedDeath_Base(Unit_Base):
     "A base class for units that get to bypass the hurt queues such as buildings and other neutral units."
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        res = super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
         super()._allowDeath()
+        return res
 
 ##############################################################################
 ################################### MISC UNITS ###############################
@@ -842,7 +857,7 @@ class Sub_Unit_Base(Unit_Fighting_Base):
         self.alliance = Alliance.FRIENDLY
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         self.game.hurtplayerunits.append(self)
-        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
     def die(self):
         self.game.playerunits.remove(self)
         super().die()
@@ -910,7 +925,7 @@ class Unit_MultiTile_Base(Unit_Base):
                 pass
             else:
                 self.game.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading.
-                return # and then stop processing things, the shield or ice took the damage.
+                return False# and then stop processing things, the shield or ice took the damage.
         if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
         self.currenthp -= damage # the unit takes the damage
@@ -920,6 +935,7 @@ class Unit_MultiTile_Base(Unit_Base):
             self.deadfromdamage = True
             self.die()
         self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        return True
 
 class Unit_Dam(Unit_MultiTile_Base):
     "When the Dam dies, it floods the middle of the map."
@@ -1012,7 +1028,7 @@ class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
         self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
-        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Flying_Base(Unit_Enemy_Base):
     "A simple base unit for flying vek."
@@ -1027,7 +1043,7 @@ class Unit_Psion_Base(Unit_Enemy_Flying_Base):
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
         self.game.hurtpsion = self
-        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_Enemy_Burrower_Base(Unit_EnemyNonPsion_Base):
     "A simple base class for the only 2 burrowers in the game."
@@ -1293,8 +1309,9 @@ class Unit_Mech_Base(Unit_Repairable_Base):
         for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
             self.removeEffect(e)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        res = super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
         self._allowDeath()  # mechs die right away, but explosions are delayed so the corpse actually explodes
+        return res
 
 class Unit_Mech_Flying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
@@ -1314,6 +1331,7 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
             self.effects.add(Effects.EXPLOSIVE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
+        return True
     def applyShield(self):
         "Mech corpses cannot be shielded."
     def applyIce(self):
@@ -1639,11 +1657,15 @@ class Weapon_hurtAndPush_Base():
         This base should not be used by a weapon directly, but only by the 2 others below.
         returns nothing."""
         try: # damage the unit directly, not the tile
-            self.game.board[square].unit.takeDamage(damage)
-        except AttributeError: # there was no unit
-            pass
+            if self.game.board[square].unit.takeDamage(damage):
+                raise AttributeError
+        except AttributeError: # there was no unit or there was an unshielded unit
+            dmgtile = True
+        else: # The unit had a shield or ice and protected the tile
+            dmgtile = False
         self.game.board[square].push(direction) # now push it
-        self.game.board[square]._tileTakeDamage() # now the tile is directly hurt after the unit's been pushed so it doesn't pick up bad effects.
+        if dmgtile:
+            self.game.board[square]._tileTakeDamage() # now the tile is directly hurt after the unit's been pushed so it doesn't pick up bad effects.
         
 class Weapon_hurtAndPushEnemy_Base(Weapon_hurtAndPush_Base):
     def _hurtAndPushEnemy(self, square, direction):
@@ -1662,6 +1684,8 @@ class Weapon_getSquareOfUnitInDirection_Base():
         If none is found, return False.
         If none is found and edgeok is True, return the square on the edge of the board."""
         targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
+        if not targetsquare:
+            raise NullWeaponShot # the first square we tried to get was off the board, this is an invalid shot. XXX TODO: implement more of this!
         while True:
             try:
                 if self.game.board[targetsquare].unit:
@@ -2239,3 +2263,15 @@ class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projec
     def shoot(self, direction):
         self._hurtAndPushSelf(self.wieldingunit.square, Direction.opposite(direction)) # take self-damage first and push back
         self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
+
+class Weapon_AcidProjector(Weapon_RangedGen_Base, Weapon_Projectile_Base):
+    def __init__(self, power1=False, power2=False):
+        pass # this weapon can't be upgraded
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        try:
+            self.game.board[targetsquare].unit.effects.add(Effects.ACID) # directly give the unit acid, ice and shield won't prevent you from getting acid unlike when you move to an acid pool.
+        except AttributeError: # there was no unit
+            self.game.board[targetsquare].applyAcid() # give it to the tile instead
+        else: # unit was hit with acid
+            self.game.board[targetsquare].push(direction) # now push the unit

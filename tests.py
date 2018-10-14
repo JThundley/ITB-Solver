@@ -2595,36 +2595,37 @@ def t_WeaponRammingEnginesMiss():
     assert g.board[(1, 1)].effects == set() # original forest tile didn't take damage
     assert g.board[(8, 1)].effects == set() # destination forest tile undamaged as well
 
-def t_NoOffBoardShotsGenCorner():
-    "test noOffBoardShotsGen by putting a unit in a corner"
-    g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
-    gs = g.board[(1, 1)].unit.weapon1.genShots()
-    g.flushHurt()
-    assert next(gs) == Direction.UP
-    assert next(gs) == Direction.RIGHT
-    try:
-        next(gs)
-    except StopIteration: # no more directions
-        pass # which is good
-    else:
-        assert False # we got another direction?
-
-def t_NoOffBoardShotsGenSide():
-    "test noOffBoardShotsGen by putting a unit against a side"
-    g = Game()
-    g.board[(1, 2)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
-    gs = g.board[(1, 2)].unit.weapon1.genShots()
-    g.flushHurt()
-    assert next(gs) == Direction.UP
-    assert next(gs) == Direction.RIGHT
-    assert next(gs) == Direction.DOWN
-    try:
-        next(gs)
-    except StopIteration: # no more directions
-        pass # which is good
-    else:
-        assert False # we got another direction?
+# These 2 tests were removed because weapon shot generators were changed to not explicitly validate each shot like we tested here
+# def t_NoOffBoardShotsGenCorner():
+#     "test noOffBoardShotsGen by putting a unit in a corner"
+#     g = Game()
+#     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+#     gs = g.board[(1, 1)].unit.weapon1.genShots()
+#     g.flushHurt()
+#     assert next(gs) == Direction.UP
+#     assert next(gs) == Direction.RIGHT
+#     try:
+#         next(gs)
+#     except StopIteration: # no more directions
+#         pass # which is good
+#     else:
+#         assert False # we got another direction?
+#
+# def t_NoOffBoardShotsGenSide():
+#     "test noOffBoardShotsGen by putting a unit against a side"
+#     g = Game()
+#     g.board[(1, 2)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
+#     gs = g.board[(1, 2)].unit.weapon1.genShots()
+#     g.flushHurt()
+#     assert next(gs) == Direction.UP
+#     assert next(gs) == Direction.RIGHT
+#     assert next(gs) == Direction.DOWN
+#     try:
+#         next(gs)
+#     except StopIteration: # no more directions
+#         pass # which is good
+#     else:
+#         assert False # we got another direction?
 
 def t_WeaponTaurusCannonDefaultPower():
     "Shoot the Taurus Cannon with default power"
@@ -3227,13 +3228,15 @@ def t_WeaponAerialBombsGen1():
     g.board[(1, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     assert next(gs) == (Direction.UP, 1)
+    assert next(gs) == (Direction.UP, 2)
+    assert next(gs) == (Direction.RIGHT, 1)
     assert next(gs) == (Direction.RIGHT, 2)
-    try:
-        next(gs)
-    except StopIteration:
-        pass # this is expected
-    else:
-        assert False # there shouldn't be any more valid shots to generate in this configuration
+    # try: # weapon gens no longer give you known-good shots, the weapon determines if it's valid or not.
+    #     next(gs)
+    # except StopIteration:
+    #     pass # this is expected
+    # else:
+    #     assert False # there shouldn't be any more valid shots to generate in this configuration
 
 def t_WeaponRocketArtillery1():
     "Shoot the Rocket Artillery weapon with default power with its back against the edge."
@@ -3918,6 +3921,7 @@ def t_WeaponHydraulicLegsLowPower():
             g.board[(x, y)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
+    print(g.board[(1, 1)])
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
     assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire from self-damage

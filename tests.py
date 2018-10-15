@@ -2180,7 +2180,10 @@ def t_WeaponArtemisArtilleryDefault():
     assert g.board[(5, 2)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
-    g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 2)].unit.weapon1.genShots()
+    for i in range(6):
+        shot = next(gs) # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 2)].unit.weapon1.shoot(*shot) # (Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
@@ -2207,7 +2210,10 @@ def t_WeaponArtemisArtilleryPower1():
     assert g.board[(5, 2)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
-    g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 2)].unit.weapon1.genShots()
+    for i in range(6):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 2)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
@@ -2234,7 +2240,10 @@ def t_WeaponArtemisArtilleryPower2():
     assert g.board[(5, 2)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
-    g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 2)].unit.weapon1.genShots()
+    for i in range(6):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 2)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2 # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1 # mountain unchanged
@@ -2261,7 +2270,10 @@ def t_WeaponArtemisArtilleryFullPower():
     assert g.board[(5, 2)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(4, 3)].unit.currenthp == 5
-    g.board[(2, 2)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 2)].unit.weapon1.genShots()
+    for i in range(6):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 2)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(2, 2)].unit.currenthp == 2  # firing unit unchanged
     assert g.board[(3, 2)].unit.currenthp == 1  # mountain unchanged
@@ -2791,7 +2803,10 @@ def t_WeaponShieldProjectorDefaultPower():
     for x in range(1, 6):
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()  # no change
     assert g.board[(2, 1)].unit.effects == set() # shot over this one
@@ -2820,7 +2835,10 @@ def t_WeaponShieldProjectorPower2():
     for x in range(1, 6):
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set()  # no change
     assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # shot over this one but he got shielded anyway
@@ -2930,6 +2948,9 @@ def t_WeaponClusterArtilleryNoPower():
     assert g.board[(3, 3)].unit.currenthp == 1 # building
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 5
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for i in range(5):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
     g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
@@ -2950,6 +2971,9 @@ def t_WeaponClusterArtilleryPower1():
     assert g.board[(3, 3)].unit.currenthp == 1 # building
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 1 # attacked building
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for i in range(5):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
     g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
@@ -2969,7 +2993,10 @@ def t_WeaponClusterArtilleryFullPower():
     assert g.board[(3, 3)].unit.currenthp == 1 # building
     assert g.board[(4, 3)].unit.currenthp == 5
     assert g.board[(3, 4)].unit.currenthp == 1 # attacked building
-    g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for i in range(5):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # (Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1  # building
@@ -2984,7 +3011,10 @@ def t_WeaponGravWellNormal():
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit == None # vek pushed
@@ -2997,7 +3027,10 @@ def t_WeaponGravWellStable():
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 1
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit.currenthp == 1 # mountain not moved and undamaged
@@ -3013,7 +3046,10 @@ def t_WeaponGravWellBump():
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(2, 1)].unit.type == 'mountain'
     assert g.board[(3, 1)].unit.currenthp == 5
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
     assert g.board[(3, 1)].unit.currenthp == 4 # vek pushed and bumped for 1 damage
@@ -3123,7 +3159,10 @@ def t_WeaponCryoLauncher():
     g.board[(1, 1)].createUnitHere(Unit_Ice_Mech(g, weapon1=Weapon_CryoLauncher(power1=True, power2=True))) # this weapon doesn't use power
     g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(9):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (Direction.RIGHT, 4)
     g.flushHurt() # not necessary since nothing was hurt
     assert g.board[(1, 1)].type == 'ice' # tile is now frozen
     assert g.board[(1, 1)].effects == set() # not submerged
@@ -3137,7 +3176,10 @@ def t_WeaponCryoLauncherShielded():
     g.board[(1, 1)].createUnitHere(Unit_Ice_Mech(g, weapon1=Weapon_CryoLauncher(power1=True, power2=True), effects={Effects.SHIELD})) # this weapon doesn't use power
     g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(9):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 4
     g.flushHurt() # not necessary since nothing was hurt
     assert g.board[(1, 1)].type == 'water' # no change since the wielder's shield prevented ice from being applied to the wielder and the tile it's on
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED} # no change
@@ -3243,7 +3285,10 @@ def t_WeaponRocketArtillery1():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
@@ -3258,7 +3303,10 @@ def t_WeaponRocketArtillery2():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
@@ -3273,7 +3321,10 @@ def t_WeaponRocketArtillery3():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(1, 1)].unit.effects == set() # no change for shooter
@@ -3288,7 +3339,10 @@ def t_WeaponRocketArtillery4():
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(2, 1)].unit.currenthp == 3 # no change for shooter
     assert g.board[(2, 1)].unit.effects == set() # no change for shooter
@@ -3533,13 +3587,16 @@ def t_WeaponGrapplingHook8():
     assert g.board[(2, 1)].unit.effects == set() # wielder gets no new effect
     assert g.board[(2, 1)].effects == set()  # no change for wielder's new tile
 
-def t_WeaponRockLaundher1():
+def t_WeaponRockLauncher1():
     "Shoot the Rock Launcher with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
@@ -3550,30 +3607,36 @@ def t_WeaponRockLaundher1():
     assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
     assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
 
-def t_WeaponRockLaundher2():
+def t_WeaponRockLauncher2():
     "Shoot the Rock Launcher with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
     assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
     assert g.board[(3, 1)].unit.effects == set() # target gets no new effects
-    assert g.board[(3, 1)].effects == set() # targets tile untouched
+    assert g.board[(3, 1)].effects == set() # target's tile untouched
     assert g.board[(3, 1)].unit.currenthp == 2 # vek took 3 damage
     assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
     assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
 
-def t_WeaponRockLaundher3():
+def t_WeaponRockLauncher3():
     "Shoot the Rock Launcher with full power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
@@ -3584,14 +3647,17 @@ def t_WeaponRockLaundher3():
     assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
     assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
 
-def t_WeaponRockLaundher4():
+def t_WeaponRockLauncher4():
     "Shoot the Rock Launcher with full power, but with a forest under the target vek"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
     g.board[(3, 1)].replaceTile(Tile_Forest(g))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
@@ -3602,13 +3668,16 @@ def t_WeaponRockLaundher4():
     assert g.board[(3, 2)].unit == None  # 2nd vek pushed from here
     assert g.board[(3, 3)].unit.currenthp == 5 # to here, took no damage
 
-def t_WeaponRockLaundher5():
+def t_WeaponRockLauncher5():
     "Shoot the Rock Launcher with full power, but with a forest with no target vek on it"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
     g.board[(3, 1)].replaceTile(Tile_Forest(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 2  # no change for shooter
     assert g.board[(1, 1)].unit.effects == set()  # shooter get no new effects
@@ -3719,7 +3788,10 @@ def t_WeaponVulcanArtillery1():
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3736,7 +3808,10 @@ def t_WeaponVulcanArtillery2():
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(3, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3753,7 +3828,10 @@ def t_WeaponVulcanArtillery3():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # (Direction.RIGHT, 2)
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3771,7 +3849,10 @@ def t_WeaponVulcanArtillery4():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3789,7 +3870,10 @@ def t_WeaponVulcanArtillery5():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3807,7 +3891,10 @@ def t_WeaponVulcanArtillery6():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3825,7 +3912,10 @@ def t_WeaponVulcanArtillery7():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3843,7 +3933,10 @@ def t_WeaponVulcanArtillery8():
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    gs = g.board[(2, 1)].unit.weapon1.genShots()
+    for i in range(7):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 3  # no change for shooter
     assert g.board[(4, 1)].effects == {Effects.FIRE} # tile caught on fire
@@ -3919,7 +4012,10 @@ def t_WeaponHydraulicLegsLowPower():
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(8):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
@@ -3946,7 +4042,10 @@ def t_WeaponHydraulicLegsPower1():
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(8):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
@@ -3973,7 +4072,10 @@ def t_WeaponHydraulicLegsPower2():
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(8):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire
     assert g.board[(1, 1)].unit == None # wielder leaped from here
@@ -4000,7 +4102,10 @@ def t_WeaponHydraulicLegsMaxPower():
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(8):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
     g.flushHurt()
     assert g.board[(1, 1)].unit == None  # wielder leaped from here
     assert g.board[(1, 1)].effects == {Effects.FIRE} # forest caught fire

@@ -333,6 +333,8 @@ class Tile_Base(TileUnit_Base):
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         assert Attributes.STABLE not in self.unit.attributes
+        if destsquare == self.square:
+            return # tried to move a unit to the same square it's already one. This has the unintended consequence of leaving the square blank!
         self.game.board[destsquare].putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
@@ -1731,7 +1733,7 @@ class Weapon_PushAdjacent_Base():
             except KeyError: # game.board[False]
                 pass
 
-class Weapon_hurtPushAdjacent_Base(Weapon_hurtAndPushEnemy_Base): #xxx
+class Weapon_hurtPushAdjacent_Base(Weapon_hurtAndPushEnemy_Base):
     "A base class that provides a method to hurt and push all tiles around a target."
     def _hurtPushAdjacent(self, targetsquare):
         for d in Direction.gen(): # push all the tiles around targetsquare
@@ -1747,6 +1749,14 @@ class Weapon_isMountain_Base():
             return unit._mountain
         except AttributeError:
             return False
+
+class Weapon_FartSmoke_Base(Weapon_getRelSquare_Base):
+    def _fartSmoke(self, shotdirection):
+        "smoke the tile behind the weapon wielder. Ignore errors if that would be off-board"
+        try:
+            self.game.board[self._getRelSquare(Direction.opposite(shotdirection), 1)].applySmoke()
+        except KeyError: # self.game.board[False].applySmoke()
+            pass # totally fine, if your butt is against the wall you just don't fart out any smoke
 
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -1779,6 +1789,20 @@ class Weapon_HydraulicLegsUnstableInit_Base():
             self.damage += 1
         if power2:
             self.damage += 1
+
+# class Weapon_RangedAttack_Base(Weapon_getRelSquare_Base): # this might not be able to be shared after all since the mech version needs to pushAndHurt the last square
+#     "A shared method for weapons that attack in a limited range like NeedleShot and the similar vek weapon."
+#     def shoot(self, direction, range):
+#         hitsquares = [] # a list of squares to damage. Build the list first so we can determine if this is an invalid shot
+#         for r in range(1, range+1):
+#             targetsquare = self._getRelSquare(direction, r)
+#             if not targetsquare:
+#                 raise NullWeaponShot  # bail since this shot was already taken with less range
+#             hitsquares.append(targetsquare)
+#         # Now we know this is a valid shot.
+#         for targetsquare in hitsquares:
+#             self.game.board[targetsquare].takeDamage(self.damage)
+#         self.game.board[targetsquare].push(direction) # and finally push the last tile
 ##################### Actual standalone weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base):
     """Combat mech's default weapon.
@@ -2052,17 +2076,14 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
             self.game.board[targetsquare].applySmoke() # smoke the target
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
-class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base, Weapon_FartSmoke_Base):
     "Default weapon for the Rocket mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         super().__init__(power1, power2)
     def shoot(self, direction, distance):
         self._hurtAndPushEnemy(self.targetsquare, direction)
-        try:
-            self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applySmoke()
-        except KeyError: # self.game.board[False].applySmoke()
-            pass # totally fine, if your butt is against the wall you just don't fart out any smoke
+        self._fartSmoke(direction)
 
 class Weapon_Repulse(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base):
     "Default weapon for Pulse mech"
@@ -2272,6 +2293,7 @@ class Weapon_HydraulicLegs(Weapon_Artillery_Base, Weapon_HydraulicLegsUnstableIn
         self._hurtPushAdjacent(self.targetsquare)
 
 class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base, Weapon_hurtAndPushSelf_Base):
+    "Default weapon for the Unstable Mech"
     def __init__(self, power1=False, power2=False):
         super().__init__(power1, power2)
         self.damage += 1 # unstable cannon does 1 more damage by default
@@ -2279,7 +2301,8 @@ class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projec
         self._hurtAndPushSelf(self.wieldingunit.square, Direction.opposite(direction)) # take self-damage first and push back
         self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
 
-class Weapon_AcidProjector(Weapon_RangedGen_Base, Weapon_Projectile_Base):
+class Weapon_AcidProjector(Weapon_Projectile_Base):
+    "Default weapon for the Acid Mech"
     def __init__(self, power1=False, power2=False):
         pass # this weapon can't be upgraded
     def shoot(self, direction):
@@ -2290,3 +2313,67 @@ class Weapon_AcidProjector(Weapon_RangedGen_Base, Weapon_Projectile_Base):
             self.game.board[targetsquare].applyAcid() # give it to the tile instead
         else: # unit was hit with acid
             self.game.board[targetsquare].push(direction) # now push the unit
+
+class Weapon_RammingSpeed(Weapon_Charge_Base, Weapon_FartSmoke_Base):
+    "Default weapon for the TechnoBeetle"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.shoot = self.shoot_smoke
+        if power2:
+            self.damage += 2
+    def shoot_smoke(self, direction):
+        super().shoot(direction)
+        self._fartSmoke(direction)
+
+class Weapon_NeedleShot(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
+    "Default weapon for the TechnoHornet"
+    def __init__(self, power1=False, power2=False):
+        self.range = 1
+        self.damage = 1
+        for p in power1, power2:
+            if p:
+                self.range += 1
+                self.damage += 1
+    def shoot(self, direction, distance):
+        hitsquares = []  # a list of squares to damage. Build the list first so we can determine if this is an invalid shot
+        for r in range(1, distance+1):
+            targetsquare = self._getRelSquare(direction, r)
+            if not targetsquare:
+                raise NullWeaponShot  # bail since this shot was already taken with less distance
+            hitsquares.append(targetsquare)
+        # Now we know this is a valid shot.
+        for targetsquare in hitsquares[:-1]: # don't actually damage the last square
+            self.game.board[targetsquare].takeDamage(self.damage)
+        self._hurtAndPushEnemy(hitsquares[-1], direction)# and finally hurtAndPush the last tile
+
+class Weapon_ExplosiveGoo(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
+    "Default weapon for the TechnoScarab"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.shoot = self.shoot_2tiles
+        if power2:
+            self.damage += 2
+    def shoot(self, direction, distance):
+        "This is the ExplosiveGoo's shot when it only affects 1 tile, very simple."
+        self.game.board[self.targetsquare].takeDamage(self.damage)
+        self._pushAdjacent(self.targetsquare)  # now push all the tiles around targetsquare
+    def shoot_2tiles(self, direction, distance):
+        self.game.board[self.targetsquare].takeDamage(self.damage)
+        extrasquare = self.game.board[self.targetsquare].getRelSquare(direction, 1) # set the 2nd square
+        try: # try to damage one tile past the target
+            self.game.board[extrasquare].takeDamage(self.damage)
+        except KeyError: # board[False]; the extra shot was wasted which is fine
+            self._pushAdjacent(self.targetsquare)  # just push all the tiles around targetsquare, one of them will be off board
+        else: # The tile exists and now we have to push all tiles around BOTH
+            for d in Direction.genPerp() + Direction.opposite(direction): # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one in the direction of fire
+                try:
+                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
+                except KeyError:  # game.board[False]
+                    pass
+            for d in Direction.genPerp() + direction: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
+                try:
+                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
+                except KeyError:  # game.board[False]
+                    pass

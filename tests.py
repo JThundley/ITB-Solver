@@ -4266,6 +4266,190 @@ def t_WeaponAcidProjectorBumpDeath():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.type == 'mountaindamaged'
 
+def t_WeaponRammingSpeedDefault():
+    "Fire the RammingSpeed weapon with no powered upgrades"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder moved
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(4, 1)].unit.currenthp == 4 # vek pushed here took 1 damage
+
+def t_WeaponRammingSpeedPower1():
+    "Fire the RammingSpeed weapon with the first upgrade powered"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(2, 1)].unit.currenthp == 3
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None  # never was a unit here
+    assert g.board[(1, 1)].effects == {Effects.SMOKE} # smoke was farted
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage and didn't move
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(4, 1)].unit.currenthp == 4 # vek pushed here took 1 damage
+
+def t_WeaponRammingSpeedPower2():
+    "Fire the RammingSpeed weapon with the second upgrade powered"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder moved
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage
+    assert g.board[(3, 1)].unit == None # vek pushed off this tile
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek pushed here took 3 damage
+
+def t_WeaponRammingSpeedFullPower():
+    "Fire the RammingSpeed weapon with the both upgrades powered"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(2, 1)].unit.currenthp == 3
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None  # never was a unit here
+    assert g.board[(1, 1)].effects == {Effects.SMOKE}  # smoke was farted
+    assert g.board[(2, 1)].unit.currenthp == 3  # wielder took 0 damage and didn't move
+    assert g.board[(3, 1)].unit == None  # vek pushed off this tile
+    assert g.board[(4, 1)].unit.currenthp == 2 # vek pushed here took 3 damage
+
+def t_WeaponNeedleShotNoPower():
+    "Fire the NeedleShot weapon with the no upgrades powered"
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set() # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set() # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3 # this vek took 2 damage; 1 from weapon, 1 from bump
+    assert g.board[(3, 1)].unit.currenthp == 4 # this one took 1 bump damage
+    assert g.board[(4, 1)].unit.currenthp == 5 # this one took none
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    assert g.board[(5, 1)].unit == None # Nothing got pushed here
+
+def t_WeaponNeedleShot1Power():
+    "Fire the NeedleShot weapon with the 1 upgrade powered"
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=True, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set() # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set() # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3 # this vek took 2 damage from weapon, no bump
+    assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage; 2 from weapon, 1 from bump
+    assert g.board[(4, 1)].unit.currenthp == 4 # this one took 1 bump damage
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    assert g.board[(5, 1)].unit == None # Nothing got pushed here
+
+def t_WeaponNeedleShot2Power():
+    "Fire the NeedleShot weapon with the 2nd upgrade powered. This is no different than just having the first done"
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=False, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set() # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set() # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3 # this vek took 2 damage from weapon, no bump
+    assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage; 2 from weapon, 1 from bump
+    assert g.board[(4, 1)].unit.currenthp == 4 # this one took 1 bump damage
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    assert g.board[(5, 1)].unit == None # Nothing got pushed here
+
+def t_WeaponNeedleShotFullPower():
+    "Fire the NeedleShot weapon with full upgrade power."
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set() # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set() # no effects
+    assert g.board[(2, 1)].unit.currenthp == 2 # this vek took 3 damage from weapon, no bump
+    assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
+    assert g.board[(4, 1)].unit == None # last vek got pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE}  # forest is on fire
+    assert g.board[(5, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
+    assert g.board[(5, 1)].unit.effects == set() # the vek didn't catch on fire
+
+# def t_WeaponExplosiveGooNoPower():
+#     "Fire the NeedleShot weapon with no upgrade power."
+#     g = Game()
+#     for x in range(1, 9): # fuckit, put vek on every tile
+#         for y in range(1, 9):
+#             g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+#     # replace one with our boi
+#     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=False)))
+#     gs = g.board[(1, 1)].unit.weapon1.genShots()
+#     for r in range(6):
+#         shot = next(gs)
+#     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 3
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+#     assert g.board[(1, 1)].unit.effects == set() # no effects
+#     assert g.board[(2, 1)].unit.currenthp == 2 # this vek took 3 damage from weapon, no bump
+#     assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
+#     assert g.board[(4, 1)].unit == None # last vek got pushed from here
+#     assert g.board[(4, 1)].effects == {Effects.FIRE}  # forest is on fire
+#     assert g.board[(5, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
+#     assert g.board[(5, 1)].unit.effects == set() # the vek didn't catch on fire
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

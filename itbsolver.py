@@ -2367,13 +2367,13 @@ class Weapon_ExplosiveGoo(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
         except KeyError: # board[False]; the extra shot was wasted which is fine
             self._pushAdjacent(self.targetsquare)  # just push all the tiles around targetsquare, one of them will be off board
         else: # The tile exists and now we have to push all tiles around BOTH
-            for d in Direction.genPerp() + Direction.opposite(direction): # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one in the direction of fire
+            for d in list(Direction.genPerp(direction)) + [Direction.opposite(direction)]: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one in the direction of fire
                 try:
                     self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
                 except KeyError:  # game.board[False]
                     pass
-            for d in Direction.genPerp() + direction: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
+            for d in list(Direction.genPerp(direction)) + [direction]: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
                 try:
-                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
+                    self.game.board[self.game.board[extrasquare].getRelSquare(d, 1)].push(d)
                 except KeyError:  # game.board[False]
                     pass

@@ -4429,27 +4429,190 @@ def t_WeaponNeedleShotFullPower():
     assert g.board[(5, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
     assert g.board[(5, 1)].unit.effects == set() # the vek didn't catch on fire
 
-# def t_WeaponExplosiveGooNoPower():
-#     "Fire the NeedleShot weapon with no upgrade power."
-#     g = Game()
-#     for x in range(1, 9): # fuckit, put vek on every tile
-#         for y in range(1, 9):
-#             g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
-#     # replace one with our boi
-#     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=False)))
-#     gs = g.board[(1, 1)].unit.weapon1.genShots()
-#     for r in range(6):
-#         shot = next(gs)
-#     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 3
-#     g.flushHurt()
-#     assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
-#     assert g.board[(1, 1)].unit.effects == set() # no effects
-#     assert g.board[(2, 1)].unit.currenthp == 2 # this vek took 3 damage from weapon, no bump
-#     assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
-#     assert g.board[(4, 1)].unit == None # last vek got pushed from here
-#     assert g.board[(4, 1)].effects == {Effects.FIRE}  # forest is on fire
-#     assert g.board[(5, 1)].unit.currenthp == 2 # this one took 3 damage from weapon
-#     assert g.board[(5, 1)].unit.effects == set() # the vek didn't catch on fire
+def t_WeaponExplosiveGooNoPower():
+    "Fire the NeedleShot weapon with no upgrade power."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=False)))
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(1, 3)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 3)].unit.effects == set() # no unit effects
+    del allunits[(1, 3)]  # delete the wielder from allunits
+    assert g.board[(4, 3)].unit.currenthp == 4  # target took 1 damage
+    del allunits[(4, 3)]  # delete the target unit from all
+    assert g.board[(3, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(3, 3)]  # delete this bumped  unit from all
+    assert g.board[(2, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(2, 3)]  # delete this bumped  unit from all
+    assert g.board[(4, 4)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 4)]  # delete this bumped  unit from all
+    assert g.board[(4, 5)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 5)]  # delete this bumped  unit from all
+    assert g.board[(5, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(5, 3)]  # delete this bumped  unit from all
+    assert g.board[(6, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(6, 3)]  # delete this bumped  unit from all
+    assert g.board[(4, 2)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 2)]  # delete this bumped  unit from all
+    assert g.board[(4, 1)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 1)]  # delete this bumped  unit from all
+    for u in allunits:
+        assert g.board[u].unit.currenthp == 5 # no hp change to all other vek
+
+def t_WeaponExplosiveGooPower2():
+    "Fire the NeedleShot weapon with extra damage powered."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=True)))
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(1, 3)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 3)].unit.effects == set() # no unit effects
+    del allunits[(1, 3)]  # delete the wielder from allunits
+    assert g.board[(4, 3)].unit.currenthp == 2  # target took 3 damage
+    del allunits[(4, 3)]  # delete the target unit from all
+    assert g.board[(3, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(3, 3)]  # delete this bumped  unit from all
+    assert g.board[(2, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(2, 3)]  # delete this bumped  unit from all
+    assert g.board[(4, 4)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 4)]  # delete this bumped  unit from all
+    assert g.board[(4, 5)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 5)]  # delete this bumped  unit from all
+    assert g.board[(5, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(5, 3)]  # delete this bumped  unit from all
+    assert g.board[(6, 3)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(6, 3)]  # delete this bumped  unit from all
+    assert g.board[(4, 2)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 2)]  # delete this bumped  unit from all
+    assert g.board[(4, 1)].unit.currenthp == 4  #  took 1 bump damage
+    del allunits[(4, 1)]  # delete this bumped  unit from all
+    for u in allunits:
+        assert g.board[u].unit.currenthp == 5 # no hp change to all other vek
+
+def t_WeaponExplosiveGooPower1():
+    "Fire the NeedleShot weapon with extra tile powered."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=True, power2=False)))
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(1, 3)].unit.currenthp == 2  # wielder took no damage
+    assert g.board[(1, 3)].unit.effects == set() # no unit effects
+    del allunits[(1, 3)]  # delete the wielder from allunits
+    assert g.board[(4, 3)].unit.currenthp == 4  # target took 1 damage
+    del allunits[(4, 3)]  # delete the target unit from all
+    assert g.board[(5, 3)].unit.currenthp == 4  # 2nd target took 1 normal damage
+    del allunits[(5, 3)]  # delete the target unit from all
+    assert g.board[(2, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(2, 3)] # delete this bumped unit from all
+    assert g.board[(3, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(3, 3)] # delete this bumped unit from all
+    assert g.board[(4, 4)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 4)] # delete this bumped unit from all
+    assert g.board[(4, 5)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 5)] # delete this bumped unit from all
+    assert g.board[(5, 4)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 4)] # delete this bumped unit from all
+    assert g.board[(5, 5)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 5)] # delete this bumped unit from all
+    assert g.board[(6, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(6, 3)] # delete this bumped unit from all
+    assert g.board[(7, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(7, 3)] # delete this bumped unit from all
+    assert g.board[(5, 2)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 2)] # delete this bumped unit from all
+    assert g.board[(5, 1)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 1)] # delete this bumped unit from all
+    assert g.board[(4, 2)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 2)] # delete this bumped unit from all
+    assert g.board[(4, 1)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 1)] # delete this bumped unit from all
+    for u in allunits:
+        assert g.board[u].unit.currenthp == 5 # no hp change to all other vek
+
+def t_WeaponExplosiveGooFullPower():
+    "Fire the NeedleShot weapon with full power."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=True, power2=True)))
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(1, 3)].unit.currenthp == 2  # wielder took no damage
+    assert g.board[(1, 3)].unit.effects == set() # no unit effects
+    del allunits[(1, 3)]  # delete the wielder from allunits
+    assert g.board[(4, 3)].unit.currenthp == 2  # target took 3 damage
+    del allunits[(4, 3)]  # delete the target unit from all
+    assert g.board[(5, 3)].unit.currenthp == 2  # 2nd target took 3 normal damage
+    del allunits[(5, 3)]  # delete the target unit from all
+    assert g.board[(2, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(2, 3)] # delete this bumped unit from all
+    assert g.board[(3, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(3, 3)] # delete this bumped unit from all
+    assert g.board[(4, 4)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 4)] # delete this bumped unit from all
+    assert g.board[(4, 5)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 5)] # delete this bumped unit from all
+    assert g.board[(5, 4)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 4)] # delete this bumped unit from all
+    assert g.board[(5, 5)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 5)] # delete this bumped unit from all
+    assert g.board[(6, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(6, 3)] # delete this bumped unit from all
+    assert g.board[(7, 3)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(7, 3)] # delete this bumped unit from all
+    assert g.board[(5, 2)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 2)] # delete this bumped unit from all
+    assert g.board[(5, 1)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(5, 1)] # delete this bumped unit from all
+    assert g.board[(4, 2)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 2)] # delete this bumped unit from all
+    assert g.board[(4, 1)].unit.currenthp == 4 # unit took 1 bump damage
+    del allunits[(4, 1)] # delete this bumped unit from all
+    for u in allunits:
+        assert g.board[u].unit.currenthp == 5 # no hp change to all other vek
+
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

@@ -56,6 +56,18 @@ class DirectionConst(Constant):
             dir = 1
         yield dir
         yield self.opposite(dir)
+    def getClockwise(self, dir):
+        "return the next direction clockwise of dir"
+        dir += 1
+        if dir > 4:
+            return 1
+        return dir
+    def getCounterClockwise(self, dir):
+        "return the next direction counter clockwise of dir"
+        dir -= 1
+        if not dir:
+            return 4
+        return dir
 
 Direction = DirectionConst(thegen, (
     'UP',
@@ -1595,7 +1607,7 @@ class Environ_VekEmerge():
 ##############################################################################
 # all weapons must accept power1 and power2 arguments even if the weapon doesn't actually support upgrades.
 # All weapons must have a shoot() method to shoot the weapon.
-# All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield arguments to the weapons shoot() method.
+# All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield tuples which are arguments to the weapon's shoot() method.
     # genShots() should generate a shot to take, but not test the entire state of the board to ensure it is valid. It makes more sense to have shoot() invalidate the shot when it discovers that it's invalid.
     # That way if it is valid, we may have temporary variables ready to go for the shot and we avoided checking to see if it's valid twice.
     # The weapon should raise NullWeaponShot when it detects an invalid shot. The board should NOT be changed before NullWeaponShot is raised.
@@ -1612,7 +1624,7 @@ class Weapon_DirectionalGen_Base():
     "The base class for weapons that only need a direction to be shot, like projectiles."
     def genShots(self):
         for d in Direction.gen():
-            yield d
+            yield (d,)
 
 class Weapon_ArtilleryGen_Base():
     "The generator for artillery weapons."
@@ -1650,14 +1662,14 @@ class Weapon_RangedGen_Base(Weapon_DirectionalGen_Base):
     def genShots(self):
         for d in super().genShots():
             for r in range(1, self.range+1):
-                yield (d, r)
+                yield (d[0], r)
 
 class Weapon_MirrorGen_Base():
     "A base class for weapons that shoot out of both sides of the wielder"
     def genShots(self):
         "There are only 2 possible shots here since it shoots out of both sides at once. Being in a corner can't invalidate a shot."
-        yield Direction.UP
-        yield Direction.RIGHT
+        yield (Direction.UP,)
+        yield (Direction.RIGHT,)
 
 # Low-level shared weapon functionality:
 class Weapon_hurtAndPush_Base():
@@ -1665,7 +1677,7 @@ class Weapon_hurtAndPush_Base():
     def _hurtAndPush(self, square, direction, damage):
         """have a tile takeDamage() from damage and get pushed.
         It's important to use this when you have to push and attack a unit at the same time, otherwise a unit could gain effects from the damaged tile it was pushed off of.
-        This will raise KeyError if square is not on the board.
+        This will raise NullWeaponShot if square is not on the board.
         This base should not be used by a weapon directly, but only by the 2 others below.
         returns nothing."""
         try: # damage the unit directly, not the tile
@@ -1790,6 +1802,10 @@ class Weapon_HydraulicLegsUnstableInit_Base():
         if power2:
             self.damage += 1
 
+class Weapon_Punch_Base():
+    "shoot_punch method shared by TitanFist and RocketFist"
+    def shoot_punch(self, direction):
+        self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 # class Weapon_RangedAttack_Base(Weapon_getRelSquare_Base): # this might not be able to be shared after all since the mech version needs to pushAndHurt the last square
 #     "A shared method for weapons that attack in a limited range like NeedleShot and the similar vek weapon."
 #     def shoot(self, direction, range):
@@ -1804,7 +1820,7 @@ class Weapon_HydraulicLegsUnstableInit_Base():
 #             self.game.board[targetsquare].takeDamage(self.damage)
 #         self.game.board[targetsquare].push(direction) # and finally push the last tile
 ##################### Actual standalone weapons #####################
-class Weapon_TitanFist(Weapon_Charge_Base):
+class Weapon_TitanFist(Weapon_Charge_Base, Weapon_Punch_Base):
     """Combat mech's default weapon.
     Dashing does not damage the edge tile if it doesn't come in contact with a unit like projectiles do."""
     def __init__(self, power1=False, power2=False):
@@ -1815,8 +1831,6 @@ class Weapon_TitanFist(Weapon_Charge_Base):
             self.damage = 4
         else: # it's 2 by default
             self.damage = 2
-    def shoot_punch(self, direction):
-        self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
 class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base, Weapon_IncreaseDamageWithPowerInit_Base):
     "Cannon Mech's default weapon."
@@ -2377,3 +2391,46 @@ class Weapon_ExplosiveGoo(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
                     self.game.board[self.game.board[extrasquare].getRelSquare(d, 1)].push(d)
                 except KeyError:  # game.board[False]
                     pass
+
+################ Non-default weapons
+class Weapon_SidewinderFist(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+    "Punch an adjacent tile, damaging and pushing it to the left."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        self.range = 1
+        super().__init__(power1, power2)
+        if power1 and power2:
+            self.range += 1 # you get an extra range when both damage upgrades are powered?! wtf the description doesn't mention this!
+    def shoot(self, direction, distance):
+        targetsquare = self._getRelSquare(direction, distance)
+        self._hurtAndPushEnemy(targetsquare, Direction.getCounterClockwise(direction)) # raises NullWeaponShot if targetsquare is False
+        if distance == 2: # if we used the extra distance, move the wielder to the square next to the target similar to a charge
+            self.game.board[self.wieldingunit.square].moveUnit(self._getRelSquare(direction, 1))
+
+class Weapon_RocketFist(Weapon_hurtAndPushEnemy_Base, Weapon_Projectile_Base, Weapon_Punch_Base):
+    "Punch an adjacent tile. Upgrades to launch as a projectile"
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        if power1:
+            self.shoot = self.shoot_projectile
+        else:
+            self.shoot = self.shoot_punch
+        if power2:
+            self.damage += 2
+    def shoot_punch(self, direction): # the default shoot method for punching only
+        super().shoot_punch(direction)
+        self._pushSelfBackwards(direction)
+    def shoot_projectile(self, direction):
+        self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
+        self._pushSelfBackwards(direction)
+    def _pushSelfBackwards(self, shotdirection):
+        "push yourself backwards"
+        self.game.board[self.wieldingunit.square].push(Direction.opposite(shotdirection))
+
+class Weapon_ExplosiveVents(Weapon_NoChoiceGen_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtPushAdjacent_Base):
+    "Blast all adjacent tiles."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        super().__init__(power1, power2)
+    def shoot(self):
+        self._hurtPushAdjacent(self.wieldingunit.square)

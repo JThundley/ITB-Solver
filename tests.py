@@ -4864,6 +4864,125 @@ def t_WeaponExplosiveVentsMaxPower():
     assert g.board[(2, 1)].unit == None  # target pushed from here
     assert g.board[(3, 1)].unit.currenthp == 2  # target took 3 damage
     assert g.board[(3, 1)].unit.effects == set()  # no new effects
+
+def t_weaponPrimeSpearNoPower():
+    "Fire the PrimeSpear weapon with the no upgrades powered"
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set() # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set() # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3 # this vek took 2 damage; 2 from weapon, 0 from bump
+    assert g.board[(3, 1)].unit.currenthp == 2 # this one took 3 damage, 2 weapon, 1 bump damage
+    assert g.board[(3, 1)].effects == set() # this tile didn't get acid
+    assert g.board[(3, 1)].unit.effects == set()  # this unit didn't get acid
+    assert g.board[(4, 1)].unit.currenthp == 4 # this one took 1 bump damage
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    assert g.board[(5, 1)].unit == None # Nothing got pushed here
+
+def t_weaponPrimeSpear1Power():
+    "Fire the PrimeSpear weapon with the 1 upgrade powered"
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3  # this vek took 2 damage; 2 from weapon, 0 from bump
+    assert g.board[(3, 1)].unit.currenthp == 2  # this one took 3 damage, 2 weapon, 1 bump damage
+    assert g.board[(3, 1)].effects == set()  # this tile didn't get acid
+    assert g.board[(3, 1)].unit.effects == {Effects.ACID}  # this unit DID get acid
+    assert g.board[(4, 1)].unit.currenthp == 4  # this one took 1 bump damage
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    assert g.board[(5, 1)].unit == None  # Nothing got pushed here
+
+def t_weaponPrimeSpear2Power():
+    "Fire the PrimeSpear weapon with the 2nd upgrade powered. This increases range."
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=False, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 3
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3  # this vek took 2 damage; 2 from weapon, 0 from bump
+    assert g.board[(3, 1)].unit.currenthp == 3  # this one took 2 damage, 2 weapon, 0 bump damage
+    assert g.board[(3, 1)].effects == set()  # this tile didn't get acid
+    assert g.board[(3, 1)].unit.effects == set()  # this unit didn't get acid
+    assert g.board[(4, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # forest is FIRE
+    assert g.board[(5, 1)].unit.currenthp == 3  # this one took 2 damage; 2 weapon, 0 bump damage
+    assert g.board[(5, 1)].unit.effects == set() # no acid here
+
+def t_weaponPrimeSpearFullPower():
+    "Fire the PrimeSpear weapon with full upgrade power."
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].effects == set()  # forest is fine
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 3
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit.currenthp == 3  # this vek took 2 damage; 2 from weapon, 0 from bump
+    assert g.board[(3, 1)].unit.currenthp == 3  # this one took 2 damage, 2 weapon, 0 bump damage
+    assert g.board[(3, 1)].effects == set()  # this tile didn't get acid
+    assert g.board[(3, 1)].unit.effects == set()  # this unit didn't get acid
+    assert g.board[(4, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.FIRE} # forest is FIRE
+    assert g.board[(5, 1)].unit.currenthp == 3  # this one took 2 damage; 2 weapon, 0 bump damage
+    assert g.board[(5, 1)].unit.effects == {Effects.ACID} # this unit did get acid
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

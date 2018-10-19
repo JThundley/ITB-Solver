@@ -1806,19 +1806,24 @@ class Weapon_Punch_Base():
     "shoot_punch method shared by TitanFist and RocketFist"
     def shoot_punch(self, direction):
         self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
-# class Weapon_RangedAttack_Base(Weapon_getRelSquare_Base): # this might not be able to be shared after all since the mech version needs to pushAndHurt the last square
-#     "A shared method for weapons that attack in a limited range like NeedleShot and the similar vek weapon."
-#     def shoot(self, direction, range):
-#         hitsquares = [] # a list of squares to damage. Build the list first so we can determine if this is an invalid shot
-#         for r in range(1, range+1):
-#             targetsquare = self._getRelSquare(direction, r)
-#             if not targetsquare:
-#                 raise NullWeaponShot  # bail since this shot was already taken with less range
-#             hitsquares.append(targetsquare)
-#         # Now we know this is a valid shot.
-#         for targetsquare in hitsquares:
-#             self.game.board[targetsquare].takeDamage(self.damage)
-#         self.game.board[targetsquare].push(direction) # and finally push the last tile
+
+class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base): # XXX
+    "A base class for weapons that attack in a limited range and push the last square like NeedleShot and PrimeSpear. FlameThrower is too special to use this."
+    def shoot(self, direction, distance):
+        "returns a tuple of (unit, square) where unit is the unit that was pushed from the last square, square is that square that was hit."
+        hitsquares = []  # a list of squares to damage. Build the list first so we can determine if this is an invalid shot
+        for r in range(1, distance + 1):
+            targetsquare = self._getRelSquare(direction, r)
+            if not targetsquare:
+                raise NullWeaponShot  # bail since this shot was already taken with less distance
+            hitsquares.append(targetsquare)
+        # Now we know this is a valid shot.
+        for targetsquare in hitsquares[:-1]:  # don't actually damage the last square
+            self.game.board[targetsquare].takeDamage(self.damage)
+        pushedunit = self.game.board[hitsquares[-1]].unit
+        self._hurtAndPushEnemy(hitsquares[-1], direction)  # and finally hurtAndPush the last tile
+        return (pushedunit, hitsquares[-1])
+
 ##################### Actual standalone weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base, Weapon_Punch_Base):
     """Combat mech's default weapon.
@@ -2340,7 +2345,7 @@ class Weapon_RammingSpeed(Weapon_Charge_Base, Weapon_FartSmoke_Base):
         super().shoot(direction)
         self._fartSmoke(direction)
 
-class Weapon_NeedleShot(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
+class Weapon_NeedleShot(Weapon_RangedAttack_Base):
     "Default weapon for the TechnoHornet"
     def __init__(self, power1=False, power2=False):
         self.range = 1
@@ -2349,17 +2354,6 @@ class Weapon_NeedleShot(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Wea
             if p:
                 self.range += 1
                 self.damage += 1
-    def shoot(self, direction, distance):
-        hitsquares = []  # a list of squares to damage. Build the list first so we can determine if this is an invalid shot
-        for r in range(1, distance+1):
-            targetsquare = self._getRelSquare(direction, r)
-            if not targetsquare:
-                raise NullWeaponShot  # bail since this shot was already taken with less distance
-            hitsquares.append(targetsquare)
-        # Now we know this is a valid shot.
-        for targetsquare in hitsquares[:-1]: # don't actually damage the last square
-            self.game.board[targetsquare].takeDamage(self.damage)
-        self._hurtAndPushEnemy(hitsquares[-1], direction)# and finally hurtAndPush the last tile
 
 class Weapon_ExplosiveGoo(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
     "Default weapon for the TechnoScarab"
@@ -2434,3 +2428,25 @@ class Weapon_ExplosiveVents(Weapon_NoChoiceGen_Base, Weapon_IncreaseDamageWithPo
         super().__init__(power1, power2)
     def shoot(self):
         self._hurtPushAdjacent(self.wieldingunit.square)
+
+class Weapon_PrimeSpear(Weapon_RangedAttack_Base):
+    "Stab multiple tiles and push the furthest hit tile."
+    def __init__(self, power1=False, power2=False):
+        self.range = 2
+        self.damage = 2
+        if power1:
+            self.acidtip = True
+        else:
+            self.acidtip = False
+        if power2:
+            self.range += 1
+    def shoot(self, direction, distance):
+        pushedunit, targetsquare = super().shoot(direction, distance)
+        if self.acidtip:
+            try:
+                pushedunit.applyAcid()
+            except AttributeError: # None.applyAcid()
+                self.game.board[targetsquare].applyAcid() # just the tile gets acid
+            else: # the pushed unit got acid
+                if pushedunit.currenthp < 1: # if the unit that just got acid is going to die...
+                    self.game.board[targetsquare].applyAcid() # then also give acid to the square it was pushed from. This seems like a bug in the game that if a unit that gets acid dies, the tile it was hit on also gets acid.

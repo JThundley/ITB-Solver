@@ -2869,20 +2869,20 @@ def t_WeaponShieldProjectorPower2():
     assert g.board[(4, 2)].unit.effects == set()
     assert g.board[(5, 2)].unit.effects == set()
 
-def t_WeaponShieldProjectorGen():
-    "Test the generator for the shield projector."
-    g = Game()
-    g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
-    gs = g.board[(5, 5)].unit.weapon1.genShots()
-    g.flushHurt()
-    assert next(gs) == (Direction.UP, 2) # generator generates what we expect
-    g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
-    try:
-        next(gs)
-    except StopIteration:
-        pass # what we expect
-    else:
-        assert False # ya fucked up
+# def t_WeaponShieldProjectorGen():
+#     "Test the generator for the shield projector."
+#     g = Game()
+#     g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
+#     gs = g.board[(5, 5)].unit.weapon1.genShots()
+#     g.flushHurt()
+#     assert next(gs) == (Direction.UP, 2) # generator generates what we expect
+#     g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
+#     try:
+#         next(gs)
+#     except StopIteration:
+#         pass # what we expect
+#     else:
+#         assert False # ya fucked up
 
 def t_WeaponViceFistNoPower():
     "Test the Vice Fist with no power"
@@ -4982,6 +4982,53 @@ def t_weaponPrimeSpearFullPower():
     assert g.board[(4, 1)].effects == {Effects.FIRE} # forest is FIRE
     assert g.board[(5, 1)].unit.currenthp == 3  # this one took 2 damage; 2 weapon, 0 bump damage
     assert g.board[(5, 1)].unit.effects == {Effects.ACID} # this unit did get acid
+
+def t_weaponPrimeSpearAcidWeirdness1():
+    "Fire the PrimeSpear weapon and test the weirdness that happens when the unit that gets acid dies from this attack."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=2))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.effects == set() # no acid on unit
+    assert g.board[(2, 1)].effects == set()  # no acid on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(2, 1)].effects == {Effects.ACID}  # this tile got acid from the buggy/weird behavior of the acid spear
+    assert g.board[(3, 1)].unit == None # the vek pushed here died
+    assert g.board[(3, 1)].effects == {Effects.ACID}  # this tile got acid from the vek that got it and then died here
+
+def t_weaponPrimeSpearAcidWeirdness2():
+    "Fire the PrimeSpear weapon and test the weirdness that happens when a mountain that gets acid dies from this attack."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 1
+    assert g.board[(2, 1)].unit.effects == set() # no acid on unit
+    assert g.board[(2, 1)].effects == set()  # no acid on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit.type == 'mountaindamaged'
+    assert g.board[(2, 1)].effects == set()  # no acid here yet
+    assert g.board[(2, 1)].unit.effects == set() # none here yet
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit == None # mountain died
+    assert g.board[(2, 1)].effects == {Effects.ACID}  # Acid left here from dead mountain or something
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

@@ -818,6 +818,7 @@ class Unit_Mountain_Damaged(Unit_Mountain):
         super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        self.currenthp -= 1 # required for PrimeSpear to detect a unit that died
         self.game.board[self.square].putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):

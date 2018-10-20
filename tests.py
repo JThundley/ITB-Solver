@@ -2869,20 +2869,16 @@ def t_WeaponShieldProjectorPower2():
     assert g.board[(4, 2)].unit.effects == set()
     assert g.board[(5, 2)].unit.effects == set()
 
-# def t_WeaponShieldProjectorGen():
-#     "Test the generator for the shield projector."
-#     g = Game()
-#     g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
-#     gs = g.board[(5, 5)].unit.weapon1.genShots()
-#     g.flushHurt()
-#     assert next(gs) == (Direction.UP, 2) # generator generates what we expect
-#     g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
-#     try:
-#         next(gs)
-#     except StopIteration:
-#         pass # what we expect
-#     else:
-#         assert False # ya fucked up
+def t_WeaponShieldProjectorGen():
+    "Test the generator for the shield projector."
+    g = Game()
+    g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
+    gs = g.board[(5, 5)].unit.weapon1.genShots()
+    g.flushHurt()
+    assert next(gs) == (Direction.UP, 2) # generator generates what we expect
+    g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
+    for i in gs:
+        assert False # This should never be hit as the gs iterator should be at the end
 
 def t_WeaponViceFistNoPower():
     "Test the Vice Fist with no power"
@@ -5029,6 +5025,136 @@ def t_weaponPrimeSpearAcidWeirdness2():
     assert g.board[(1, 1)].unit.effects == set()  # no effects
     assert g.board[(2, 1)].unit == None # mountain died
     assert g.board[(2, 1)].effects == {Effects.ACID}  # Acid left here from dead mountain or something
+
+def t_weaponPrimeSpearAcidWeirdness3():
+    "Fire the PrimeSpear weapon and test the non-weirdness that happens when a unit dies from this attack but doesn't move tiles."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Beetle(g, currenthp=1))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 1
+    assert g.board[(2, 1)].unit.effects == set() # no acid on unit
+    assert g.board[(2, 1)].effects == set()  # no acid on tile
+    assert g.board[(3, 1)].unit.currenthp == 1
+    assert g.board[(3, 1)].unit.effects == set()  # no acid on unit
+    assert g.board[(3, 1)].effects == set()  # no acid on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for r in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(1, 1)].unit.effects == set()  # no effects
+    assert g.board[(2, 1)].unit == None # this unit died
+    assert g.board[(2, 1)].effects == {Effects.ACID}  # acid on tile
+    assert g.board[(3, 1)].unit.type == 'mountaindamaged'
+    assert g.board[(3, 1)].effects == set()  # no acid here yet
+    assert g.board[(3, 1)].unit.effects == set() # none here yet
+
+def t_weaponVortexFistNoPower():
+    "Fire the VortexFist weapon with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=False, power2=False), currenthp=5))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == set() # no effects on unit
+    assert g.board[(2, 1)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 5
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in gs: # this should only yield one empty value
+        g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+        g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 3 # 2 self-damage
+    assert g.board[(2, 1)].unit == None # vek pushed from here
+    assert g.board[(2, 2)].unit.currenthp == 3 # took 2 damage
+    assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(2, 2)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 3 # this one wasn't pushed because there's nowhere to go
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+
+def t_weaponVortexFist1Power():
+    "Fire the VortexFist weapon with 1 power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=True, power2=False), currenthp=5))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == set() # no effects on unit
+    assert g.board[(2, 1)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 5
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in gs: # this should only yield one empty value
+        g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+        g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 4 # 1 self-damage
+    assert g.board[(2, 1)].unit == None # vek pushed from here
+    assert g.board[(2, 2)].unit.currenthp == 3 # took 2 damage
+    assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(2, 2)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 3 # this one wasn't pushed because there's nowhere to go
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+
+def t_weaponVortexFist2Power():
+    "Fire the VortexFist weapon with 2nd power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=False, power2=True), currenthp=5))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == set() # no effects on unit
+    assert g.board[(2, 1)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 5
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in gs: # this should only yield one empty value
+        g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+        g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 3 # 2 self-damage
+    assert g.board[(2, 1)].unit == None # vek pushed from here
+    assert g.board[(2, 2)].unit.currenthp == 2 # took 3 damage
+    assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(2, 2)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 2 # this one wasn't pushed because there's nowhere to go
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+
+def t_weaponVortexFistFullPower():
+    "Fire the VortexFist weapon with full power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=True, power2=True), currenthp=5))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == set() # no effects on unit
+    assert g.board[(2, 1)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 5
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in gs: # this should only yield one empty value
+        g.board[(1, 1)].unit.weapon1.shoot(*shot)  # RIGHT, 1
+        g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 4 # 1 self-damage
+    assert g.board[(2, 1)].unit == None # vek pushed from here
+    assert g.board[(2, 2)].unit.currenthp == 2 # took 3 damage
+    assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(2, 2)].effects == set()  # no effects on tile
+    assert g.board[(1, 2)].unit.currenthp == 2 # this one wasn't pushed because there's nowhere to go
+    assert g.board[(1, 2)].unit.effects == set()  # no effects on unit
+    assert g.board[(1, 2)].effects == set()  # no effects on tile
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

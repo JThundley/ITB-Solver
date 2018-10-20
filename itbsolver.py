@@ -2451,3 +2451,23 @@ class Weapon_PrimeSpear(Weapon_RangedAttack_Base):
             else: # the pushed unit got acid
                 if pushedunit.currenthp < 1: # if the unit that just got acid is going to die...
                     self.game.board[targetsquare].applyAcid() # then also give acid to the square it was pushed from. This seems like a bug in the game that if a unit that gets acid dies, the tile it was hit on also gets acid.
+
+class Weapon_VortexFist(Weapon_NoChoiceGen_Base, Weapon_hurtAndPushEnemy_Base):
+    "Damage and push all adjacent tiles to the left."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 2
+        self.selfdamage = 2
+        if power1:
+            self.selfdamage -= 1
+        if power2:
+            self.damage += 1
+    def shoot(self):
+        for direction in Direction.gen():
+            try:
+                self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), Direction.getCounterClockwise(direction))
+            except NullWeaponShot: # raised from hurtAndPushEnemy going off-board
+                pass
+        self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
+
+# TitaniteBlade
+# MercuryFist

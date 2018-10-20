@@ -818,7 +818,7 @@ class Unit_Mountain_Damaged(Unit_Mountain):
         super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.currenthp -= 1 # required for PrimeSpear to detect a unit that died
+        self.currenthp = 0 # required for PrimeSpear to detect a unit that died
         self.game.board[self.square].putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
@@ -1627,6 +1627,16 @@ class Weapon_DirectionalGen_Base():
         for d in Direction.gen():
             yield (d,)
 
+class Weapon_DirectionalLimitedGen_Base():
+    "A genshots for weapons that use the DirectionalGen but with limited uses."
+    def genShots(self):
+        for d in Direction.gen():
+            if self.usesremaining:
+                yield (d,)
+            else:
+                #raise StopIteration # doing this is wrong: https://www.python.org/dev/peps/pep-0479/
+                return
+
 class Weapon_ArtilleryGen_Base():
     "The generator for artillery weapons."
     def genShots(self, minimumdistance=2):
@@ -1651,7 +1661,7 @@ class Weapon_ArtilleryGenLimited_Base(Weapon_ArtilleryGen_Base):
             if self.usesremaining:
                 yield i
             else:
-                raise StopIteration
+                return
 
 class Weapon_NoChoiceGen_Base():
     "A generator for weapons that give you no options of how you can fire it, e.g. Repulse, Self-destruct"
@@ -1720,8 +1730,9 @@ class Weapon_getSquareOfUnitInDirection_Base():
                     return targetsquare  # found the unit
             except KeyError:  # raised from if game.board[False].unit: targetsquare being false means we never found a unit and went off the board
                 if edgeok:
-                    return targetsquare
+                    return lasttargetsquare
                 return False
+            lasttargetsquare = targetsquare
             targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
 
 class Weapon_getRelSquare_Base():
@@ -1770,6 +1781,11 @@ class Weapon_FartSmoke_Base(Weapon_getRelSquare_Base):
             self.game.board[self._getRelSquare(Direction.opposite(shotdirection), 1)].applySmoke()
         except KeyError: # self.game.board[False].applySmoke()
             pass # totally fine, if your butt is against the wall you just don't fart out any smoke
+
+class Weapon_NoUpgradesInit_Base():
+    "an init that ignores power upgrades passed to it for use with weapons lacking upgrade options."
+    def __init__(self, power1=False, power2=False):
+        pass
 
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -2193,6 +2209,11 @@ class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base, Weapon_Direct
             self.shieldally = False
         # power2 is unused
     def shoot(self, direction):
+        try: # first check for a unit right next to us
+            if self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)].unit:
+                raise NullWeaponShot
+        except KeyError: #board[False], this square is off the board which is also a
+            raise NullWeaponShot
         try:
             targetunit = self.game.board[self._getSquareOfUnitInDirection(direction, startrel=2)].unit
         except KeyError: # board[False], there was no unit to grapple
@@ -2469,5 +2490,115 @@ class Weapon_VortexFist(Weapon_NoChoiceGen_Base, Weapon_hurtAndPushEnemy_Base):
                 pass
         self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
 
-# TitaniteBlade
-# MercuryFist
+class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 2
+        # power1 adds another use, but we ignore that here because this simulation could be in the middle of a map where usesremaining could be anything.
+        if power2:
+            self.damage += 2
+    def shoot(self, direction):
+        targetsquare = self._getRelSquare(direction, 1)
+        self._hurtAndPushEnemy(targetsquare, direction) # If this is off board, NullWeaponShot is raised
+        self.usesremaining -= 1 # this was a valid shot, so now let's spend the use
+        for perpdir in Direction.genPerp(direction):
+            try:
+                self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(perpdir, 1), direction)
+            except NullWeaponShot: # it's ok if the 2 tiles next to the main target tile are off the board, the damage is just wasted
+                pass
+class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_Base):
+    "Smash the ground, dealing huge damage and pushing adjacent tiles."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 4
+        if power2: # power1 gives another use and is ignored here
+            self.damage += 1
+    def shoot(self, direction):
+        targetsquare = self._getRelSquare(direction, 1)
+        try:
+            self.game.board[targetsquare].takeDamage(self.damage)
+        except KeyError: # target is off board and invalid
+            raise NullWeaponShot
+        for d in [direction] + list(Direction.genPerp(direction)):
+            try:
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+            except KeyError: # board[False]
+                pass # ok that this went off board
+
+class Weapon_PhaseCannon(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base):
+    "Shoot a projectile that phases through objects."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.phaseshield = True
+        else:
+            self.phaseshield = False
+        if power2:
+            self.damage += 1
+    def shoot(self, direction):
+        targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1) # start the projectile at square in direction from the unit that used the weapon...
+        if not targetsquare:
+            raise NullWeaponShot # the first square we tried to get was off the board, this is an invalid shot.
+        while True:
+            try:
+                if not self.game.board[targetsquare].unit.isBuilding():
+                    self._hurtAndPushEnemy(targetsquare, direction) # found the unit, hit it's tile
+                    return
+            except KeyError:  # raised from if game.board[False].unit: targetsquare being false means we never found a unit and went off the board
+                self.game.board[oldtargetsquare].takeDamage(self.damage) # edge tile takes damage, no point in trying to push the edge
+                return
+            except AttributeError: # None.isBuilding()
+                pass # there was no unit, keep moving
+            else: # there was a building
+                if self.phaseshield:
+                    self.game.board[targetsquare].applyShield() # shield it if phase shield is powered
+            oldtargetsquare = targetsquare
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)  # the next square in the direction the shot
+
+class Weapon_DefShrapnel(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Base, Weapon_getSquareOfUnitInDirection_Base):
+    "Fire a non-damaging projectile that pushes tiles around the target."
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        for d in list(Direction.genPerp(direction)) + [direction]:  # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
+            try:
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+            except KeyError:  # game.board[False]
+                pass
+
+class Weapon_RailCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
+    "Projectile that does more damage to targets that are further away."
+    def __init__(self, power1=False, power2=False):
+        self.maxdamage = 2
+        for p in power1, power2:
+            if p:
+                self.maxdamage += 1
+    def shoot(self, direction):
+        self.damage = 0 # this will grow as the shot travels
+        targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)  # start the projectile at square in direction from the unit that used the weapon...
+        if not targetsquare:
+            raise NullWeaponShot # the first square we tried to get was off the board, this is an invalid shot.
+        while True:
+            try:
+                if self.game.board[targetsquare].unit: # found the unit
+                    self._hurtAndPushEnemy(targetsquare, direction)
+                    return
+            except KeyError:  # raised from if game.board[False].unit: targetsquare being false means we never found a unit and went off the board
+                self.game.board[lasttargetsquare].takeDamage(self.damage)
+                return
+            lasttargetsquare = targetsquare
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)  # the next tile in direction of the last square
+            if self.damage < self.maxdamage:
+                self.damage += 1
+
+class Weapon_ShockCannon(Weapon_Projectile_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base):
+    "Fire a projectile that hits 2 tiles, pushing them in opposite directions."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        super().__init__(power1, power2)
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        self._hurtAndPushEnemy(targetsquare, Direction.opposite(direction)) # hurt and push the unit towards the wielder
+        try:
+            self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(direction, 1), direction)  # hurt and push the unit on the tile past the one we just hit away from the wielder
+        except NullWeaponShot: # if you hit the edge, this action is ignored
+            pass

@@ -5672,6 +5672,369 @@ def t_WeaponShockCannonEdge():
     assert g.board[(8, 1)].unit == None # this vek pushed
     assert g.board[(7, 1)].unit.currenthp == 2  # took 3 damage from weapon
 
+def t_WeaponHeavyRocketNoPower():
+    "Fire the HeavyRocket with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyRocket(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(3, 1)].unit.currenthp == 2 # 3 weapon damage
+    assert g.board[(3, 2)].unit == None  # vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5  # took 0 damage, pushed here
+
+def t_WeaponHeavyRocket2Power():
+    "Fire the HeavyRocket with extra damage powered."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyRocket(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=6))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 6
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(3, 1)].unit.currenthp == 1 # 5 weapon damage
+    assert g.board[(3, 2)].unit == None  # vek pushed from here
+    assert g.board[(3, 3)].unit.currenthp == 5  # took 0 damage, pushed here
+
+def t_WeaponShrapnelCannonMaxPower():
+    "Fire the ShrapnelCannon with extra damage powered."
+    g = Game()
+    g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShrapnelCannon(power1=True, power2=True)))
+    g.board[(3, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 3)].unit.currenthp == 2
+    assert g.board[(3, 4)].unit.currenthp == 5
+    assert g.board[(3, 3)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 3)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(3, 4)].unit == None # pushed from here
+    assert g.board[(3, 3)].unit == None # pushed from here
+    assert g.board[(3, 2)].unit == None # pushed from here
+    assert g.board[(3, 5)].unit.currenthp == 2 # 3 weapon damage
+    assert g.board[(4, 3)].unit.currenthp == 2 # 3 weapon damage
+    assert g.board[(3, 1)].unit.currenthp == 2 # 3 weapon damage
+
+def t_WeaponShrapnelCannonNoPower():
+    "Fire the ShrapnelCannon with no power."
+    g = Game()
+    g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShrapnelCannon(power1=False, power2=False)))
+    g.board[(3, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 3)].unit.currenthp == 2
+    assert g.board[(3, 4)].unit.currenthp == 5
+    assert g.board[(3, 3)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 3)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(3, 4)].unit == None # pushed from here
+    assert g.board[(3, 3)].unit == None # pushed from here
+    assert g.board[(3, 2)].unit == None # pushed from here
+    assert g.board[(3, 5)].unit.currenthp == 3 # 2 weapon damage
+    assert g.board[(4, 3)].unit.currenthp == 3 # 2 weapon damage
+    assert g.board[(3, 1)].unit.currenthp == 3 # 2 weapon damage
+
+def t_WeaponAstraBombsNoPower():
+    "Fire the AstraBombs weapon with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder jumped from start position
+    assert g.board[(2, 1)].unit.currenthp == 4 # vek took 1 weapon damage
+    assert g.board[(3, 1)].unit.currenthp == 2  # wielder took 0 damage and jumped to here
+
+def t_WeaponAstraBombsMaxPower():
+    "Fire the AstraBombs weapon with Max power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder jumped from start position
+    assert g.board[(2, 1)].unit.currenthp == 2 # vek took 3 weapon damage
+    assert g.board[(3, 1)].unit.currenthp == 2  # wielder took 0 damage and jumped to here
+
+def t_WeaponAstraBombsMaxPowerAndRange():
+    "Fire the AstraBombs weapon with Max power and hitting as many tiles as possible."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(7, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(12):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder jumped from start position
+    assert g.board[(2, 1)].unit.currenthp == 2 # vek took 3 weapon damage
+    assert g.board[(3, 1)].unit.currenthp == 2  # vek took 3 weapon damage
+    assert g.board[(4, 1)].unit.currenthp == 2  # vek took 3 weapon damage
+    assert g.board[(5, 1)].unit.currenthp == 2  # vek took 3 weapon damage
+    assert g.board[(6, 1)].unit.currenthp == 2  # vek took 3 weapon damage
+    assert g.board[(7, 1)].unit.currenthp == 2  # vek took 3 weapon damage
+    assert g.board[(8, 1)].unit.currenthp == 2  # wielder took 0 damage and jumped to here
+
+def t_WeaponAstraBombsOccupiedTarget():
+    "Fire the AstraBombs weapon with the destination spot occupied."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
+    g.board[(8, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(8, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(12):
+        shot = next(gs)
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 7)
+    except NullWeaponShot:
+        pass # expected
+    else:
+        assert False # ya fucked up
+
+def t_WeaponHermesEngines1():
+    "Fire the HermesEngines weapon."
+    g = Game()
+    g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HermesEngines(power1=True, power2=True))) # power1 and power2 is ignored
+    for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2), (8, 3):
+        g.board[sq].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 3)].unit.currenthp == 2
+    for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2), (8, 3):
+        assert g.board[sq].unit.currenthp == 5
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+        print("shot is ", shot)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # (RIGHT,)
+    assert g.board[(1, 3)].unit == None # wielder zoomed from here
+    for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2):
+        assert g.board[sq].unit == None # all vek pushed from their starting locations except for the final one
+    assert g.board[(8, 3)].unit.currenthp == 5 # this vek untouched
+    assert g.board[(7, 3)].unit.currenthp == 2 # wielder moved here
+    for sq in (1, 1), (2, 5), (3, 1), (4, 5), (5, 1), (6, 5), (7, 1):
+        assert g.board[sq].unit.currenthp == 5 # all vek pushed here from their starting locations (except for the end one)
+
+def t_WeaponMicroArtilleryNoPower():
+    "Fire the MicroArtillery weapon with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    assert shot == (Direction.RIGHT, 2)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to wielder
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(3, 2)].unit.currenthp == 5 # vek untouched
+    assert g.board[(4, 1)].unit.currenthp == 4 # vek pushed here took 1 damage
+
+def t_WeaponMicroArtilleryPower2():
+    "Fire the MicroArtillery weapon with extra damage powered."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    assert shot == (Direction.RIGHT, 2)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to wielder
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(3, 2)].unit.currenthp == 5 # vek untouched
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+
+def t_WeaponMicroArtilleryPower1():
+    "Fire the MicroArtillery weapon with extra tiles powered."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    assert shot == (Direction.RIGHT, 2)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to wielder
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(3, 2)].unit == None  # vek pushed from here
+    assert g.board[(4, 2)].unit.currenthp == 4 # vek pushed here took 1 damage
+    assert g.board[(4, 1)].unit.currenthp == 4 # vek pushed here took 1 damage
+
+def t_WeaponMicroArtilleryMaxPower():
+    "Fire the MicroArtillery weapon with max power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(3, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    assert shot == (Direction.RIGHT, 2)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # no change to wielder
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(3, 2)].unit == None  # vek pushed from here
+    assert g.board[(4, 2)].unit.currenthp == 3 # vek pushed here took 2 damage
+    assert g.board[(4, 1)].unit.currenthp == 3 # vek pushed here took 2 damage
+
+def t_WeaponAegonMortarNoPower():
+    "Fire the AegonMortar with no power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=False, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took 0 bump damage
+    assert g.board[(3, 1)].unit == None # vek pushed from here
+    assert g.board[(2, 1)].unit.currenthp == 4 # vek took 1 damage from gun
+    assert g.board[(3, 1)].unit == None # this vek pushed
+    assert g.board[(4, 1)].unit == None  # took 1 damage from weapon
+    assert g.board[(5, 1)].unit.currenthp == 4  # took 1 damage from weapon
+
+def t_WeaponAegonMortar1Power():
+    "Fire the AegonMortar with 1 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=False)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took no damage
+    assert g.board[(2, 1)].unit.currenthp == 3 # vek took 2 damage from gun
+    assert g.board[(3, 1)].unit == None # this vek pushed
+    assert g.board[(4, 1)].unit == None  # this vek pushed
+    assert g.board[(5, 1)].unit.currenthp == 3  # took 2 damage from weapon
+
+def t_WeaponAegonMortar2Power():
+    "Fire the AegonMortar with 2 power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=False, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took no damage
+    assert g.board[(3, 1)].unit == None  # this vek pushed
+    assert g.board[(2, 1)].unit.currenthp == 3 # vek took 2 damage from gun
+    assert g.board[(4, 1)].unit == None # this vek pushed
+    assert g.board[(5, 1)].unit.currenthp == 3  # took 2 damage from weapon
+
+def t_WeaponAegonMortarMaxPower():
+    "Fire the AegonMortar with max power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # wielder took no damage
+    assert g.board[(3, 1)].unit == None  # this vek pushed
+    assert g.board[(2, 1)].unit.currenthp == 2  # vek took 3 damage from gun
+    assert g.board[(4, 1)].unit == None  # this vek pushed
+    assert g.board[(5, 1)].unit.currenthp == 2  # took 3 damage from weapon
+
+def t_WeaponAegonMortarEdge():
+    "Fire the AegonMortar and hit the edge"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=True)))
+    g.board[(8, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(8, 1)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(12):
+        shot = next(gs)
+    assert shot == (2, 7)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 7
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(8, 1)].unit == None # this vek pushed
+    assert g.board[(7, 1)].unit.currenthp == 2  # took 3 damage from weapon
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

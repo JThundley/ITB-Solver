@@ -1787,6 +1787,15 @@ class Weapon_NoUpgradesInit_Base():
     def __init__(self, power1=False, power2=False):
         pass
 
+class Weapon_PushProjectile_Base():
+    def _pushProjectile(self, direction, targetsquare):
+        "Push targetsquare all directions except for the one the shot came from."
+        for d in list(Direction.genPerp(direction)) + [direction]:  # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
+            try:
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
+            except KeyError:  # game.board[False]
+                pass
+
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for charge weapons."
@@ -2555,15 +2564,11 @@ class Weapon_PhaseCannon(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
             oldtargetsquare = targetsquare
             targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)  # the next square in the direction the shot
 
-class Weapon_DefShrapnel(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Base, Weapon_getSquareOfUnitInDirection_Base):
+class Weapon_DefShrapnel(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_PushProjectile_Base):
     "Fire a non-damaging projectile that pushes tiles around the target."
     def shoot(self, direction):
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
-        for d in list(Direction.genPerp(direction)) + [direction]:  # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
-            try:
-                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
-            except KeyError:  # game.board[False]
-                pass
+        self._pushProjectile(direction, targetsquare)
 
 class Weapon_RailCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
     "Projectile that does more damage to targets that are further away."
@@ -2600,5 +2605,105 @@ class Weapon_ShockCannon(Weapon_Projectile_Base, Weapon_IncreaseDamageWithPowerI
         self._hurtAndPushEnemy(targetsquare, Direction.opposite(direction)) # hurt and push the unit towards the wielder
         try:
             self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(direction, 1), direction)  # hurt and push the unit on the tile past the one we just hit away from the wielder
+        except NullWeaponShot: # if you hit the edge, this action is ignored
+            pass
+
+class Weapon_HeavyRocket(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_PushProjectile_Base):
+    "Fire a projectile that heavily damages a target and pushes adjacent tiles."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 3
+        if power2: # power1 for extra uses is ignored
+            self.damage += 2
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        self.game.board[targetsquare].takeDamage(self.damage)
+        self._pushProjectile(direction, targetsquare)
+
+class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPushEnemy_Base):
+    "Shoot a projectile that damages and pushes the targeted tile and the tiles to its left and right."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 2
+        if power2:  # power1 for extra uses is ignored
+            self.damage += 1
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        self._hurtAndPushEnemy(targetsquare, direction) # hit the target
+        for dir in Direction.genPerp(direction): # and then the 2 sides
+            try:
+                self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(dir, 1), dir)
+            except NullWeaponShot:
+                pass # peripheral shots went off the board which is OK
+
+class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
+    "Leap over any distance dropping a bomb on each tile you pass."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 1
+        if power2:  # power1 for extra uses is ignored
+            self.damage += 2
+    def shoot(self, direction, distance):
+        "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
+        if self.game.board[self.targetsquare].unit:
+            raise NullWeaponShot # can't land on an occupied square
+        currenttargetsquare = self.wieldingunit.square # start where the unit is
+        for r in range(distance):
+            currenttargetsquare = self.game.board[currenttargetsquare].getRelSquare(direction, 1)
+            self.game.board[currenttargetsquare].takeDamage(self.damage) # damage the target
+        self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the unit to its landing position 1 square beyond the last attack
+
+class Weapon_HermesEngines(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Base, Weapon_getRelSquare_Base):
+    "Dash in a line, pushing adjacent tiles away."
+    def shoot(self, direction):
+        targetsquare = self._getRelSquare(direction, 1) # first check the square ahead fo validity
+        try:
+            if self.game.board[targetsquare].unit: # the first square we tried to target was off the board or has a unit blocking
+                raise NullWeaponShot
+        except KeyError:
+            raise NullWeaponShot
+        targetsquare = self.wieldingunit.square # the tile that the mech shoots from is pushed as well
+        while True:
+            for dir in Direction.genPerp(direction): # do the pushing
+                try:
+                    self.game.board[self.game.board[targetsquare].getRelSquare(dir, 1)].push(dir)
+                except KeyError: # board[False], tried to push off board
+                    pass
+            oldtargetsquare = targetsquare
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)
+            try:
+                if self.game.board[targetsquare].unit: # if there's a unit on the next square..
+                    break
+            except KeyError: # or if we went off the board
+                break
+        self.game.board[self.wieldingunit.square].moveUnit(oldtargetsquare) # move the wielder to the last good square
+
+class Weapon_MicroArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base):
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        if power1:
+            self.extratiles = True
+        else:
+            self.extratiles = False
+        if power2:
+            self.damage += 1
+    def shoot(self, direction, distance):
+        self._hurtAndPushEnemy(self.targetsquare, direction)
+        if self.extratiles:
+            for dir in Direction.genPerp(direction): # and then the 2 sides
+                try:
+                    self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(dir, 1), direction) # push in same direction as shot
+                except NullWeaponShot:
+                    pass # peripheral shots went off the board which is OK
+
+class Weapon_AegonMortar(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base):
+    "Deals damage to two tiles, pushing one forwards and one backwards."
+    def __init__(self, power1=False, power2=False):
+        self.damage = 1
+        super().__init__(power1, power2)
+    def shoot(self, direction, distance):
+        self._hurtAndPushEnemy(self.targetsquare, Direction.opposite(direction)) # hurt and push the unit towards the wielder
+        try:
+            self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(direction, 1), direction)  # hurt and push the unit on the tile past the one we just hit away from the wielder
         except NullWeaponShot: # if you hit the edge, this action is ignored
             pass

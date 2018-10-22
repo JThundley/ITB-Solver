@@ -1668,6 +1668,12 @@ class Weapon_NoChoiceGen_Base():
     def genShots(self):
         yield ()
 
+class Weapon_NoChoiceLimitedGen_Base():
+    "A generator for weapons that give you no options of how you can fire it and also have limited uses, e.g. SmokePellets"
+    def genShots(self):
+        if self.usesremaining:
+            yield ()
+
 class Weapon_RangedGen_Base(Weapon_DirectionalGen_Base):
     "A generator for weapons with a limited range. The weapon must use self.range and check to make sure the destination square exists."
     def genShots(self):
@@ -1811,7 +1817,8 @@ class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
             self.game.board[self.wieldingunit.square].moveUnit(self.game.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
             return True
 
-class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
+#class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
+class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base):
     "The base class for Artillery weapons."
 
 class Weapon_Projectile_Base(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -1833,7 +1840,7 @@ class Weapon_Punch_Base():
     def shoot_punch(self, direction):
         self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
-class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base): # XXX
+class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
     "A base class for weapons that attack in a limited range and push the last square like NeedleShot and PrimeSpear. FlameThrower is too special to use this."
     def shoot(self, direction, distance):
         "returns a tuple of (unit, square) where unit is the unit that was pushed from the last square, square is that square that was hit."
@@ -2287,7 +2294,7 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
 
 #class Weapon_FlameShielding(): # passive for later
 
-class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
+class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base, Weapon_getRelSquare_Base):
     "Default Weapon for Meteor Mech"
     def __init__(self, power1=False, power2=False):
         if power1:
@@ -2528,6 +2535,7 @@ class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_
             self.game.board[targetsquare].takeDamage(self.damage)
         except KeyError: # target is off board and invalid
             raise NullWeaponShot
+        self.usesremaining -= 1 # shot is now valid, spend the ammo
         for d in [direction] + list(Direction.genPerp(direction)):
             try:
                 self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
@@ -2616,6 +2624,7 @@ class Weapon_HeavyRocket(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUn
         if power2: # power1 for extra uses is ignored
             self.damage += 2
     def shoot(self, direction):
+        self.usesremaining -= 1
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self.game.board[targetsquare].takeDamage(self.damage)
         self._pushProjectile(direction, targetsquare)
@@ -2628,6 +2637,7 @@ class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareO
         if power2:  # power1 for extra uses is ignored
             self.damage += 1
     def shoot(self, direction):
+        self.usesremaining -= 1
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self._hurtAndPushEnemy(targetsquare, direction) # hit the target
         for dir in Direction.genPerp(direction): # and then the 2 sides
@@ -2647,6 +2657,7 @@ class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
         if self.game.board[self.targetsquare].unit:
             raise NullWeaponShot # can't land on an occupied square
+        self.usesremaining -= 1
         currenttargetsquare = self.wieldingunit.square # start where the unit is
         for r in range(distance):
             currenttargetsquare = self.game.board[currenttargetsquare].getRelSquare(direction, 1)
@@ -2707,3 +2718,150 @@ class Weapon_AegonMortar(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerIn
             self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(direction, 1), direction)  # hurt and push the unit on the tile past the one we just hit away from the wielder
         except NullWeaponShot: # if you hit the edge, this action is ignored
             pass
+
+class Weapon_SmokeMortar(Weapon_Artillery_Base, Weapon_NoUpgradesInit_Base):
+    "Artillery shot that applies Smoke and pushes two adjacent tiles."
+    def shoot(self, direction, distance):
+        self.game.board[self.targetsquare].applySmoke()
+        for dir in direction, Direction.opposite(direction):
+            try:
+                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].push(dir)
+            except KeyError:
+                pass # shot went off the board
+
+class Weapon_BurningMortar(Weapon_ArtilleryGen_Base):
+    "Artillery attack that sets 5 tiles on Fire."
+    def __init__(self, power1=False, power2=False): # power2 is ignored
+        if power1:
+            self.selfdamage = 0
+        else:
+            self.selfdamage = 1
+    def shoot(self, direction, distance):
+        self.game.board[self.targetsquare].applyFire() # first hit the dead center tile
+        for dir in Direction.gen():
+            try:
+                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].applyFire()
+            except KeyError:
+                pass # extra tile was off board
+        if self.selfdamage: # take self damage if applicable
+            self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
+
+class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
+    "A dangerous projectile that damages everything it passes."
+    def __init__(self, power1=False, power2=False):
+        self.selfdamage = 1
+        self.damage = 2 # the damage that the last shot does, all others do 1 less than this
+        if power1:
+            self.buildingsimmune = True
+        else:
+            self.buildingsimmune = False
+        if power2:
+            self.selfdamage += 1
+            self.damage += 1
+    def shoot(self, direction, distance):
+        self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # first take self damage
+        currentsquare = self.wieldingunit.square # the current square that we are hitting with less damage
+        while True:
+            currentsquare = self.game.board[currentsquare].getRelSquare(direction, 1) # move to the next square
+            if currentsquare == self.targetsquare: # if we're on the last square...
+                self.damageSquare(currentsquare, self.damage) # hit it with full power
+                return # and we're done
+            self.damageSquare(currentsquare, self.damage-1) # hit the square with one less damage
+    def damageSquare(self, square, damage):
+        "Damage a single square, checking for building immunity."
+        if self.buildingsimmune and self.game.board[square].unit.isBuilding():
+            pass
+        else:
+            self.game.board[square].takeDamage(damage)
+
+class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
+    "Powerful attack that damages a large area."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 2
+        if power2: # power1 for an extra use is ignored
+            self.damage += 1
+    def shoot(self, direction, distance):
+        self.usesremaining -= 1
+        self.game.board[self.targetsquare].takeDamage(self.damage) # first hit the dead center tile
+        for dir in Direction.gen():
+            try:
+                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].takeDamage(self.damage)
+            except KeyError:
+                pass # extra tile was off board
+
+class Weapon_GeminiMissiles(Weapon_ArtilleryGenLimited_Base, Weapon_hurtAndPushEnemy_Base):
+    "Launch two missiles, damaging and pushing two targets"
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.damage = 3
+        if power2: # power1 for an extra use is also ignored
+            self.damage += 1
+    def shoot(self, direction, distance):
+        self.usesremaining -= 1
+        for dir in Direction.genPerp(direction):
+            try:
+                self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(dir, 1), direction)
+            except NullWeaponShot: # one of the missiles was off board
+                pass # totally fine
+
+class Weapon_ConfuseShot(Weapon_Projectile_Base, Weapon_NoUpgradesInit_Base):
+    "Fire a projectile that flips a target's attack direction."
+    def shoot(self, direction):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=False)
+        try:
+            if not self.game.board[targetsquare].unit.alliance == Alliance.ENEMY: # if we hit a unit that's not an enemy...
+                raise NullWeaponShot # it's a wasted shot that did nothing
+        except KeyError: #board[False]
+            raise NullWeaponShot # didn't find a unit at all
+        # TODO: implement weapon direction flipping!
+
+class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base):
+    "Surround yourself with Smoke to defend against nearby enemies."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        if power1: # power2 for extra use ignored
+            self.shoot = self.shoot_allyimmune
+    def shoot(self):
+        self.usesremaining -= 1
+        self.game.board[self.wieldingunit.square].applySmoke() # smoke yourself
+        for dir in Direction.gen():
+            try:
+                self.game.board[self._getRelSquare(dir, 1)].applySmoke()
+            except KeyError: # board[False]
+                pass
+    def shoot_allyimmune(self):
+        "a different shoot method for when allyimmune is powered"
+        self.usesremaining -= 1
+        for dir in Direction.gen():
+            try:
+                targettile = self.game.board[self._getRelSquare(dir, 1)]
+            except KeyError: # board[False]
+                continue # targettile is offboard
+            try:
+                if targettile.unit.alliance == Alliance.FRIENDLY:
+                    continue
+            except AttributeError: # targettile.None.alliance, no unit there so we smoke it
+                pass
+            targettile.applySmoke()
+
+class Weapon_FireBeam(Weapon_DirectionalLimitedGen_Base, Weapon_isMountain_Base):
+    "Fire a beam that applies Fire in a line."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining # power1 and 2 ignored for this weapon
+    def shoot(self, direction):
+        currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
+        if not currenttarget:
+            raise NullWeaponShot
+        self.usesremaining -= 1
+        while True:
+            try:
+                self.game.board[currenttarget].applyFire()
+            except KeyError: # board[False]
+                return # went off the board, we lit everything up
+            try:
+                if self.game.board[currenttarget].unit.isBuilding() or self.isMountain(self.game.board[currenttarget].unit):
+                    return # buildings and mountains end the shot
+            except AttributeError: # Non.isBuilding()
+                pass # continue on
+            currenttarget = self.game.board[currenttarget].getRelSquare(direction, 1)

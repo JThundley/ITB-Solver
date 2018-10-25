@@ -34,7 +34,7 @@ def testTheTests():
             commentisnext = False
         elif line.startswith("if __name__ == '__main__':"):
             return
-        elif line.startswith('    print') and funcname.startswith('t_'):
+        elif line.strip().startswith('print') and funcname.startswith('t_'):
             print("#%s print statment left in" % lineno, funcname)
 
 def t_BumpDamage():
@@ -3635,7 +3635,6 @@ def t_WeaponGrapplingHook9():
         assert False
     g.flushHurt() # redundant as no units are hurt
 
-
 def t_WeaponRockLauncher1():
     "Shoot the Rock Launcher with no power"
     g = Game()
@@ -4171,6 +4170,35 @@ def t_WeaponHydraulicLegsMaxPower():
     assert g.board[(2, 3)].effects == set()
     assert g.board[(2, 3)].unit.effects == set()
     assert g.board[(2, 3)].unit.currenthp == 2 # took 3 damage
+
+def t_WeaponHydraulicLegsMaxPowerIntoAcid():
+    "when hydraulic legs leaps onto an acid tile, he takes the acid first and then takes double damage."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True)))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    for x in range(1, 5):
+        for y in range(1, 4):
+            g.board[(x, y)].applyAcid()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for i in range(8):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None  # wielder leaped from here
+    assert g.board[(1, 1)].effects == set() # wielder picked up the acid that was here
+    assert g.board[(2, 1)].effects == set() # wielder picked up the acid
+    assert g.board[(2, 1)].unit.effects == set() # wielder DIED from taking 4 self damage on acid
+    assert g.board[(2, 1)].unit.currenthp == 1  # this is the corpse
+    assert g.board[(2, 1)].unit.type == 'mechcorpse'  # don't believe me?
+    assert g.board[(3, 1)].effects == set() # the vek here got the acid
+    assert g.board[(3, 1)].unit == None # unit pushed from here
+    assert g.board[(4, 1)].effects == {Effects.ACID} # the vek pushed from the tile died here and dropped acid. he took 6 damage
+    assert g.board[(4, 1)].unit == None  # the vek pushed from the tile died here and dropped acid. he took 6 damage
+    assert g.board[(2, 2)].effects == set()
+    assert g.board[(2, 2)].unit == None # no unit here
+    assert g.board[(2, 3)].effects == {Effects.ACID} # vek dropped acid here
+    assert g.board[(2, 3)].unit == None # vek took 6 damage
 
 def t_WeaponUnstableCannonLowPower():
     "Shoot the Unstable Cannon with no power"
@@ -5845,7 +5873,6 @@ def t_WeaponHermesEngines1():
     gs = g.board[(1, 3)].unit.weapon1.genShots()
     for shot in range(2):
         shot = next(gs)
-        print("shot is ", shot)
     g.board[(1, 3)].unit.weapon1.shoot(*shot) # (RIGHT,)
     assert g.board[(1, 3)].unit == None # wielder zoomed from here
     for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2):
@@ -6380,9 +6407,399 @@ def t_WeaponSmokePelletsMaxPower():
     assert g.board[(1, 2)].unit.currenthp == 3
     assert g.board[(1, 2)].effects == set() # friendly not smoked
 
+def t_WeaponFireBeam():
+    "Fire the FireBeam with max power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_FireBeam(power1=False, power2=False))) # power2 is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit == None
+    assert g.board[(5, 1)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == {Effects.FIRE}
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].effects == {Effects.FIRE}
+    assert g.board[(5, 1)].unit == None
+    assert g.board[(5, 1)].effects == set() # mountain blocked this tile from catching on fire
 
+def t_WeaponFrostBeam():
+    "Fire the FrostBeam with max power"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_FrostBeam(power1=False, power2=False))) # power2 is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit == None
+    assert g.board[(5, 1)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(5, 1)].unit == None
+    assert g.board[(5, 1)].effects == set() # mountain blocked this tile from catching on fire
 
+def t_WeaponShieldArrayNoPower():
+    "Fire the ShieldArray with no power in the corner of the map"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShieldArray(power1=False, power2=False)))  # power2 is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 2)].unit.currenthp == 3
+    assert g.board[(1, 2)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    assert g.board[(1, 2)].unit.currenthp == 3
+    assert g.board[(1, 2)].unit.effects == {Effects.SHIELD}
+    assert g.board[(2, 2)].unit.currenthp == 5
+    assert g.board[(2, 2)].unit.effects == set() # this unit not shielded
 
+def t_WeaponShieldArrayMaxPower():
+    "Fire the ShieldArray with max power in the corner of the map"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShieldArray(power1=True, power2=True)))  # power2 is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 2)].unit.currenthp == 3
+    assert g.board[(1, 2)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    assert g.board[(1, 2)].unit.currenthp == 3
+    assert g.board[(1, 2)].unit.effects == {Effects.SHIELD}
+    assert g.board[(2, 2)].unit.currenthp == 5
+    assert g.board[(2, 2)].unit.effects == {Effects.SHIELD}
+
+def t_WeaponShieldArrayCenterLow():
+    "Fire the ShieldArray with no power in the center of the map"
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ShieldArray(power1=False, power2=False)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.SHIELD}
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4):
+        assert g.board[sq].unit.effects == {Effects.SHIELD}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
+
+def t_WeaponShieldArrayCenterHigh():
+    "Fire the ShieldArray with power power in the center of the map"
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ShieldArray(power1=True, power2=False)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no change to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.SHIELD}
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4), (4, 6), (5, 5), (6, 4), (5, 3), (4, 2), (3, 3), (2, 4), (3, 5):
+        assert g.board[sq].unit.effects == {Effects.SHIELD}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
+
+def t_WeaponPushBeamMountain():
+    "Fire the PushBeam with a mountain blocking some of the shot"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=False, power2=False))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit.currenthp == 5
+    assert g.board[(5, 1)].effects == set()
+    assert g.board[(6, 1)].unit == None
+    assert g.board[(6, 1)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 4 # 1 bump damage
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 1  # 2 bump damage
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.type == 'mountaindamaged'
+    assert g.board[(5, 1)].unit.currenthp == 5 # this unit was not pushed because of the mountain
+    assert g.board[(5, 1)].effects == set()
+
+def t_WeaponPushBeamBuilding():
+    "Fire the PushBeam with a building blocking some of the shot"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=False, power2=False))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(4, 1)].createUnitHere(Unit_Building(g))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 1
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit.currenthp == 5
+    assert g.board[(5, 1)].effects == set()
+    assert g.board[(6, 1)].unit == None
+    assert g.board[(6, 1)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 4 # 1 bump damage
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 1  # 2 bump damage
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit == None # building destroyed
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit.currenthp == 5 # this unit was not pushed because of the building. The building died after this square was considered for pushing
+    assert g.board[(5, 1)].effects == set()
+
+def t_WeaponPushBeamNoMountain():
+    "Fire the PushBeam with no mountain blocking it"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit.currenthp == 5
+    assert g.board[(5, 1)].effects == set()
+    assert g.board[(6, 1)].unit == None
+    assert g.board[(6, 1)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit == None # pushed from here
+    assert g.board[(3, 1)].unit.currenthp == 5 # to here
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.currenthp == 3  # flame pushed here
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit == None  # pushed from here
+    assert g.board[(6, 1)].unit.currenthp == 5 # this unit was not pushed because of the mountain
+    assert g.board[(6, 1)].effects == set()
+
+def t_WeaponBoosters():
+    "Fire the Boosters"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_Boosters(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(2, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(8):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 1
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # wielder lept from here
+    assert g.board[(2, 1)].unit.currenthp == 2 # to here
+    assert g.board[(3, 1)].unit == None # pushed from here
+    assert g.board[(4, 1)].unit.currenthp == 5 # to here
+    assert g.board[(2, 2)].unit == None  # pushed from here
+    assert g.board[(2, 3)].unit.currenthp == 5  # to here
+
+def t_WeaponBoostersNullShot():
+    "Fire the Boosters but try to land on an occupied tile"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_Boosters(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(2, 2)].unit.currenthp == 5
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(9):
+        shot = next(gs)
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    except NullWeaponShot:
+        pass # expected
+    else:
+        assert False
+
+def t_WeaponSmokeBombs1():
+    "Shoot the SmokeBombs with default power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # jet moved from starting position
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}
+    assert g.board[(2, 1)].unit.currenthp == 5 # no damage
+    assert g.board[(3, 1)].unit.currenthp == 2 # jet landed here
+    assert g.board[(3, 1)].unit.type == 'jet'
+
+def t_WeaponSmokeBombs2():
+    "Shoot the SmokeBombs with more damage."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # jet moved from starting position
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].unit.currenthp == 2 # jet landed here
+    assert g.board[(3, 1)].unit.type == 'jet'
+
+def t_WeaponSmokeBombs3():
+    "Shoot the SmokeBombs with more range."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # jet moved from starting position
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].effects == {Effects.SMOKE}
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert g.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponSmokeBombs4():
+    "Shoot the SmokeBombs with full power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # jet moved from starting position
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].effects == {Effects.SMOKE}
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert g.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponSmokeBombsForest():
+    "Shoot the SmokeBombs on a forest and make sure it has smoke and not fire after."
+    g = Game()
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=False)))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None # jet moved from starting position
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(3, 1)].effects == {Effects.SMOKE}
+    assert g.board[(3, 1)].unit.currenthp == 5
+    assert g.board[(4, 1)].unit.currenthp == 2 # jet landed here
+    assert g.board[(4, 1)].unit.type == 'jet'
+
+def t_WeaponSmokeBombsGen1():
+    "Test the SmokeBombs shot generator with max range."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=True))) # with range
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    assert next(gs) == (Direction.UP, 1)
+    assert next(gs) == (Direction.UP, 2)
+    assert next(gs) == (Direction.UP, 3)
+    assert next(gs) == (Direction.RIGHT, 1)
+    assert next(gs) == (Direction.RIGHT, 2)
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally
@@ -6396,15 +6813,6 @@ def t_WeaponSmokePelletsMaxPower():
     # units can bump into the corpse
 # ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
 
-
-########## Weapons stuff for later
-# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
-########### write tests for these:
-# shielded blobber bombs still explode normally
-# If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
-# mech corpses that fall into chasms cannot be revived.
-# if a vek with acid is on a forest and is then hit with an airstrike, the tile is damaged and catches fire, then the unit dies leaving its acid and removing the fire and forest.
-
 ########## special objective units:
 # Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
 # Train: 1 hp, Fire immune, smoke immune, stable, "choo choo" weapon move forward 2 spaces but will be destroyed if blocked. kills whatever unit it runs into, stops dead on the tile before that unit. It is multi-tile, shielding one tile shields both.
@@ -6412,10 +6820,7 @@ def t_WeaponSmokePelletsMaxPower():
     # units can bump into the corpse
 # ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
 
-
 ########## Weapons stuff for later
-# rocks thrown at sand tiles do not create smoke. This means that rocks do damage to units but not tiles at all.
-# when leap mech leaps onto an acid tile, he takes the acid first and then takes double damage.
 # when unstable cannon shoots and lands on acid tile, it takes damage then gains acid. when unstable cannon shoots, it damages the tile that it's on and then pushes.
 # if a mech has a shield and fires the cryo launcher, the shooter does not freeze.
 # If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.

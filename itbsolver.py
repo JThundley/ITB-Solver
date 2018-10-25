@@ -749,7 +749,13 @@ class Unit_Base(TileUnit_Base):
     def isBuilding(self):
         "Return True if unit is a building or objectivebuilding, False if it is not."
         try:
-            return self._isbuilding
+            return self._building
+        except AttributeError:  # unit was missing the attribute
+            return False
+    def isMountain(self):
+        "Return True if unit is a mountain, mountaindamaged, or volcano. False if it is not."
+        try:
+            return self._mountain
         except AttributeError:  # unit was missing the attribute
             return False
     def __str__(self):
@@ -835,7 +841,7 @@ class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, game, type='building', currenthp=1, maxhp=1, effects=None, attributes=None):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.alliance = Alliance.NEUTRAL
-        self._isbuilding = True # a flag to indicate this is a building rather than do string comparisons
+        self._building = True # a flag to indicate this is a building rather than do string comparisons
     def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
 
@@ -843,7 +849,7 @@ class Unit_Building_Objective(Unit_Building):
     def __init__(self, game, type='buildingobjective', currenthp=1, maxhp=1, effects=None):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects)
         self.alliance = Alliance.NEUTRAL
-        self._isbuilding = True
+        self._building = True
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base):
     def __init__(self, game, type='acidvat', currenthp=2, maxhp=2, effects=None):
@@ -932,7 +938,7 @@ class Unit_MultiTile_Base(Unit_Base):
         super().applyShield()
         self._replicate('applyShield')
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is a copy and paste from the base, but we don't need to check for armored here."
+        "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is copypasta from the base, but we don't need to check for armored here."
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
@@ -1772,14 +1778,6 @@ class Weapon_hurtPushAdjacent_Base(Weapon_hurtAndPushEnemy_Base):
             except (KeyError, NullWeaponShot): # raised from game.board[False] trying to hurt and push off the board or the relative square being False inside of _hurtAndPush(), just ignore it and continue
                 pass
 
-class Weapon_isMountain_Base():
-    "A base class that provides a method to test a unit for mountainness."
-    def isMountain(self, unit):
-        try:
-            return unit._mountain
-        except AttributeError:
-            return False
-
 class Weapon_FartSmoke_Base(Weapon_getRelSquare_Base):
     def _fartSmoke(self, shotdirection):
         "smoke the tile behind the weapon wielder. Ignore errors if that would be off-board"
@@ -1857,6 +1855,29 @@ class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Ba
         self._hurtAndPushEnemy(hitsquares[-1], direction)  # and finally hurtAndPush the last tile
         return (pushedunit, hitsquares[-1])
 
+class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
+    "A base class for both the FireBeam and FrostBeam."
+    def __init__(self, power1=False, power2=False, usesremaining=1, effectmeth=None):
+        "effectmeth must be a string of either applyFire or applyIce"
+        self.usesremaining = usesremaining # power1 and 2 ignored for this weapon
+        self.effectmeth = effectmeth
+    def shoot(self, direction):
+        currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
+        if not currenttarget: # first square attacked was offboard and therefor
+            raise NullWeaponShot
+        self.usesremaining -= 1
+        while True:
+            try:
+                getattr(self.game.board[currenttarget], self.effectmeth)()
+            except KeyError: # board[False]
+                return # went off the board, we lit everything up
+            try:
+                if self.game.board[currenttarget].unit.isBuilding() or self.game.board[currenttarget].unit.isMountain():
+                    return # buildings and mountains end the shot
+            except AttributeError: # None.isBuilding()
+                pass # continue on
+            currenttarget = self.game.board[currenttarget].getRelSquare(direction, 1)
+
 ##################### Actual standalone weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base, Weapon_Punch_Base):
     """Combat mech's default weapon.
@@ -1883,14 +1904,14 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         if power1:
-            self.buildingsimmune = True
+            self._buildingsimmune = True
         else:
-            self.buildingsimmune = False
+            self._buildingsimmune = False
         if power2:
             self.damage += 2
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
-        if self.buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding():
+        if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding():
            pass
         else:
             self.game.board[self.targetsquare].takeDamage(self.damage)
@@ -2042,16 +2063,16 @@ class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Bas
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         if power1:
-            self.buildingsimmune = True
+            self._buildingsimmune = True
         else:
-            self.buildingsimmune = False
+            self._buildingsimmune = False
         if power2:
             self.damage += 1
     def shoot(self, direction, distance):
         for d in Direction.gen(): # self.targetsquare indicates where the shot landed. Nothing actually happens on this tile for this weapon, it's all around it instead.
             currenttargetsquare = self.game.board[self.targetsquare].getRelSquare(d, 1) # set the square we're working on
             try:
-                if self.buildingsimmune and self.game.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
+                if self._buildingsimmune and self.game.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
                     pass # don't damage it
                 else: # there was a unit and it was not a building or there was a building that's not immune
                     self._hurtAndPushEnemy(currenttargetsquare, d)
@@ -2162,7 +2183,7 @@ class Weapon_Repulse(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base):
                     targetunit.applyShield()
                 self.game.board[targetsquare].push(d)
 
-class Weapon_ElectricWhip(Weapon_isMountain_Base, Weapon_DirectionalGen_Base):
+class Weapon_ElectricWhip(Weapon_DirectionalGen_Base):
     """This is the lightning mech's default weapon.
     When building chain is not powered (power1), you cannot hurt buildings or chain through them with this at all.
     It does not go through mountains or supervolcano either. It does go through rocks.
@@ -2172,9 +2193,9 @@ class Weapon_ElectricWhip(Weapon_isMountain_Base, Weapon_DirectionalGen_Base):
     You can never chain through yourself when you shoot!"""
     def __init__(self, power1=False, power2=False):
         if power1:
-            self.buildingchain = True
+            self._buildingchain = True
         else:
-            self.buildingchain = False
+            self._buildingchain = False
         if power2:
             self.damage = 3
         else:
@@ -2193,9 +2214,9 @@ class Weapon_ElectricWhip(Weapon_isMountain_Base, Weapon_DirectionalGen_Base):
     def unitIsChainable(self, unit):
         "Pass a unit to this method and it will return true if you can chain through it, false if not or if there is no unit."
         try:
-            if (self.buildingchain and unit.isBuilding()) or \
-                    (self.buildingchain and not self.isMountain(unit)) or \
-                     (not self.isMountain(unit) and not unit.isBuilding()):
+            if (self._buildingchain and unit.isBuilding()) or \
+                    (self._buildingchain and not unit.isMountain()) or \
+                     (not unit.isMountain() and not unit.isBuilding()):
                 return True
         except AttributeError:
             pass
@@ -2270,10 +2291,12 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
         for r in range(1, distance+1):
             targetsquare = self._getRelSquare(direction, r)
             try:
-                if self.isMountain(self.game.board[targetsquare].unit) and r < self.range: # if the unit on the targetsquare is a mountain (which stops flamethrower from going through it) and there was range remaining...
+                if self.game.board[targetsquare].unit.isMountain() and r < self.range: # if the unit on the targetsquare is a mountain (which stops flamethrower from going through it) and there was range remaining...
                     raise NullWeaponShot  # bail since this shot was already taken with less range
             except KeyError: # board[False]
                 raise NullWeaponShot
+            except AttributeError: # None.isMountain(), there was no unit
+                pass
             hotsquares.append(targetsquare)
         # Now we know this is a valid shot.
         for targetsquare in hotsquares:
@@ -2286,11 +2309,6 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
                 pass
             self.game.board[targetsquare].applyFire() # light it up
         self.game.board[targetsquare].push(direction) # and finally push the last tile
-    def isMountain(self, unit):
-        try:
-            return unit._mountain
-        except AttributeError:
-            return False
 
 #class Weapon_FlameShielding(): # passive for later
 
@@ -2752,9 +2770,9 @@ class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
         self.selfdamage = 1
         self.damage = 2 # the damage that the last shot does, all others do 1 less than this
         if power1:
-            self.buildingsimmune = True
+            self._buildingsimmune = True
         else:
-            self.buildingsimmune = False
+            self._buildingsimmune = False
         if power2:
             self.selfdamage += 1
             self.damage += 1
@@ -2769,7 +2787,7 @@ class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
             self.damageSquare(currentsquare, self.damage-1) # hit the square with one less damage
     def damageSquare(self, square, damage):
         "Damage a single square, checking for building immunity."
-        if self.buildingsimmune and self.game.board[square].unit.isBuilding():
+        if self._buildingsimmune and self.game.board[square].unit.isBuilding():
             pass
         else:
             self.game.board[square].takeDamage(damage)
@@ -2845,23 +2863,98 @@ class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Ba
                 pass
             targettile.applySmoke()
 
-class Weapon_FireBeam(Weapon_DirectionalLimitedGen_Base, Weapon_isMountain_Base):
+class Weapon_FireBeam(Weapon_TemperatureBeam_Base):
     "Fire a beam that applies Fire in a line."
     def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining # power1 and 2 ignored for this weapon
+        super().__init__(None, None, usesremaining, 'applyFire')
+
+class Weapon_FrostBeam(Weapon_TemperatureBeam_Base):
+    "Fire a beam that Freezes everything in a line."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        super().__init__(None, None, usesremaining, 'applyIce')
+
+class Weapon_ShieldArray(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base):
+    "Apply a Shield on nearby tiles."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        if power1:
+            self.shoot = self.shoot_big # power2 is ignored
+    def shoot(self): # this is copypasta from SmokePellets
+        self.usesremaining -= 1
+        self.game.board[self.wieldingunit.square].applyShield() # shield yourself
+        for dir in Direction.gen():
+            try:
+                self.game.board[self._getRelSquare(dir, 1)].applyShield()
+            except KeyError: # board[False]
+                pass
+    def shoot_big(self):
+        self.usesremaining -= 1
+        self.game.board[self.wieldingunit.square].applyShield() # shield yourself
+        for dir in Direction.gen():
+            branchsq = self._getRelSquare(dir, 1)
+            try:
+                self.game.board[branchsq].applyShield()
+            except KeyError: # board[False]
+                continue # if the branch square was off the board, no point in try ones further than it and next to it, continue in the next direction
+            else: # branch was valid, so now we hit one tile in the same direction and one tile clockwise of it
+                for d in dir, Direction.getClockwise(dir):
+                    try:
+                        self.game.board[self.game.board[branchsq].getRelSquare(d, 1)].applyShield()
+                    except KeyError: # board[False]
+                        pass # this is fine
+
+class Weapon_PushBeam(Weapon_DirectionalLimitedGen_Base):
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        if power1:
+            self.usesremaining += 30 # easier than making it actually unlimited. The most one mech can fire during a turn is twice anyway.
     def shoot(self, direction):
         currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
-        if not currenttarget:
+        if not currenttarget: # first square attacked was offboard and therefor
             raise NullWeaponShot
         self.usesremaining -= 1
+        pushsquares = [] # build this into a list of squares we need to push
         while True:
             try:
-                self.game.board[currenttarget].applyFire()
-            except KeyError: # board[False]
-                return # went off the board, we lit everything up
-            try:
-                if self.game.board[currenttarget].unit.isBuilding() or self.isMountain(self.game.board[currenttarget].unit):
-                    return # buildings and mountains end the shot
-            except AttributeError: # Non.isBuilding()
-                pass # continue on
+                if self.game.board[currenttarget].unit.isBuilding() or self.game.board[currenttarget].unit.isMountain():
+                    break # buildings and mountains end the shot
+            except AttributeError: # None.isBuilding()
+                pass # continue on. No point in pushing this since there is no unit anyway
+            except KeyError:
+                break # we went off the board without ever running into a building or mountain
+            else: # there is a unit that possibly needs pushing
+                pushsquares.insert(0, currenttarget)
             currenttarget = self.game.board[currenttarget].getRelSquare(direction, 1)
+        for sq in pushsquares:
+            self.game.board[sq].push(direction)
+
+class Weapon_Boosters(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base, Weapon_PushAdjacent_Base):
+    "Jump forward and push adjacent tiles away."
+    def genShots(self):
+        return super().genShots(minimumdistance=1)
+    def shoot(self, direction, distance):
+        if self.game.board[self.targetsquare].unit:
+            raise NullWeaponShot # the tile you're leaping to must be clear of units
+        self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the wielder first
+        self._pushAdjacent(self.targetsquare)
+
+class Weapon_SmokeBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
+    "Default weapon for the Jet mech."
+    def __init__(self, power1=False, power2=False):
+        self.range = 1  # how many tiles you can jump over and damage. Unit lands on the tile after this distance.
+        for p in power1, power2:
+            if p:
+                self.range += 1
+    def shoot(self, direction, distance): # this is the same shoot method from AerialBombs with the tile damaging removed. copypasta
+        "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
+        destsquare = self._getRelSquare(direction, distance+1)
+        try:
+            if self.game.board[destsquare].unit:
+                raise NullWeaponShot # can't land on an occupied square
+        except AttributeError: # landing spot was off the board
+            raise NullWeaponShot
+        targetsquare = self.wieldingunit.square # start where the unit is
+        for r in range(distance):
+            targetsquare = self.game.board[targetsquare].getRelSquare(direction, 1)
+            self.game.board[targetsquare].applySmoke() # smoke the target
+        self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack

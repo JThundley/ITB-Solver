@@ -1932,6 +1932,28 @@ def t_WeaponTitanFistIceOnIce():
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 3 # he only lost 0 health because of ice
 
+def t_WeaponTitanFistIceBumpDamage():
+    "If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, weapon1=Weapon_TitanFist()))
+    g.board[(2, 1)].createUnitHere(Unit_Judo_Mech(g, effects={Effects.ICE}, attributes={Attributes.ARMORED}))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(2, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(2, 1)].unit.currenthp == 3
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT) # POW RIGHT INDA KISSAH
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 3
+    assert g.board[(2, 1)].unit.currenthp == 2 # judo had ice broken by fist damage, then took 1 bump damage which bypassed the armor
+    assert g.board[(2, 1)].unit.effects == set() # ice is gone
+    assert g.board[(2, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE} # this hasn't changed
+
 def t_HurtAndPushedVekOnFireSetsForestOnFire():
     "This is testing the concept of the vek corpse. A vek is lit on fire, and then punched for 4 damage so it's killed, but it's fake corpse is pushed to a forest tile and sets it on fire."
     g = Game()
@@ -4174,7 +4196,7 @@ def t_WeaponHydraulicLegsMaxPower():
 def t_WeaponHydraulicLegsMaxPowerIntoAcid():
     "when hydraulic legs leaps onto an acid tile, he takes the acid first and then takes double damage."
     g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True)))
+    g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True), currenthp=10))
     g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
     g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
     for x in range(1, 5):
@@ -4188,9 +4210,12 @@ def t_WeaponHydraulicLegsMaxPowerIntoAcid():
     assert g.board[(1, 1)].unit == None  # wielder leaped from here
     assert g.board[(1, 1)].effects == set() # wielder picked up the acid that was here
     assert g.board[(2, 1)].effects == set() # wielder picked up the acid
-    assert g.board[(2, 1)].unit.effects == set() # wielder DIED from taking 4 self damage on acid
-    assert g.board[(2, 1)].unit.currenthp == 1  # this is the corpse
-    assert g.board[(2, 1)].unit.type == 'mechcorpse'  # don't believe me?
+    assert g.board[(2, 1)].unit.currenthp == 6  # wielder took 4 damage because it got acid and THEN took 2 self damage x2
+    assert g.board[(2, 1)].unit.effects == {Effects.ACID} # wielder picked up acid
+    # I gave the mech more health so we can tell exactly how much HP was lost
+    #assert g.board[(2, 1)].unit.effects == set() # wielder DIED from taking 4 self damage on acid
+    #assert g.board[(2, 1)].unit.currenthp == 1  # this is the corpse
+    #assert g.board[(2, 1)].unit.type == 'mechcorpse'  # don't believe me?
     assert g.board[(3, 1)].effects == set() # the vek here got the acid
     assert g.board[(3, 1)].unit == None # unit pushed from here
     assert g.board[(4, 1)].effects == {Effects.ACID} # the vek pushed from the tile died here and dropped acid. he took 6 damage
@@ -4342,6 +4367,22 @@ def t_WeaponAcidProjectorBumpDeath():
     assert g.board[(3, 1)].effects == set()  # no tile effects
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.type == 'mountaindamaged'
+
+def t_WeaponAcidProjectorOutOfWater():
+    "If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid."
+    g = Game()
+    g.board[(2, 1)].replaceTile(Tile_Water(g))
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, attributes={Attributes.MASSIVE})) # lol massive alpha scorpion
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].effects == {Effects.SUBMERGED} # water didn't get acid
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(3, 1)].effects == set()  # no tile effects
+    assert g.board[(3, 1)].unit.effects == {Effects.ACID} # the unit got acid
 
 def t_WeaponRammingSpeedDefault():
     "Fire the RammingSpeed weapon with no powered upgrades"
@@ -6800,6 +6841,297 @@ def t_WeaponSmokeBombsGen1():
     assert next(gs) == (Direction.UP, 3)
     assert next(gs) == (Direction.RIGHT, 1)
     assert next(gs) == (Direction.RIGHT, 2)
+    assert next(gs) == (Direction.RIGHT, 3)
+
+def t_WeaponHeatConverter1():
+    "Shoot the HeatConverter but have the fire be off-board"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_HeatConverter(power1=False, power2=False))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.effects == set() # no change
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+
+def t_WeaponHeatConverter2():
+    "Shoot the HeatConverter but have the fire NOT be off-board"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_HeatConverter(power1=False, power2=False)))  # power is ignored
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.currenthp == 2
+    assert g.board[(3, 1)].unit == None
+    assert g.board[(3, 1)].effects == set() # nothing here to freeze
+
+def t_WeaponSelfDestruct1():
+    "Shoot SelfDestruct."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 2)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct(power1=False, power2=False))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.type == 'mechcorpse' # wielder died
+    assert g.board[(1, 1)].effects == {Effects.FIRE}  # forest caught fire
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(2, 1)].unit == None # vek died
+    assert g.board[(1, 2)].effects == {Effects.ACID}  # forest caught fire, but then the vek died and dropped its acid here
+    assert g.board[(1, 2)].unit == None  # vek died
+
+def t_WeaponTargetedStrike1():
+    "Shoot TargetedStrike."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 2)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_TargetedStrike(power1=False, power2=False))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 1 # wielder took 1 damage
+    assert g.board[(1, 1)].effects == {Effects.FIRE}  # forest did catch fire
+    assert g.board[(2, 1)].effects == set()  # forest did not catch fire
+    assert g.board[(2, 1)].unit == None # vek pushed from here
+    assert g.board[(3, 1)].unit.currenthp == 5 # to here, took no damage
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(1, 2)].effects == set()  # forest did not catch fire
+    assert g.board[(1, 2)].unit == None  # vek pushed from here
+    assert g.board[(1, 3)].effects == set()  # no tile effects
+    assert g.board[(1, 3)].unit.effects == {Effects.ACID} # never lost acid
+    assert g.board[(1, 3)].unit.currenthp == 5
+
+def t_WeaponSmokeDrop1():
+    "Shoot SmokeDrop."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 2)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeDrop(power1=False, power2=False))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder took 0 damage
+    assert g.board[(1, 1)].effects == {Effects.SMOKE}  # forest did not catch fire
+    assert g.board[(2, 1)].effects == {Effects.SMOKE}  # forest did not catch fire
+    assert g.board[(2, 1)].unit.currenthp == 5 # to here, took no damage
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 2)].effects == {Effects.SMOKE}  # forest did not catch fire
+    assert g.board[(1, 2)].unit.effects == {Effects.ACID} # never lost acid
+    assert g.board[(1, 2)].unit.currenthp == 5
+
+def t_WeaponMissileBarrageLowPower():
+    "Shoot MissileBarrage with no power."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 2)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_MissileBarrage(power1=False, power2=False))) # power2 is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder untouched
+    assert g.board[(1, 1)].effects == set()  # forest untouched
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(2, 1)].unit.currenthp == 4 # vek took 1 damage
+    assert g.board[(1, 2)].effects == {Effects.FIRE}  # forest caught fire,
+    assert g.board[(1, 2)].unit.currenthp == 3  # vek took 2 damage because of acid
+
+def t_WeaponMissileBarrageMaxPower():
+    "Shoot MissileBarrage with extra damage."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(2, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 2)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_MissileBarrage(power1=True, power2=False))) # power2 is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2 # wielder untouched
+    assert g.board[(1, 1)].effects == set()  # forest untouched
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # forest caught fire
+    assert g.board[(2, 1)].unit.currenthp == 3 # vek took 2 damage
+    assert g.board[(1, 2)].effects == {Effects.FIRE}  # forest caught fire,
+    assert g.board[(1, 2)].unit.currenthp == 1  # vek took 4 damage because of acid
+
+def t_WeaponWindTorrentUp():
+    "Shoot WindTorrent Up."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
+    g.board[(2, 7)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 6)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # UP
+    g.flushHurt()
+    assert g.board[(2, 8)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(2, 7)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(2, 6)].unit == None  # vek pushed from here
+
+def t_WeaponWindTorrentRight():
+    "Shoot WindTorrent RIGHT."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
+    g.board[(7, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT
+    g.flushHurt()
+    assert g.board[(8, 2)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(7, 2)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(6, 2)].unit == None  # vek pushed from here
+
+def t_WeaponWindTorrentDown():
+    "Shoot WindTorrent Down."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(3):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # Down
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(2, 2)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(2, 3)].unit == None  # vek pushed from here
+
+def t_WeaponWindTorrentLeft():
+    "Shoot WindTorrent Left."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
+    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(4):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # Left
+    g.flushHurt()
+    assert g.board[(1, 2)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(2, 2)].unit.currenthp == 5  # vek took no bump damage
+    assert g.board[(3, 2)].unit == None  # vek pushed from here
+
+def t_WeaponIceGeneratorLowPower():
+    "Fire the IceGenerator with no power in the center of the map"
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=False, power2=False)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no damage to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.ICE} # wielder now in ice
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4):
+        assert g.board[sq].unit.effects == {Effects.ICE}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
+
+def t_WeaponIceGeneratorMedPower1():
+    "Fire the IceGenerator with power1 in the center of the map"
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=True, power2=False)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no damage to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.ICE} # wielder now in ice
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4), (4, 6), (5, 5), (6, 4), (5, 3), (4, 2), (3, 3), (2, 4), (3, 5):
+        assert g.board[sq].unit.effects == {Effects.ICE}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
+
+def t_WeaponIceGeneratorMedPower2():
+    "Fire the IceGenerator with power2 in the center of the map. Outcome is the same as last test"
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=False, power2=True)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no damage to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.ICE} # wielder now in ice
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4), (4, 6), (5, 5), (6, 4), (5, 3), (4, 2), (3, 3), (2, 4), (3, 5):
+        assert g.board[sq].unit.effects == {Effects.ICE}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
+
+def t_WeaponIceGeneratorMaxPower():
+    "Fire the IceGenerator with max powerin the center of the map."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+    # replace one with our boi
+    g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=True, power2=True)))
+    gs = g.board[(4, 4)].unit.weapon1.genShots()
+    for r in range(1):
+        shot = next(gs)
+    g.board[(4, 4)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(4, 4)].unit.currenthp == 2  # no damage to the wielder
+    assert g.board[(4, 4)].unit.effects == {Effects.ICE} # wielder now in ice
+    del allunits[(4, 4)]  # delete the wielder from allunits
+    for sq in (3, 4), (4, 3), (4, 5), (5, 4), (4, 6), (5, 5), (6, 4), (5, 3), (4, 2), (3, 3), (2, 4), (3, 5), (4, 7), (5, 6), (6, 5), (7, 4), (6, 3), (5, 2), (4, 1), (3, 2), (2, 3), (1, 4), (2, 5), (3, 6):
+        assert g.board[sq].unit.effects == {Effects.ICE}
+        del allunits[sq]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.effects == set() # no change in effects to all other vek
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally
@@ -6819,31 +7151,18 @@ def t_WeaponSmokeBombsGen1():
     # when attacked and killed, becomes a "damaged train" that is also stable and fire immune. When that is damaged again, it becomes a damaged train corpse that can't be shielded, is no longer fire immune, and is flying like a normal corpse.
     # units can bump into the corpse
 # ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
-
-########## Weapons stuff for later
-# when unstable cannon shoots and lands on acid tile, it takes damage then gains acid. when unstable cannon shoots, it damages the tile that it's on and then pushes.
-# if a mech has a shield and fires the cryo launcher, the shooter does not freeze.
-# If a unit is frozen and damaged and bumped against a wall, the damage removes the ice and then the bump damage hurts the unit.
-# Acid Launcher's weapon is called disentegrator. It hits 5 tiles and kills any unit there and leaves acid on the tile. It's stable with 2 HP.
-# If mech stands in water and is hit by the acid gun, the water does not gain acid. The mech is pushed out and gains acid.
-# if a mech stands next to water and hit by the acid gun, the unit is pushed into the water and the water and unit gain acid. The tile the mech was previously on does not gain acid.
-# if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
-# if you shoot your mechs with the acid gun and they have a shield, they get acid anyway! wtf!
-# if a non-flying shielded unit is in water and is hit by the acid gun, it's pushed first and then acid goes to the tile where it lands, and does give it acid!
-# the shock cannon is a projectile that pulls the unit in its path toward the direction it was fired. It pushes and does damage to the tile on the other side of what got hit.
 # Terraformer weapon "terraformer" kills any unit in a 2x3 grid around it, converts tiles to sand tile.
 # Earth Mover expands toward 0 and 8 on X 2 squares at a time. It does this on the y row that it's on and the row right below it.
-# if a scarab that has an artillery shot weapon only is surrounded by units so it has no place to move and it has no targets available, it will choose to not shoot anything.
+
+########## Weapons stuff for later
+# if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
 # Cannon-bot's weapon is "Cannon 84 Mark I". it's a projectile weapon that does one damage and sets target on fire.
-# Repair Drop heals your friendly npc freezemine laying bots that you do not control. I guess to remove bad effects? Repair drop heals your units to full health. It does not remove fire from the tile of a repaired unit.
-# Flamethrower weapon can't go through more than one mountain tile.
 # The Goo's goo attack just does 4 damage and ice negates it like a regular weapon.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 # Shield tank: first power gives it 2 hp, second power makes it shoot a projectile that gives shields. has 1 hp by default.
+
 # Satellite launches happen after enemy attacks.
 # robots do not benefit from psion vek passives such as explosive.
-# If a vek is attacking the tile in front of him and he's moved to the edge of the board so he can't hit a tile in front of him, his attack is cancelled.
-
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
@@ -6852,13 +7171,10 @@ def t_WeaponSmokeBombsGen1():
 ########## Research these:
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 # What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket (leaves a corpse that is invincible and can't be pushed. It's friendly so you can move through it), earth mover.
-# what happens if lightning strikes a sand or forest tile with a vek with acid on it? Does it create smoke first, then kill the enemy, then drop the acid and convert the tile to a regular ground tile? Or does the acid drop first converting the tiel before it does anything?
-# Can mech corpses be revived after falling into a chasm?
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 # Timepods can only be on ground tiles, they convert sand and forest to ground upon landing.
-# If you set a burrower on fire (when it spawns) and it then moves by burrowing, it re-emerges without fire!
 
 # Movement POC:
 # obstructions = ((2, 2), (-1, -1))

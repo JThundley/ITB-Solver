@@ -885,24 +885,32 @@ class Sub_Unit_Base(Unit_Fighting_Base):
         super().die()
 
 class Unit_AcidTank(Sub_Unit_Base):
-    def __init__(self, game, type='acidtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='acidtank', currenthp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_FreezeTank(Sub_Unit_Base):
-    def __init__(self, game, type='freezetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='freezetank', currenthp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ArchiveTank(Sub_Unit_Base):
-    def __init__(self, game, type='archivetank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='archivetank', currenthp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_OldArtillery(Sub_Unit_Base):
-    def __init__(self, game, type='oldartillery', currenthp=1, maxhp=1, moves=1, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='oldartillery', currenthp=1, maxhp=1, weapon1=None, moves=1, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ShieldTank(Sub_Unit_Base):
-    def __init__(self, game, type='shieldtank', currenthp=1, maxhp=1, moves=4, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='shieldtank', currenthp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
+
+class Unit_LightTank(Sub_Unit_Base):
+    def __init__(self, game, type='lighttank', currenthp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
+
+class Unit_PullTank(Sub_Unit_Base):
+    def __init__(self, game, type='pulltank', currenthp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
@@ -3089,3 +3097,33 @@ class Weapon_IceGenerator(Weapon_NoChoiceLimitedGen_Base, Weapon_DeploySelfEffec
         for mx, my in ((0, 1), (1, 0), (-1, 0), (0, -1)): # these coords represent movement along the x and y axis
             if self.positions.get((x + mx, y + my), 0) < n:
                 self.branch((x + mx, y + my), n - 1)
+
+############################# Deployables ##################
+class Weapon_LightTank(Weapon_ArtilleryGenLimited_Base):
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.hp = 1 # the deployed tank's HP
+        if power1:
+            self.hp += 2
+        self.power2 = power2 # this is passed onto the deployed tank's weapon
+    def shoot(self, direction, distance):
+        if self.game.board[self.targetsquare].unit:
+            raise NullWeaponShot # can't deploy a tank to an occupied square
+        self.usesremaining -= 1
+        self.game.board[self.targetsquare].createUnitHere(Unit_LightTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
+
+######################### Weapons that deployables shoot ################
+class Weapon_StockCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
+    "This is the weapon for the Light Tank"
+    def __init__(self, power1=False, power2=False):
+        "This weapon doesn't actually take power itself, power2 should be inherited from Weapon_LightTank to signal that this weapon should do damage."
+        if power2:
+            self.shoot = self.shoot_damage
+            self.damage = 2
+    def shoot(self, direction):
+        try:
+            self.game.board[self._getSquareOfUnitInDirection(direction, edgeok=False)].push(direction)
+        except KeyError: # board[False]
+            raise NullWeaponShot # pushing a square on the edge of the board in the direction of the void is pointless
+    def shoot_damage(self, direction): # copypasta from TaurusCannon
+        self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)

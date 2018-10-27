@@ -7133,6 +7133,90 @@ def t_WeaponIceGeneratorMaxPower():
     for u in allunits:
         assert g.board[u].unit.effects == set() # no change in effects to all other vek
 
+def t_WeaponLightTankLowPower():
+    "Shoot and deploy a LightTank with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the light tank
+    assert g.board[(3, 1)].unit.type == 'lighttank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek pushed here, but no damage done
+
+def t_WeaponLightTank1Power():
+    "Shoot and deploy a LightTank with power 1 powered for more hp."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=True, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the light tank
+    assert g.board[(3, 1)].unit.type == 'lighttank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek pushed here, but no damage done
+
+def t_WeaponLightTankPower2():
+    "Shoot and deploy a LightTank with power2 activated for damage."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the light tank
+    assert g.board[(3, 1)].unit.type == 'lighttank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 3  # vek pushed here, but WITH damage done
+
+def t_WeaponLightTankMaxPower():
+    "Shoot and deploy a LightTank with Max power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=True, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the light tank
+    assert g.board[(3, 1)].unit.type == 'lighttank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 3  # vek pushed here, but WITH damage done
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

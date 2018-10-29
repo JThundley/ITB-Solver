@@ -7133,6 +7133,19 @@ def t_WeaponIceGeneratorMaxPower():
     for u in allunits:
         assert g.board[u].unit.effects == set() # no change in effects to all other vek
 
+def t_WeaponDeployableGenSwallow():
+    "Test genShots() for deployable weapons to make sure it skips over water, lava, and chasms"
+    g = Game()
+    g.board[(1, 3)].replaceTile(Tile_Water(g))
+    g.board[(1, 5)].replaceTile(Tile_Lava(g))
+    g.board[(1, 7)].replaceTile(Tile_Chasm(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=False)))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    assert next(gs) == (Direction.UP, 3)
+    assert next(gs) == (Direction.UP, 5)
+    assert next(gs) == (Direction.UP, 7)
+    assert next(gs) == (Direction.RIGHT, 2)
+
 def t_WeaponLightTankLowPower():
     "Shoot and deploy a LightTank with no power."
     g = Game()
@@ -7216,6 +7229,510 @@ def t_WeaponLightTankMaxPower():
     g.flushHurt()
     assert not g.board[(4, 1)].unit  # vek pushed from here
     assert g.board[(5, 1)].unit.currenthp == 3  # vek pushed here, but WITH damage done
+
+def t_WeaponLightTankMaxPowerMiss():
+    "Shoot and deploy a LightTank with Max power with no vek to hit."
+    g = Game()
+    g.board[(8, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=True, power2=True)))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the light tank
+    assert g.board[(3, 1)].unit.type == 'lighttank'
+    assert g.board[(8, 1)].effects == set()
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(8, 1)].effects == {Effects.FIRE}
+
+def t_WeaponShieldTankLowPower():
+    "Shoot and deploy a ShieldTank with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=False, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the shieldtank
+    assert g.board[(3, 1)].unit.type == 'shieldtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek is here, but no damage done
+    assert g.board[(4, 1)].unit.effects == {Effects.SHIELD}  # vek is now shielded
+
+def t_WeaponShieldTankPower1():
+    "Shoot and deploy a ShieldTank with power1."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the shieldtank
+    assert g.board[(3, 1)].unit.type == 'shieldtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek is here, but no damage done
+    assert g.board[(4, 1)].unit.effects == {Effects.SHIELD}  # vek is now shielded
+
+def t_WeaponShieldTankPower1Miss():
+    "Shoot and deploy a ShieldTank with power1 but with the vek out of range."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=False)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the shieldtank
+    assert g.board[(3, 1)].unit.type == 'shieldtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    try:
+        g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    except NullWeaponShot:
+        return # expected
+    else:
+        assert False, "expected a NullWeaponShot"
+
+def t_WeaponShieldTankMaxPower():
+    "Shoot and deploy a ShieldTank with max power and the vek at range."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=True)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the shieldtank
+    assert g.board[(3, 1)].unit.type == 'shieldtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek is here, but no damage done
+    assert g.board[(5, 1)].unit.effects == {Effects.SHIELD}  # vek is now shielded
+
+def t_WeaponShieldTankMaxPowerMiss():
+    "Shoot and deploy a ShieldTank with max power but without a vek to hit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=True)))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the shieldtank
+    assert g.board[(3, 1)].unit.type == 'shieldtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    try:
+        g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    except NullWeaponShot:
+        return # good
+    else:
+        assert False # bad
+
+def t_WeaponAcidTankLowPower():
+    "Shoot and deploy a AcidTank with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=False, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(4, 1)].unit.effects == set()  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the acidtank
+    assert g.board[(3, 1)].unit.type == 'acidtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # no damage done
+    assert g.board[(4, 1)].unit.effects == {Effects.ACID}
+
+def t_WeaponAcidTank1Power():
+    "Shoot and deploy a AcidTank with power 1 powered for more hp."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=True, power2=False)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(4, 1)].unit.effects == set()  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the acidtank
+    assert g.board[(3, 1)].unit.type == 'acidtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # no damage done
+    assert g.board[(4, 1)].unit.effects == {Effects.ACID}
+
+def t_WeaponAcidTankPower2():
+    "Shoot and deploy a AcidTank with power2 activated for pushing."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=False, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the acidtank
+    assert g.board[(3, 1)].unit.type == 'acidtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek pushed here
+    assert g.board[(5, 1)].unit.effects == {Effects.ACID} # vek pushed here
+
+def t_WeaponAcidTankMaxPower():
+    "Shoot and deploy a AcidTank with Max power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=True, power2=True)))
+    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the acidtank
+    assert g.board[(3, 1)].unit.type == 'acidtank'
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(4, 1)].unit  # vek pushed from here
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek pushed here
+    assert g.board[(5, 1)].unit.effects == {Effects.ACID}  # vek pushed here
+
+def t_WeaponAcidTankMaxPowerMiss():
+    "Shoot and deploy a AcidTank with Max power with no vek to hit."
+    g = Game()
+    g.board[(8, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=True, power2=True)))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the acidtank
+    assert g.board[(3, 1)].unit.type == 'acidtank'
+    assert g.board[(8, 1)].effects == set()
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert g.board[(8, 1)].effects == {Effects.ACID}
+
+def t_WeaponPullTankLowPower():
+    "Shoot and deploy a PullTank with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=False, power2=False)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(5, 1)].unit.effects == set()  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the PullTank
+    assert g.board[(3, 1)].unit.type == 'pulltank'
+    assert g.board[(3, 1)].unit.attributes == set()
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(5, 1)].unit # vek pulled from here
+    assert g.board[(4, 1)].unit.currenthp == 5  # no damage done
+    assert g.board[(4, 1)].unit.effects == set()
+
+def t_WeaponPullTank1Power():
+    "Shoot and deploy a PullTank with power 1 powered for more hp."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=True, power2=False)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(5, 1)].unit.effects == set()  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the PullTank
+    assert g.board[(3, 1)].unit.type == 'pulltank'
+    assert g.board[(3, 1)].unit.attributes == set()
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(5, 1)].unit  # vek pulled from here
+    assert g.board[(4, 1)].unit.currenthp == 5  # no damage done
+    assert g.board[(4, 1)].unit.effects == set()
+
+def t_WeaponPullTankPower2():
+    "Shoot and deploy a PullTank with power2 activated for flying."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=False, power2=True)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 1  # this is the PullTank
+    assert g.board[(3, 1)].unit.type == 'pulltank'
+    assert g.board[(3, 1)].unit.attributes == {Attributes.FLYING}
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(5, 1)].unit  # vek pulled from here
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek pushed here
+    assert g.board[(4, 1)].unit.effects == set() # vek pushed here
+
+def t_WeaponPullTankMaxPower():
+    "Shoot and deploy a PullTank with Max power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=True, power2=True)))
+    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(5, 1)].unit.currenthp == 5  # vek untouched
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the PullTank
+    assert g.board[(3, 1)].unit.type == 'pulltank'
+    assert g.board[(3, 1)].unit.attributes == {Attributes.FLYING}
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    g.flushHurt()
+    assert not g.board[(5, 1)].unit  # vek pulled from here
+    assert g.board[(4, 1)].unit.currenthp == 5  # vek pushed here
+    assert g.board[(4, 1)].unit.effects == set()  # vek pushed here
+
+def t_WeaponPullTankMaxPowerMiss():
+    "Shoot and deploy a PullTank with Max power with no vek to hit."
+    g = Game()
+    g.board[(8, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=True, power2=True)))
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.flushHurt()
+    assert g.board[(3, 1)].unit.currenthp == 3  # this is the PullTank
+    assert g.board[(3, 1)].unit.type == 'pulltank'
+    assert g.board[(3, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(8, 1)].effects == set()
+    gs = g.board[(3, 1)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    try:
+        g.board[(3, 1)].unit.weapon1.shoot(*shot)  # RIGHT
+    except NullWeaponShot:
+        pass # expected
+    else:
+        assert False # bad
+
+def t_WeaponRepair():
+    "Have a unit take damage and then repair."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, currenthp=10, maxhp=10)) # no weapons added, unit should have a Weapon_Repair set as it's default repweapon
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 7 # took 3 damage
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 8  # repaired 1 damage
+
+def t_WeaponRepairFire():
+    "Have a unit take damage on a forest and then repair."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, currenthp=10, maxhp=10)) # no weapons added, unit should have a Weapon_Repair set as it's default repweapon
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.currenthp == 7 # took 3 damage
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 8  # repaired 1 damage
+
+def t_WeaponRepairAcid():
+    "Have a unit take damage on acid and then repair."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, currenthp=10, maxhp=10)) # no weapons added, unit should have a Weapon_Repair set as it's default repweapon
+    g.board[(1, 1)].applyAcid()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == {Effects.ACID}
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == {Effects.ACID}
+    assert g.board[(1, 1)].unit.currenthp == 4 # took 6 damage
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 5  # repaired 1 damage
+
+def t_WeaponRepairIce():
+    "Have a unit get frozen and then repair."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, currenthp=10, maxhp=10)) # no weapons added, unit should have a Weapon_Repair set as it's default repweapon
+    g.board[(1, 1)].applyIce()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(1, 1)].unit.currenthp == 10
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set() # no more ice
+    assert g.board[(1, 1)].unit.currenthp == 10  # hp was never lost and we didn't repair over the max
+
+def t_WeaponFrenziedRepair():
+    "Have a unit take damage and then repair and push a nearby vek."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_FrenziedRepair(), currenthp=10, maxhp=10))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 7 # took 3 damage
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(1):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 8  # repaired 1 damage
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 5
+
+def t_WeaponMantisSlash():
+    "Have a unit take damage and then use the repair weapon to hurt a nearby vek."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_MantisSlash(), currenthp=10, maxhp=10))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 7 # took 3 damage
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # (RIGHT,)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 7  # repaired 0 damage
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+
+def t_WeaponMantisSlashIce():
+    "Have a get frozen and then use the repair weapon to break the ice and hurt a nearby vek."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_MantisSlash(), currenthp=10, maxhp=10))
+    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10
+    g.board[(1, 1)].applyIce()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(1, 1)].unit.currenthp == 10 # unit wasn't attacked at all this time
+    gs = g.board[(1, 1)].unit.repweapon.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(1, 1)].unit.repweapon.shoot(*shot) # (RIGHT,)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.currenthp == 10  # repaired 0 damage
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

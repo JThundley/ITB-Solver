@@ -224,7 +224,7 @@ class TileUnit_Base():
         if not effects:
             self.effects = set()
         else:
-            self.effects = effects # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
+            self.effects = set(effects) # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
     def removeEffect(self, effect):
         "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
         try:
@@ -287,20 +287,19 @@ class Tile_Base(TileUnit_Base):
             self.effects.add(Effects.ACID)
             self.removeEffect(Effects.FIRE)
     def applyShield(self):
+        "Try to give a shield to a unit present. return True if a unit was shielded, False if there was no unit."
         try: # Tiles can't be shielded, only units
             self.unit.applyShield()
+            return True
         except AttributeError:
-            return
+            return False
     def repair(self, hp):
         "Repair this tile and any mech on it. hp is the amount of hp to repair on the present unit. This method should only be used for mechs and not vek as they can be healed but they never repair the tile."
         self.removeEffect(Effects.FIRE)
-        if self.unit:
+        try:
             self.unit.repair(hp)
-        # switch to a more efficient try statement when we're sure there aren't bugs :)
-        # try:
-        #     self.unit.repair(hp)
-        # except AttributeError:
-        #     return
+        except AttributeError:
+            return
     def die(self):
         "Instakill whatever unit is on the tile and damage the tile."
         self._tileTakeDamage()
@@ -408,6 +407,12 @@ class Tile_Base(TileUnit_Base):
         if direction == Direction.LEFT:
             return (1, self.square[1])
         raise Exception("Invalid Direction given to getEdgeSquare()")
+    def isSwallow(self):
+        "return True if this tile kills non-massive non-flying units like water and chasm"
+        try:
+            return self._swallow
+        except AttributeError:
+            return False
     def __str__(self):
         return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
@@ -444,7 +449,7 @@ class Tile_Forest_Sand_Base(Tile_Base):
         try:
             self.unit.applyAcid() # give the unit acid if present
         except AttributeError:
-            self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects={Effects.ACID}), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
+            self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects=(Effects.ACID,)), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
             self.game.board[self.square].removeEffect(Effects.FIRE) # fire is put out by acid.
         # The tile doesn't get acid effects if the unit takes it instead.
 
@@ -469,7 +474,7 @@ class Tile_Sand(Tile_Forest_Sand_Base):
         super().__init__(game, square, type, effects=effects)
     def applyFire(self):
         "Fire converts the sand tile to a ground tile"
-        self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects={Effects.FIRE}), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
+        self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects=(Effects.FIRE,)), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
         super().applyFire()
     def _tileTakeDamage(self):
         self.applySmoke()
@@ -501,14 +506,17 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         pass
     def repair(self, hp):
         "acid cannot be removed from water or ice by repairing it. There can't be any fire to repair either."
-        if self.unit:
+        try:
             self.unit.repair(hp)
+        except AttributeError:
+            return
 
 class Tile_Water(Tile_Water_Ice_Damaged_Base):
     "Non-huge land units die when pushed into water. Water cannot be set on fire."
     def __init__(self, game, square=None, type='water', effects=None):
         super().__init__(game, square, type, effects=effects)
         self.effects.add(Effects.SUBMERGED)
+        self._swallow = True
     def applyFire(self):
         "Water can't be set on fire"
         try: # spread the fire to the unit
@@ -556,6 +564,7 @@ class Tile_Chasm(Tile_Base):
     "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
     def __init__(self, game, square=None, type='chasm', effects=None):
         super().__init__(game, square, type, effects=effects)
+        self._swallow = True
     def applyFire(self):
         try:
             self.unit.applyFire()
@@ -580,8 +589,10 @@ class Tile_Chasm(Tile_Base):
         # no need to super()._spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
     def repair(self, hp):
         "There can't be any fire to repair"
-        if self.unit:
+        try:
             self.unit.repair(hp)
+        except AttributeError:
+            return
 
 class Tile_Lava(Tile_Water):
     def __init__(self, game, square=None, type='lava', effects=None):
@@ -589,8 +600,10 @@ class Tile_Lava(Tile_Water):
         self.effects.add(Effects.FIRE)
     def repair(self, hp):
         "No effects can be removed from lava from repairing on it."
-        if self.unit:
+        try:
             self.unit.repair(hp)
+        except AttributeError:
+            return
     def applyIce(self):
         return # Ice does nothing
     def applyFire(self):
@@ -668,7 +681,7 @@ class Unit_Base(TileUnit_Base):
         if not attributes:
             self.attributes = set()
         else:
-            self.attributes = attributes
+            self.attributes = set(attributes)
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
     def applyEffectUnshielded(self, effect):
@@ -762,9 +775,9 @@ class Unit_Base(TileUnit_Base):
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
-class Unit_Fighting_Base(Unit_Base):
-    "The base class of all units that have weapons."
-    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
+class Unit_Fighting_Base(Unit_Base): # XXX
+    "The base class of all units that have at least 1 weapon."
+    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, attributes=None):
         super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
         try: # try to set the wielding unit of this weapon
             weapon1.wieldingunit = self
@@ -773,18 +786,11 @@ class Unit_Fighting_Base(Unit_Base):
         else: # it worked so assign the weapon to this unit and set game.
             self.weapon1 = weapon1
             self.weapon1.game = self.game
-        try: # do it again with 2. I'm on the fence if I should do this programmatically. Seems hacky for no benefit, I don't want to go through locals and do string slicing and stuff
-            weapon2.wieldingunit = self
-        except AttributeError:
-            pass
-        else:
-            self.weapon2 = weapon2
-            self.weapon2.game = self.game
 
 class Unit_Repairable_Base(Unit_Fighting_Base):
     "The base class of all mechs and vek."
-    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, weapon2=None, attributes=None):
-        super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, weapon1=weapon1, weapon2=weapon2, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, attributes=None):
+        super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, weapon1=weapon1, attributes=attributes)
     def repairHP(self, hp=1):
         "Repair hp amount of hp. Does not take you higher than the max. Does not remove any effects."
         self.currenthp += hp
@@ -859,7 +865,7 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base):
     def die(self):
         "Acid vats turn into acid water when destroyed."
         self.game.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
-        self.game.board[self.square].replaceTile(Tile_Water(self.game, effects={Effects.ACID}), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
+        self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.game.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
@@ -885,7 +891,7 @@ class Sub_Unit_Base(Unit_Fighting_Base):
         super().die()
 
 class Unit_AcidTank(Sub_Unit_Base):
-    def __init__(self, game, type='acidtank', currenthp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
+    def __init__(self, game, type='acidtank', currenthp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_FreezeTank(Sub_Unit_Base):
@@ -1322,12 +1328,27 @@ class Unit_BotLeaderHard(Unit_EnemyBot_Base):
 ############################################################################################################################
 class Unit_Mech_Base(Unit_Repairable_Base):
     "This is the base unit of Mechs."
-    def __init__(self, game, type, currenthp, maxhp, moves, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp, maxhp, moves, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
         self.pilot = pilot # the pilot in this mech that might provide bonuses or extra abilities
         self.attributes.add(Attributes.MASSIVE) # all mechs are massive
         self.alliance = Alliance.FRIENDLY # and friendly, duh
+        # repweapon is the weapon that is fired when a mech repairs itself. Every mech must have some type of repair weapon
+        try:
+            repweapon.wieldingunit = self
+        except AttributeError:
+            repweapon = Weapon_Repair()
+            repweapon.wieldingunit = self
+        self.repweapon = repweapon
+        self.repweapon.game = self.game
+        try:
+            weapon2.wieldingunit = self
+        except AttributeError:
+            pass
+        else:
+            self.weapon2 = weapon2
+            self.weapon2.game = self.game
     def die(self):
         "Make the mech die."
         self.currenthp = 0
@@ -1345,8 +1366,8 @@ class Unit_Mech_Base(Unit_Repairable_Base):
 
 class Unit_Mech_Flying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
-    def __init__(self, game, type, currenthp=2, maxhp=2, moves=4, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, weapon1=weapon1, weapon2=weapon2, pilot=pilot, effects=effects, attributes=attributes)
+    def __init__(self, game, type, currenthp=2, maxhp=2, moves=4, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, pilot=pilot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_Mech_Corpse(Unit_Mech_Base):
@@ -1376,114 +1397,114 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self.game.board[self.square].createUnitHere(self.oldunit)
 
 class Unit_Combat_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='combat', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Laser_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='laser', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Lightning_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='lightning', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Judo_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='judo', currenthp=3, maxhp=3, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Flame_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='flame', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Aegis_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='aegis', currenthp=3, maxhp=3, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Leap_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='leap', currenthp=3, maxhp=3, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Cannon_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='cannon', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Jet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='jet', currenthp=2, maxhp=2, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Charge_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='charge', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Hook_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='hook', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.ARMORED)
 
 class Unit_Mirror_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='mirror', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Unstable_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='unstable', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Artillery_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='artillery', currenthp=2, maxhp=2, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Rocket_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='rocket', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Boulder_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='boulder', currenthp=2, maxhp=2, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Siege_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='siege', currenthp=2, maxhp=2, moves=2, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Meteor_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='meteor', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Ice_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='ice', currenthp=2, maxhp=2, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Pulse_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='pulse', currenthp=3, maxhp=3, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Defense_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='defense', currenthp=2, maxhp=2, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Gravity_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='gravity', currenthp=3, maxhp=3, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Swap_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='swap', currenthp=2, maxhp=2, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_Nano_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='nano', currenthp=2, maxhp=2, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoBeetle_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technobeetle', currenthp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoHornet_Mech(Unit_Mech_Flying_Base):
-    def __init__(self, game, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technohornet', currenthp=2, maxhp=2, moves=4, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 class Unit_TechnoScarab_Mech(Unit_Mech_Base):
-    def __init__(self, game, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, weapon1=None, weapon2=None, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
+    def __init__(self, game, type='technoscarab', currenthp=2, maxhp=2, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, moves=moves, pilot=pilot, repweapon=repweapon, weapon1=weapon1, weapon2=weapon2, effects=effects, attributes=attributes)
 
 ##############################################################################
 ########################## ENVIRONMENTAL EFFECTS #############################
@@ -1892,7 +1913,7 @@ class Weapon_HydraulicLegsUnstableInit_Base():
             self.damage += 1
 
 class Weapon_Punch_Base():
-    "shoot_punch method shared by TitanFist and RocketFist"
+    "shoot_punch method shared by TitanFist, RocketFist, and MantisSlash"
     def shoot_punch(self, direction):
         self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(direction, 1), direction)
 
@@ -1935,6 +1956,39 @@ class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
             except AttributeError: # None.isBuilding()
                 pass # continue on
             currenttarget = self.game.board[currenttarget].getRelSquare(direction, 1)
+
+class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
+    "methods shared by weapons that deploy small tanks"
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        self.usesremaining = usesremaining
+        self.hp = 1 # the deployed tank's HP
+        if power1:
+            self.hp += 2
+        self.power2 = power2 # this is passed onto the deployed tank's weapon
+    def genShots(self):
+        "A genshots for limited deployable tanks that doesn't allow you to shoot into swallowing tiles and immediately kill your deployable."
+        for i in super().genShots():
+            if not self.game.board[self.targetsquare].isSwallow():
+                yield i
+    def shoot(self, unit): # this should only ever be called by child objects so the non-standard arg should be fine
+        if self.game.board[self.targetsquare].unit:
+            raise NullWeaponShot # can't deploy a tank to an occupied square
+        self.usesremaining -= 1
+        self.game.board[self.targetsquare].createUnitHere(unit)
+
+class Weapon_AcidGun_Base(Weapon_Projectile_Base):
+    "Shared shoot method for AcidProjector and AcidShot"
+    def shoot(self, direction, push=True):
+        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
+        try:
+            if self.game.board[targetsquare].unit.isMountain():
+                raise NullWeaponShot # Mountains can't get acid and don't leave any on the ground after being destroyed
+        except AttributeError: # there was no unit
+            self.game.board[targetsquare].applyAcid() # give it to the tile instead
+        else: # unit needs to be hit with acid
+            self.game.board[targetsquare].unit.effects.add(Effects.ACID)  # directly give the unit acid, ice and shield won't prevent you from getting acid unlike when you move to an acid pool.
+            if push:
+                self.game.board[targetsquare].push(direction) # now push the unit
 
 ##################### Actual standalone weapons #####################
 class Weapon_TitanFist(Weapon_Charge_Base, Weapon_Punch_Base):
@@ -2434,18 +2488,12 @@ class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projec
         self._hurtAndPushSelf(self.wieldingunit.square, Direction.opposite(direction)) # take self-damage first and push back
         self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
 
-class Weapon_AcidProjector(Weapon_Projectile_Base):
+class Weapon_AcidProjector(Weapon_AcidGun_Base):
     "Default weapon for the Acid Mech"
     def __init__(self, power1=False, power2=False):
         pass # this weapon can't be upgraded
     def shoot(self, direction):
-        targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
-        try:
-            self.game.board[targetsquare].unit.effects.add(Effects.ACID) # directly give the unit acid, ice and shield won't prevent you from getting acid unlike when you move to an acid pool.
-        except AttributeError: # there was no unit
-            self.game.board[targetsquare].applyAcid() # give it to the tile instead
-        else: # unit was hit with acid
-            self.game.board[targetsquare].push(direction) # now push the unit
+        super().shoot(direction)
 
 class Weapon_RammingSpeed(Weapon_Charge_Base, Weapon_FartSmoke_Base):
     "Default weapon for the TechnoBeetle"
@@ -3099,20 +3147,38 @@ class Weapon_IceGenerator(Weapon_NoChoiceLimitedGen_Base, Weapon_DeploySelfEffec
                 self.branch((x + mx, y + my), n - 1)
 
 ############################# Deployables ##################
-class Weapon_LightTank(Weapon_ArtilleryGenLimited_Base):
+class Weapon_LightTank(Weapon_Deployable_Base):
+    "Deploy a small tank to help in combat."
     def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
-        self.hp = 1 # the deployed tank's HP
-        if power1:
-            self.hp += 2
-        self.power2 = power2 # this is passed onto the deployed tank's weapon
+        super().__init__(power1, power2, usesremaining)
     def shoot(self, direction, distance):
-        if self.game.board[self.targetsquare].unit:
-            raise NullWeaponShot # can't deploy a tank to an occupied square
-        self.usesremaining -= 1
-        self.game.board[self.targetsquare].createUnitHere(Unit_LightTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
+        super().shoot(Unit_LightTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
 
+class Weapon_ShieldTank(Weapon_Deployable_Base):
+    "Deploy a Shield-Tank that can give Shields to allies."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        super().__init__(power1, power2, usesremaining)
+    def shoot(self, direction, distance):
+        super().shoot(Unit_ShieldTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_ShieldShot(power2=self.power2)))
+
+class Weapon_AcidTank(Weapon_Deployable_Base):
+    "Deploy a Tank that can apply A.C.I.D. to targets."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        super().__init__(power1, power2, usesremaining)
+    def shoot(self, direction, distance):
+        super().shoot(Unit_AcidTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_AcidShot(power2=self.power2)))
+
+class Weapon_PullTank(Weapon_Deployable_Base):
+    "Deploy a Pull-Tank that can pull targets with a projectile."
+    def __init__(self, power1=False, power2=False, usesremaining=1):
+        super().__init__(power1, power2, usesremaining)
+    def shoot(self, direction, distance):
+        if self.power2:
+            super().shoot(Unit_PullTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot(), attributes=(Attributes.FLYING,)))
+        else:
+            super().shoot(Unit_PullTank(self.game, currenthp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot()))
 ######################### Weapons that deployables shoot ################
+# Deployable weapons don't actually take power, but we still use it here because the weapons are modified based on the power of the weapon that actually deployed the tank
 class Weapon_StockCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
     "This is the weapon for the Light Tank"
     def __init__(self, power1=False, power2=False):
@@ -3127,3 +3193,53 @@ class Weapon_StockCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
             raise NullWeaponShot # pushing a square on the edge of the board in the direction of the void is pointless
     def shoot_damage(self, direction): # copypasta from TaurusCannon
         self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
+
+class Weapon_ShieldShot(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base):
+    "ShieldTank weapon. Shields a single tile."
+    def __init__(self, power1=False, power2=False):
+        if power2:
+            self.shoot = self.shoot_projectile
+    def shoot(self, direction):
+        try:
+            if not self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)].applyShield(): # if a unit didn't get shielded
+                raise NullWeaponShot # useless shot
+        except KeyError: # board[False]
+            raise NullWeaponShot # shot went off the board
+    def shoot_projectile(self, direction):
+        try:
+            self.game.board[self._getSquareOfUnitInDirection(direction, edgeok=False)].applyShield()
+        except KeyError: # board[False]
+            raise NullWeaponShot
+
+class Weapon_AcidShot(Weapon_AcidGun_Base):
+    "AcidTank weapon. Fire a projectile that applies ACID to a single tile."
+    def __init__(self, power1=False, power2=False):
+        if power2:
+            self.shoot = self.shoot_push
+    def shoot(self, direction):
+        super().shoot(direction, False) # no push
+    def shoot_push(self, direction):
+        super().shoot(direction, True)  # yes push
+
+Weapon_PullShot = Weapon_AttractionPulse # PullShot is literally the same weapon as AttractionPulse lol
+########################### Passives #########################
+# TODO :(
+########################### Special Mech Weapons #########################
+class Weapon_Repair(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base):
+    "The default repair action/weapon that every mech starts with."
+    def shoot(self):
+        self.game.board[self.wieldingunit.square].repair(1)
+
+class Weapon_FrenziedRepair(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base, Weapon_PushAdjacent_Base):
+    "The repair action/weapon that you get when you have Harold as the pilot."
+    def shoot(self):
+        self.game.board[self.wieldingunit.square].repair(1)
+        self._pushAdjacent(self.wieldingunit.square)
+
+class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_Punch_Base):
+    "This is the weapon that replaces repair when Kazaakplethkilik is your pilot. Damage and push an adjacent tile. Escape from Ice."
+    def __init__(self, power1=False, power2=False): # power is ignored
+        self.damage = 2
+    def shoot(self, direction):
+        super().shoot_punch(direction)
+        self.wieldingunit.removeEffect(Effects.ICE)

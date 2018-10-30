@@ -42,7 +42,7 @@ def t_BumpDamage():
     g = Game()
     assert g.board[(1, 1)].effects == set()
     g.board[(1, 1)].createUnitHere(Unit_Blobber(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Beetle(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaBeetle(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(2, 1)].unit.currenthp == 5
     g.board[(2, 1)].push(Direction.LEFT)
@@ -56,7 +56,7 @@ def t_BumpDamageOnForestNoFire():
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Blobber(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Beetle(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaBeetle(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -216,7 +216,7 @@ def t_WaterTilePutsOutUnitFire():
     "A ground unit that is on fire that moves into a water tile is no longer on fire."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
-    g.board[(2, 1)].createUnitHere(Unit_Beetle_Leader(g)) # massive unit on the bottom next to the water tile
+    g.board[(2, 1)].createUnitHere(Unit_BeetleLeader(g)) # massive unit on the bottom next to the water tile
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(2, 1)].unit.effects == set()
     g.board[(2, 1)].applyFire()
@@ -326,7 +326,7 @@ def t_LavaSetsMassiveOnFire():
     "Massive units that go into lava catch on fire."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Lava(g))
-    g.board[(1, 2)].createUnitHere(Unit_Beetle_Leader(g))
+    g.board[(1, 2)].createUnitHere(Unit_BeetleLeader(g))
     assert g.board[(1, 1)].effects == {Effects.FIRE, Effects.SUBMERGED}
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
@@ -340,7 +340,7 @@ def t_UnitTakesAcidFromTile():
     "When you step on an acid tile, it becomes a regular tile. the first unit that steps there takes acid away."
     g = Game()
     g.board[(1, 1)].applyAcid()
-    g.board[(1, 2)].createUnitHere(Unit_Beetle_Leader(g))
+    g.board[(1, 2)].createUnitHere(Unit_BeetleLeader(g))
     assert g.board[(1, 1)].effects == {Effects.ACID}
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
@@ -353,7 +353,7 @@ def t_UnitTakesAcidFromTile():
 def t_UnitLeavesAcidWhenKilled():
     "When a unit with acid dies, it leaves behind an acid pool."
     g = Game()
-    g.board[(1, 2)].createUnitHere(Unit_Beetle_Leader(g))
+    g.board[(1, 2)].createUnitHere(Unit_BeetleLeader(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
@@ -379,7 +379,7 @@ def t_IceGroundUnitDiesInChasm():
     "A frozen unit dies in a chasm."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Chasm(g))
-    g.board[(1, 2)].createUnitHere(Unit_Beetle_Leader(g))
+    g.board[(1, 2)].createUnitHere(Unit_BeetleLeader(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
@@ -484,7 +484,7 @@ def t_MassiveGroundUnitBringsAcidIntoWater():
     "a massive ground unit with acid is pushed into water: tile becomes an acid water tile and the unit survives. It then walks out and still has acid."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
-    g.board[(2, 1)].createUnitHere(Unit_Large_Goo(g))
+    g.board[(2, 1)].createUnitHere(Unit_LargeGoo(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(2, 1)].unit.attributes == {Attributes.MASSIVE}
@@ -1120,7 +1120,7 @@ def t_TeleporterSwaps2Units():
     assert g.board[(8, 8)].effects == set()
     assert g.board[(2, 1)].unit == None
     assert g.board[(8, 8)].unit.type == 'scarab' # unit is on far teleporter
-    g.board[(1, 1)].createUnitHere(Unit_Hornet_Leader(g)) # they instantly swap
+    g.board[(1, 1)].createUnitHere(Unit_HornetLeader(g)) # they instantly swap
     g.flushHurt()
     assert g.board[(1, 1)].unit.type == 'scarab' # is hornetleader
     assert g.board[(8, 8)].unit.type == 'hornetleader'
@@ -1306,7 +1306,7 @@ def t_ShieldedUnitGetsAcidFromWater():
     "if a non-flying shielded unit goes into acid water, it gets acid!"
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
-    g.board[(2, 1)].createUnitHere(Unit_Scorpion_Leader(g))
+    g.board[(2, 1)].createUnitHere(Unit_ScorpionLeader(g))
     g.board[(1, 1)].applyAcid()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED}
     assert g.board[(1, 1)].unit == None
@@ -1408,7 +1408,7 @@ def t_UnitWithAcidDiesInLava():
     "Lava doesn't get acid from an acid unit dying on it."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Lava(g))
-    g.board[(1, 2)].createUnitHere(Unit_Acid_Scorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AcidScorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 2)].unit.effects == set()
     g.board[(1, 2)].applyAcid()
@@ -1616,7 +1616,7 @@ def t_TsunamiEnvironmental():
     g = Game(environeffect=Environ_Tsunami(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Blood_Psion(g))
+    g.board[(3, 1)].createUnitHere(Unit_BloodPsion(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1640,9 +1640,9 @@ def t_CataclysmEnvironmental():
     "test a cataclysm"
     g = Game(environeffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Mirror_Mech(g))
-    g.board[(2, 1)].createUnitHere(Unit_Acid_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AcidScorpion(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_Blast_Psion(g))
+    g.board[(3, 1)].createUnitHere(Unit_BlastPsion(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1666,9 +1666,9 @@ def t_FallingRockEnvironmental():
     "test falling rocks from the volcano level."
     g = Game(environeffect=Environ_FallingRock(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Unstable_Mech(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_Psion_Tyrant(g))
+    g.board[(3, 1)].createUnitHere(Unit_PsionTyrant(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1720,7 +1720,7 @@ def t_LavaFlowEnvironmental():
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Firefly(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_Acid_Hornet(g))
+    g.board[(3, 1)].createUnitHere(Unit_AcidHornet(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1744,9 +1744,9 @@ def t_VolcanicProjectileEnvironmental():
     "test volcanic projectile"
     g = Game(environeffect=Environ_VolcanicProjectile(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Firefly(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaFirefly(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_Hornet_Leader(g))
+    g.board[(3, 1)].createUnitHere(Unit_HornetLeader(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1772,7 +1772,7 @@ def t_VekEmergeEnvironmental():
     g.board[(1, 1)].createUnitHere(Unit_Siege_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Leaper(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_Scorpion_Leader(g))
+    g.board[(3, 1)].createUnitHere(Unit_ScorpionLeader(g))
     g.board[(3, 1)].applySmoke()
     g.board[(4, 1)].createUnitHere(Unit_Mech_Corpse(g))
     assert g.board[(1, 1)].effects == set()
@@ -1803,7 +1803,7 @@ def t_TsunamiEnvironmentalReplaceTile():
     g = Game(environeffect=Environ_Tsunami({(1, 1), (2, 1), (3, 1)}))
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Blood_Psion(g))
+    g.board[(3, 1)].createUnitHere(Unit_BloodPsion(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1833,8 +1833,8 @@ def t_ConveyorBeltsEnviron():
     g = Game(environeffect=Environ_ConveyorBelts({(1, x): Direction.UP for x in range(1, 9)})) # all tiles against the left border pushing up
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g))
     g.board[(1, 2)].createUnitHere(Unit_Beetle(g))
-    g.board[(1, 7)].createUnitHere(Unit_Spider_Leader(g))
-    g.board[(1, 8)].createUnitHere(Unit_Blood_Psion(g))
+    g.board[(1, 7)].createUnitHere(Unit_SpiderLeader(g))
+    g.board[(1, 8)].createUnitHere(Unit_BloodPsion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(1, 2)].unit.currenthp == 4
     assert g.board[(1, 7)].unit.currenthp == 6
@@ -2099,13 +2099,13 @@ def t_WeaponElectricWhipLowPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Lightning_Mech(g, weapon1=Weapon_ElectricWhip()))
     for x in range(2, 7): # spider bosses on x tiles 2-6
-        g.board[(x, 1)].createUnitHere(Unit_Spider_Leader(g))
+        g.board[(x, 1)].createUnitHere(Unit_SpiderLeader(g))
     g.board[(7, 1)].createUnitHere(Unit_Mountain(g)) # a mountain to block it
-    g.board[(8, 1)].createUnitHere(Unit_Spider_Leader(g)) # and a spider boss on the other side which should stay safe
+    g.board[(8, 1)].createUnitHere(Unit_SpiderLeader(g)) # and a spider boss on the other side which should stay safe
     for y in range(2, 7):
-        g.board[(3, y)].createUnitHere(Unit_Spider_Leader(g)) # start branching vertically
+        g.board[(3, y)].createUnitHere(Unit_SpiderLeader(g)) # start branching vertically
     g.board[(3, 7)].createUnitHere(Unit_Building(g))  # a building to block it
-    g.board[(3, 8)].createUnitHere(Unit_Spider_Leader(g)) # and another spider boss on the other side which should also stay safe
+    g.board[(3, 8)].createUnitHere(Unit_SpiderLeader(g)) # and another spider boss on the other side which should also stay safe
     assert g.board[(1, 1)].unit.currenthp == 3 # lightning mech
     assert g.board[(2, 1)].unit.currenthp == 6 # spider bosses
     assert g.board[(3, 1)].unit.currenthp == 6
@@ -2144,13 +2144,13 @@ def t_WeaponElectricWhipBuildingChainHighPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Lightning_Mech(g, weapon1=Weapon_ElectricWhip(power1=True)))
     for x in range(2, 7): # spider bosses on x tiles 2-6
-        g.board[(x, 1)].createUnitHere(Unit_Spider_Leader(g))
+        g.board[(x, 1)].createUnitHere(Unit_SpiderLeader(g))
     g.board[(7, 1)].createUnitHere(Unit_Mountain(g)) # a mountain to block it
-    g.board[(8, 1)].createUnitHere(Unit_Spider_Leader(g)) # and a spider boss on the other side which should stay safe
+    g.board[(8, 1)].createUnitHere(Unit_SpiderLeader(g)) # and a spider boss on the other side which should stay safe
     for y in range(2, 7):
-        g.board[(3, y)].createUnitHere(Unit_Spider_Leader(g)) # start branching vertically
+        g.board[(3, y)].createUnitHere(Unit_SpiderLeader(g)) # start branching vertically
     g.board[(3, 7)].createUnitHere(Unit_Building(g))  # a building to block it
-    g.board[(3, 8)].createUnitHere(Unit_Spider_Leader(g)) # and another spider boss on the other side which should also stay safe
+    g.board[(3, 8)].createUnitHere(Unit_SpiderLeader(g)) # and another spider boss on the other side which should also stay safe
     assert g.board[(1, 1)].unit.currenthp == 3 # lightning mech
     assert g.board[(2, 1)].unit.currenthp == 6 # spider bosses
     assert g.board[(3, 1)].unit.currenthp == 6
@@ -2188,10 +2188,10 @@ def t_WeaponElectricWhipDoesntChainInCicle():
     "Shoot the electric whip with the power2 extra damage and make sure we don't loop through the weaponwielder"
     g = Game()
     g.board[(2, 2)].createUnitHere(Unit_Lightning_Mech(g, weapon1=Weapon_ElectricWhip(power2=True)))
-    g.board[(1, 1)].createUnitHere(Unit_Spider_Leader(g)) # shocked spider
-    g.board[(2, 1)].createUnitHere(Unit_Spider_Leader(g))  # shocked spider
-    g.board[(1, 2)].createUnitHere(Unit_Spider_Leader(g))  # shocked spider
-    g.board[(2, 3)].createUnitHere(Unit_Spider_Leader(g))  # undamaged spider
+    g.board[(1, 1)].createUnitHere(Unit_SpiderLeader(g)) # shocked spider
+    g.board[(2, 1)].createUnitHere(Unit_SpiderLeader(g))  # shocked spider
+    g.board[(1, 2)].createUnitHere(Unit_SpiderLeader(g))  # shocked spider
+    g.board[(2, 3)].createUnitHere(Unit_SpiderLeader(g))  # undamaged spider
     assert g.board[(2, 2)].unit.currenthp == 3 # lightning mech
     assert g.board[(1, 1)].unit.currenthp == 6 # spider bosses
     assert g.board[(2, 1)].unit.currenthp == 6
@@ -2210,10 +2210,10 @@ def t_WeaponArtemisArtilleryDefault():
     g = Game()
     g.board[(2, 2)].createUnitHere(Unit_Artillery_Mech(g, weapon1=Weapon_ArtemisArtillery()))
     g.board[(3, 2)].createUnitHere(Unit_Mountain(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g)) # this one is actually against the wall and cannot be pushed
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g)) # this one is actually against the wall and cannot be pushed
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
     assert g.board[(2, 2)].unit.currenthp == 2
     assert g.board[(3, 2)].unit.currenthp == 1
     assert g.board[(4, 2)].unit.currenthp == 5
@@ -2241,9 +2241,9 @@ def t_WeaponArtemisArtilleryPower1():
     g.board[(2, 2)].createUnitHere(Unit_Artillery_Mech(g, weapon1=Weapon_ArtemisArtillery(power1=True)))
     g.board[(3, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Building(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g)) # this one is actually against the wall and cannot be pushed
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g)) # this one is actually against the wall and cannot be pushed
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
     assert g.board[(2, 2)].unit.currenthp == 2
     assert g.board[(3, 2)].unit.currenthp == 1
     assert g.board[(4, 2)].unit.currenthp == 1 # the building
@@ -2270,10 +2270,10 @@ def t_WeaponArtemisArtilleryPower2():
     g = Game()
     g.board[(2, 2)].createUnitHere(Unit_Artillery_Mech(g, weapon1=Weapon_ArtemisArtillery(power2=True)))
     g.board[(3, 2)].createUnitHere(Unit_Mountain(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g)) # this one is actually against the wall and cannot be pushed
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g)) # this one is actually against the wall and cannot be pushed
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
     assert g.board[(2, 2)].unit.currenthp == 2
     assert g.board[(3, 2)].unit.currenthp == 1
     assert g.board[(4, 2)].unit.currenthp == 5
@@ -2301,9 +2301,9 @@ def t_WeaponArtemisArtilleryFullPower():
     g.board[(2, 2)].createUnitHere(Unit_Artillery_Mech(g, weapon1=Weapon_ArtemisArtillery(power1=True)))
     g.board[(3, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(4, 2)].createUnitHere(Unit_Building(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g)) # this one is actually against the wall and cannot be pushed
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g)) # this one is actually against the wall and cannot be pushed
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g)) # an extra vek added above the one that gets hit to make sure he's pushed
     assert g.board[(2, 2)].unit.currenthp == 2
     assert g.board[(3, 2)].unit.currenthp == 1
     assert g.board[(4, 2)].unit.currenthp == 1 # the building
@@ -2329,7 +2329,7 @@ def t_WeaponBurstBeamNoPower():
     "Do the weapon demo with default power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam()))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2350,10 +2350,10 @@ def t_WeaponBurstBeamAllyPower():
     "Do the weapon demo with ally immune powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(2, 1)].unit == None
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2374,10 +2374,10 @@ def t_WeaponBurstBeamShieldedAllyPower():
     "If you shield a beam ally with allies immune and then shoot it, the shield remains."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g, effects={Effects.SHIELD}))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(2, 1)].unit == None
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2399,7 +2399,7 @@ def t_WeaponBurstBeamDamagePower():
     "Do the weapon demo with extra damage powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2420,7 +2420,7 @@ def t_WeaponBurstBeamFullPower():
     "Do the weapon demo with ally immune and extra damage powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2443,7 +2443,7 @@ def t_WeaponBurstBeamFullPower():
 #     g.board[(3, 2)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=False, power2=False)))
 #     g.board[(4, 2)].createUnitHere(Unit_Firefly(g))
 #     g.board[(5, 2)].createUnitHere(Unit_Defense_Mech(g))
-#     g.board[(5, 2)].createUnitHere(Unit_Blast_Psion(g))
+#     g.board[(5, 2)].createUnitHere(Unit_BlastPsion(g))
 #     assert g.board[(1, 1)].unit.currenthp == 3
 #     assert g.board[(2, 1)].unit == None
 #     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2480,7 +2480,7 @@ def t_WeaponRammingEnginesDefault():
     "Do the weapon demo with no powered upgrades"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -2494,7 +2494,7 @@ def t_WeaponRammingEnginesPower1():
     "Do the weapon demo with the first upgrade powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -2508,7 +2508,7 @@ def t_WeaponRammingEnginesPower2():
     "Do the weapon demo with the second upgrade powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -2522,7 +2522,7 @@ def t_WeaponRammingEnginesFullPower():
     "Do the weapon demo with the both upgrades powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -2536,7 +2536,7 @@ def t_WeaponRammingEnginesTileDamage():
     "Do the weapon demo with no powered upgrades but on sand tiles to make sure they get damaged"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(3, 1)].replaceTile(Tile_Sand(g))
@@ -2560,7 +2560,7 @@ def t_WeaponRammingEnginesShieldedTileDamage():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     g.board[(1, 1)].applyShield()
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
     g.board[(3, 1)].replaceTile(Tile_Sand(g))
@@ -2583,7 +2583,7 @@ def t_WeaponRammingEnginesIntoChasm():
     "Charge but stop at a chasm and die in it"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].replaceTile(Tile_Chasm(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2601,7 +2601,7 @@ def t_WeaponRammingEnginesOverChasm():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     g.board[(2, 1)].replaceTile(Tile_Chasm(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(4, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].effects == set() # normal chasm tile
@@ -2619,7 +2619,7 @@ def t_WeaponRammingEnginesShield():
     "A shielded unit that uses ramming engines takes no self-damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=True, power2=True), effects={Effects.SHIELD}))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2683,7 +2683,7 @@ def t_WeaponTaurusCannonDefaultPower():
     "Shoot the Taurus Cannon with default power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Cannon_Mech(g, weapon1=Weapon_TaurusCannon()))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2704,7 +2704,7 @@ def t_WeaponTaurusCannonDefaultPower1():
     "Shoot the Taurus Cannon with power1"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Cannon_Mech(g, weapon1=Weapon_TaurusCannon(power1=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2725,7 +2725,7 @@ def t_WeaponTaurusCannonPower2():
     "Shoot the Taurus Cannon with power2"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Cannon_Mech(g, weapon1=Weapon_TaurusCannon(power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2746,7 +2746,7 @@ def t_WeaponTaurusCannonFullPower():
     "Shoot the Taurus Cannon with full power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Cannon_Mech(g, weapon1=Weapon_TaurusCannon(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 3
@@ -2784,7 +2784,7 @@ def t_WeaponAttractionPulseDefault():
     "Shoot the Attraction Pulse at a unit with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_AttractionPulse(power1=False, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -2805,7 +2805,7 @@ def t_WeaponAttractionPulseFullPower():
     "Shoot the Attraction Pulse at a unit with full power. IRL this gun takes no power, just making sure this doesn't break."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_AttractionPulse(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -2826,7 +2826,7 @@ def t_WeaponAttractionPulseBump():
     "Attraction pulse does not set fire to forest tile if you pull another unit into you for bump damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_AttractionPulse(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     for x in 1, 2:
         g.board[(x, 1)].replaceTile(Tile_Forest(g))
     assert g.board[(1, 1)].effects == set()
@@ -2848,15 +2848,15 @@ def t_WeaponShieldProjectorDefaultPower():
     "Maiden test of the shield projector with no upgrade power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 6):
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
@@ -2880,15 +2880,15 @@ def t_WeaponShieldProjectorPower2():
     "Shield Projector with power2"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True))) # power1 is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 6):
         for y in range(1, 3):
             assert g.board[(x, y)].unit.effects == set()
@@ -2923,7 +2923,7 @@ def t_WeaponViceFistNoPower():
     "Test the Vice Fist with no power"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Judo_Mech(g, weapon1=Weapon_ViceFist(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2937,7 +2937,7 @@ def t_WeaponViceFistPower1():
     "Test the Vice Fist with power1"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Judo_Mech(g, weapon1=Weapon_ViceFist(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2951,7 +2951,7 @@ def t_WeaponViceFistPower2():
     "Test the Vice Fist with power2"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Judo_Mech(g, weapon1=Weapon_ViceFist(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit == None
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -2995,8 +2995,8 @@ def t_WeaponClusterArtilleryNoPower():
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_Siege_Mech(g, weapon1=Weapon_ClusterArtillery(power1=False, power2=False)))
     g.board[(3, 3)].createUnitHere(Unit_Building(g))
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 4)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1 # building
     assert g.board[(4, 3)].unit.currenthp == 5
@@ -3018,7 +3018,7 @@ def t_WeaponClusterArtilleryPower1():
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_Siege_Mech(g, weapon1=Weapon_ClusterArtillery(power1=True, power2=False)))
     g.board[(3, 3)].createUnitHere(Unit_Building(g))
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 4)].createUnitHere(Unit_Building(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1 # building
@@ -3040,7 +3040,7 @@ def t_WeaponClusterArtilleryFullPower():
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_Siege_Mech(g, weapon1=Weapon_ClusterArtillery(power1=True, power2=True)))
     g.board[(3, 3)].createUnitHere(Unit_Building(g))
-    g.board[(4, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 3)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 4)].createUnitHere(Unit_Building(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 3)].unit.currenthp == 1 # building
@@ -3061,7 +3061,7 @@ def t_WeaponGravWellNormal():
     "default test for grav well"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Gravity_Mech(g, weapon1=Weapon_GravWell(power1=True, power2=True))) # this weapon doesn't have power upgrades
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -3094,7 +3094,7 @@ def t_WeaponGravWellBump():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Gravity_Mech(g, weapon1=Weapon_GravWell(power1=True, power2=True))) # this weapon doesn't have power upgrades
     g.board[(2, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(2, 1)].unit.type == 'mountain'
@@ -3112,9 +3112,9 @@ def t_WeaponGravWellBump():
 def t_WeaponJanusCannonLow():
     "Shoot the Janus cannon with no power!"
     g = Game()
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(g, weapon1=Weapon_JanusCannon(power1=False, power2=False)))  # this weapon doesn't have power upgrades
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
@@ -3136,9 +3136,9 @@ def t_WeaponJanusCannonLow():
 def t_WeaponJanusCannon1():
     "Shoot the Janus cannon with 1 power."
     g = Game()
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(g, weapon1=Weapon_JanusCannon(power1=True, power2=False)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
@@ -3160,9 +3160,9 @@ def t_WeaponJanusCannon1():
 def t_WeaponJanusCannon2():
     "Shoot the Janus cannon with power2 powered."
     g = Game()
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(g, weapon1=Weapon_JanusCannon(power1=False, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
@@ -3184,9 +3184,9 @@ def t_WeaponJanusCannon2():
 def t_WeaponJanusCannonFullPower():
     "Shoot the Janus cannon with Full power."
     g = Game()
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Mirror_Mech(g, weapon1=Weapon_JanusCannon(power1=True, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 3
     assert g.board[(5, 1)].unit.currenthp == 5
@@ -3210,7 +3210,7 @@ def t_WeaponCryoLauncher():
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
     g.board[(1, 1)].createUnitHere(Unit_Ice_Mech(g, weapon1=Weapon_CryoLauncher(power1=True, power2=True))) # this weapon doesn't use power
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(9):
@@ -3227,7 +3227,7 @@ def t_WeaponCryoLauncherShielded():
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
     g.board[(1, 1)].createUnitHere(Unit_Ice_Mech(g, weapon1=Weapon_CryoLauncher(power1=True, power2=True), effects={Effects.SHIELD})) # this weapon doesn't use power
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED}
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(9):
@@ -3243,7 +3243,7 @@ def t_WeaponAerialBombs1():
     "Shoot the AerialBombs with default power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -3256,7 +3256,7 @@ def t_WeaponAerialBombs2():
     "Shoot the AerialBombs with more damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -3269,8 +3269,8 @@ def t_WeaponAerialBombs3():
     "Shoot the AerialBombs with more range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -3285,8 +3285,8 @@ def t_WeaponAerialBombs4():
     "Shoot the AerialBombs with full power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -3302,8 +3302,8 @@ def t_WeaponAerialBombsForest():
     g = Game()
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -3318,9 +3318,9 @@ def t_WeaponAerialBombsGen1():
     "Test the Aerial Bombs shot generator."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(power1=False, power2=True))) # with range
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     assert next(gs) == (Direction.UP, 1)
     assert next(gs) == (Direction.UP, 2)
@@ -3337,7 +3337,7 @@ def t_WeaponRocketArtillery1():
     "Shoot the Rocket Artillery weapon with default power with its back against the edge."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3355,7 +3355,7 @@ def t_WeaponRocketArtillery2():
     "Shoot the Rocket Artillery weapon with 1 power with its back against the edge."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3373,7 +3373,7 @@ def t_WeaponRocketArtillery3():
     "Shoot the Rocket Artillery weapon with full power with its back against the edge."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3391,7 +3391,7 @@ def t_WeaponRocketArtillery4():
     "Shoot the Rocket Artillery weapon with full power with a tile for it to fart smoke onto"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Rocket_Mech(g, weapon1=Weapon_RocketArtillery(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3410,7 +3410,7 @@ def t_WeaponRepulse1():
     "Shoot the Repulse weapon with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
@@ -3430,7 +3430,7 @@ def t_WeaponRepulse2():
     "Shoot the Repulse weapon with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
@@ -3450,7 +3450,7 @@ def t_WeaponRepulse3():
     "Shoot the Repulse weapon with 2nd power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
@@ -3470,7 +3470,7 @@ def t_WeaponRepulse4():
     "Shoot the Repulse weapon with full power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
@@ -3490,7 +3490,7 @@ def t_WeaponRepulse5():
     "Shoot the Repulse weapon with full power and a building to get shielded. And a mountain for the vek to bump into."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 2)].createUnitHere(Unit_Building(g))
     g.board[(1, 1)].unit.weapon1.shoot()
@@ -3510,7 +3510,7 @@ def t_WeaponGrapplingHook1():
     "Shoot the grappling hook weapon at an enemy with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
@@ -3526,7 +3526,7 @@ def t_WeaponGrapplingHook2():
     "Shoot the grappling hook weapon at an enemy with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=True, power2=False))) # power2 isn't used
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt() # redundant as no units are hurt
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
@@ -3644,8 +3644,8 @@ def t_WeaponGrapplingHook9():
     """Shoot the grappling hook weapon at a unit next to us. I caught a bug where the grappling hook ignore the tile next to you and start searching for a unit on the 2nd square since it couldn't grapple something next to it."""
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Hook_Mech(g, weapon1=Weapon_GrapplingHook(power1=False, power2=False))) # power2 isn't used
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(2):
         shot = next(gs)
@@ -3661,8 +3661,8 @@ def t_WeaponRockLauncher1():
     "Shoot the Rock Launcher with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3681,8 +3681,8 @@ def t_WeaponRockLauncher2():
     "Shoot the Rock Launcher with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3701,8 +3701,8 @@ def t_WeaponRockLauncher3():
     "Shoot the Rock Launcher with full power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3722,8 +3722,8 @@ def t_WeaponRockLauncher4():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
     g.board[(3, 1)].replaceTile(Tile_Forest(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3743,7 +3743,7 @@ def t_WeaponRockLauncher5():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Boulder_Mech(g, weapon1=Weapon_RockLauncher(power1=True, power2=True)))
     g.board[(3, 1)].replaceTile(Tile_Forest(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3762,7 +3762,7 @@ def t_WeaponFlameThrower1():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=False, power2=False)))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
@@ -3778,7 +3778,7 @@ def t_WeaponFlameThrower2():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=False)))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
@@ -3794,7 +3794,7 @@ def t_WeaponFlameThrower3():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
     g.flushHurt()
     assert g.board[(1, 1)].unit.currenthp == 3  # no change for shooter
@@ -3811,7 +3811,7 @@ def t_WeaponFlameThrower4():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
     g.flushHurt()
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
@@ -3830,7 +3830,7 @@ def t_WeaponFlameThrowerMountain():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
     g.board[(2, 1)].replaceTile(Tile_Sand(g))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     try:
         g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3)
@@ -3843,7 +3843,7 @@ def t_WeaponFlameThrowerOffBoard():
     "Shoot the Flame Thrower with max range/power off the board."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
-    g.board[(1, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(1, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     try:
         g.board[(2, 1)].unit.weapon1.shoot(Direction.LEFT, 3)
@@ -3856,8 +3856,8 @@ def t_WeaponVulcanArtillery1():
     "Shoot the Vulcan Artillery with low power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3876,8 +3876,8 @@ def t_WeaponVulcanArtillery2():
     "Shoot the Vulcan Artillery with backburn power up against a wall."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3896,8 +3896,8 @@ def t_WeaponVulcanArtillery3():
     "Shoot the Vulcan Artillery with backburn power NOT up against a wall."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3917,8 +3917,8 @@ def t_WeaponVulcanArtillery4():
     "Shoot the Vulcan Artillery withOUT backburn power NOT up against a wall."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3938,8 +3938,8 @@ def t_WeaponVulcanArtillery5():
     "Shoot the Vulcan Artillery withOUT backburn power NOT up against a wall and WITH damage power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=False, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3959,8 +3959,8 @@ def t_WeaponVulcanArtillery6():
     "Shoot the Vulcan Artillery with backburn power NOT up against a wall and WITH damage power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -3981,7 +3981,7 @@ def t_WeaponVulcanArtillery7():
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=True)))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -4002,7 +4002,7 @@ def t_WeaponVulcanArtillery8():
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Meteor_Mech(g, weapon1=Weapon_VulcanArtillery(power1=True, power2=False)))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(4, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for i in range(7):
         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
@@ -4035,7 +4035,7 @@ def t_WeaponTeleporter2():
     "Shoot the teleporter with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt() # no units actually hurt
     assert g.board[(2, 1)].unit.currenthp == 2  # no change for shooter who is now here
@@ -4050,7 +4050,7 @@ def t_WeaponTeleporter3():
     "Shoot the teleporter with full power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=True, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 4)
     g.flushHurt() # no units actually hurt
     assert g.board[(5, 1)].unit.currenthp == 2  # no change for shooter who is now here
@@ -4065,7 +4065,7 @@ def t_WeaponTeleporterOffBoard():
     "Shoot the teleporter with some power off the board"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Swap_Mech(g, weapon1=Weapon_Teleporter(power1=True, power2=False)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     try:
         g.board[(1, 1)].unit.weapon1.shoot(Direction.LEFT, 2)
     except NullWeaponShot:
@@ -4077,8 +4077,8 @@ def t_WeaponHydraulicLegsLowPower():
     "Shoot the Hydraulic Legs with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
@@ -4107,8 +4107,8 @@ def t_WeaponHydraulicLegsPower1():
     "Shoot the Hydraulic Legs with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
@@ -4137,8 +4137,8 @@ def t_WeaponHydraulicLegsPower2():
     "Shoot the Hydraulic Legs with second power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
@@ -4167,8 +4167,8 @@ def t_WeaponHydraulicLegsMaxPower():
     "Shoot the Hydraulic Legs with maximum power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].replaceTile(Tile_Forest(g))
@@ -4197,8 +4197,8 @@ def t_WeaponHydraulicLegsMaxPowerIntoAcid():
     "when hydraulic legs leaps onto an acid tile, he takes the acid first and then takes double damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Leap_Mech(g, weapon1=Weapon_HydraulicLegs(power1=True, power2=True), currenthp=10))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     for x in range(1, 5):
         for y in range(1, 4):
             g.board[(x, y)].applyAcid()
@@ -4231,7 +4231,7 @@ def t_WeaponUnstableCannonLowPower():
     for x in range(1, 5):
         g.board[(x, 1)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 3
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
@@ -4250,7 +4250,7 @@ def t_WeaponUnstableCannonPower1():
     "Shoot the Unstable Cannon with first power"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4268,7 +4268,7 @@ def t_WeaponUnstableCannonPower2():
     "Shoot the Unstable Cannon with second power"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4286,7 +4286,7 @@ def t_WeaponUnstableCannonMaxPower():
     "Shoot the Unstable Cannon with max power"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4305,7 +4305,7 @@ def t_WeaponUnstableCannonWielderForest():
     g = Game()
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].createUnitHere(Unit_Unstable_Mech(g, weapon1=Weapon_UnstableCannon(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4323,7 +4323,7 @@ def t_WeaponAcidProjector():
     "Shoot the acid projector at a unit."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt() # not needed here, nothing got hurt.
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4339,7 +4339,7 @@ def t_WeaponAcidProjectorShielded():
     "Shoot the acid projector at a shielded unit."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.SHIELD}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.SHIELD}))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt() # not needed here, nothing got hurt.
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4355,7 +4355,7 @@ def t_WeaponAcidProjectorBumpDeath():
     "Shoot the acid projector at a unit that dies to bump damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=1))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, currenthp=1))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
@@ -4373,7 +4373,7 @@ def t_WeaponAcidProjectorOutOfWater():
     g = Game()
     g.board[(2, 1)].replaceTile(Tile_Water(g))
     g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, attributes={Attributes.MASSIVE})) # lol massive alpha scorpion
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, attributes={Attributes.MASSIVE})) # lol massive alpha scorpion
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].effects == set() # no tile effects
@@ -4388,7 +4388,7 @@ def t_WeaponRammingSpeedDefault():
     "Fire the RammingSpeed weapon with no powered upgrades"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -4402,7 +4402,7 @@ def t_WeaponRammingSpeedPower1():
     "Fire the RammingSpeed weapon with the first upgrade powered"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -4417,7 +4417,7 @@ def t_WeaponRammingSpeedPower2():
     "Fire the RammingSpeed weapon with the second upgrade powered"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -4431,7 +4431,7 @@ def t_WeaponRammingSpeedFullPower():
     "Fire the RammingSpeed weapon with the both upgrades powered"
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_RammingSpeed(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(2, 1)].unit.currenthp == 3
     assert g.board[(3, 1)].unit.currenthp == 5
     g.board[(2, 1)].unit.weapon1.shoot(Direction.RIGHT)
@@ -4447,9 +4447,9 @@ def t_WeaponNeedleShotNoPower():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -4473,9 +4473,9 @@ def t_WeaponNeedleShot1Power():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -4499,9 +4499,9 @@ def t_WeaponNeedleShot2Power():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -4525,9 +4525,9 @@ def t_WeaponNeedleShotFullPower():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_NeedleShot(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -4552,7 +4552,7 @@ def t_WeaponExplosiveGooNoPower():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=False)))
     gs = g.board[(1, 3)].unit.weapon1.genShots()
@@ -4593,7 +4593,7 @@ def t_WeaponExplosiveGooPower2():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=False, power2=True)))
     gs = g.board[(1, 3)].unit.weapon1.genShots()
@@ -4634,7 +4634,7 @@ def t_WeaponExplosiveGooPower1():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=True, power2=False)))
     gs = g.board[(1, 3)].unit.weapon1.genShots()
@@ -4685,7 +4685,7 @@ def t_WeaponExplosiveGooFullPower():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(1, 3)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ExplosiveGoo(power1=True, power2=True)))
     gs = g.board[(1, 3)].unit.weapon1.genShots()
@@ -4735,7 +4735,7 @@ def t_WeaponSidewinderFistNoPower():
     "Fire Sidewinder fist with no power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SidewinderFist(power1=False, power2=False)))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4750,7 +4750,7 @@ def t_WeaponSidewinderFistPower1():
     "Fire Sidewinder fist with 1 power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SidewinderFist(power1=True, power2=False)))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4765,7 +4765,7 @@ def t_WeaponSidewinderFistPower2():
     "Fire Sidewinder fist with the other 1 power (no difference)."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SidewinderFist(power1=False, power2=True)))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4780,7 +4780,7 @@ def t_WeaponSidewinderFistFullPower():
     "Fire Sidewinder fist with the full power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SidewinderFist(power1=True, power2=True)))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4795,7 +4795,7 @@ def t_WeaponSidewinderFistFullPowerDash():
     "Fire Sidewinder fist with the full power at a different angle and with the dash."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SidewinderFist(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(4):
         shot = next(gs)
@@ -4811,7 +4811,7 @@ def t_WeaponRocketFistNoPower():
     "Fire RocketFist with the no power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RocketFist(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(2):
         shot = next(gs)
@@ -4828,7 +4828,7 @@ def t_WeaponRocketFist2ndPower():
     "Fire RocketFist with extra damage powered."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RocketFist(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(2):
         shot = next(gs)
@@ -4845,7 +4845,7 @@ def t_WeaponRocketFist1stPower():
     "Fire RocketFist with rocket projectile powered."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RocketFist(power1=True, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(2):
         shot = next(gs)
@@ -4862,7 +4862,7 @@ def t_WeaponRocketFistFullPower():
     "Fire RocketFist with full power."
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RocketFist(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(2, 1)].unit.weapon1.genShots()
     for r in range(2):
         shot = next(gs)
@@ -4881,7 +4881,7 @@ def t_WeaponExplosiveVentsNoPower():
     g.board[(1, 2)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ExplosiveVents(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4902,7 +4902,7 @@ def t_WeaponExplosiveVents1Power():
     g.board[(1, 2)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ExplosiveVents(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4923,7 +4923,7 @@ def t_WeaponExplosiveVents2ndPower():
     g.board[(1, 2)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ExplosiveVents(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4944,7 +4944,7 @@ def t_WeaponExplosiveVentsMaxPower():
     g.board[(1, 2)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].replaceTile(Tile_Sand(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ExplosiveVents(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for r in range(1):
         shot = next(gs)
@@ -4964,9 +4964,9 @@ def t_WeaponPrimeSpearNoPower():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -4993,9 +4993,9 @@ def t_WeaponPrimeSpear1Power():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5022,9 +5022,9 @@ def t_WeaponPrimeSpear2Power():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5052,9 +5052,9 @@ def t_WeaponPrimeSpearFullPower():
     g = Game()
     g.board[(4, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5081,7 +5081,7 @@ def t_WeaponPrimeSpearAcidWeirdness1():
     "Fire the PrimeSpear weapon and test the weirdness that happens when the unit that gets acid dies from this attack."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=2))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, currenthp=2))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.effects == set() # no acid on unit
@@ -5128,7 +5128,7 @@ def t_WeaponPrimeSpearAcidWeirdness3():
     "Fire the PrimeSpear weapon and test the non-weirdness that happens when a unit dies from this attack but doesn't move tiles."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PrimeSpear(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Beetle(g, currenthp=1))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaBeetle(g, currenthp=1))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
@@ -5154,8 +5154,8 @@ def t_WeaponVortexFistNoPower():
     "Fire the VortexFist weapon with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=False, power2=False), currenthp=5))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5180,8 +5180,8 @@ def t_WeaponVortexFist1Power():
     "Fire the VortexFist weapon with 1 power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=True, power2=False), currenthp=5))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5206,8 +5206,8 @@ def t_WeaponVortexFist2Power():
     "Fire the VortexFist weapon with 2nd power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=False, power2=True), currenthp=5))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5232,8 +5232,8 @@ def t_WeaponVortexFistFullPower():
     "Fire the VortexFist weapon with full power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_VortexFist(power1=True, power2=True), currenthp=5))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5 # gave it more health so it doesn't die
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5258,8 +5258,8 @@ def t_WeaponTitaniteBladeNoPower():
     "Fire the TitaniteBlade weapon with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5284,8 +5284,8 @@ def t_WeaponTitaniteBlade1Power():
     "Fire the TitaniteBlade weapon with 1 power. This has no effect on the outcome."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5310,8 +5310,8 @@ def t_WeaponTitaniteBladeExtraUse():
     "Fire the TitaniteBlade weapon with 1 power and an extra use given."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=True, power2=False, usesremaining=2)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5337,8 +5337,8 @@ def t_WeaponTitaniteBlade2Power():
     "Fire the TitaniteBlade weapon with extra damage powered."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.effects == set() # no effects on unit
@@ -5363,9 +5363,9 @@ def t_WeaponTitaniteBlade2Power2():
     "Fire the TitaniteBlade weapon with extra damage powered powered and hit 3 vek at the same time."
     g = Game()
     g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 3)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 2)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 2)].unit.currenthp == 5
@@ -5385,8 +5385,8 @@ def t_WeaponMercuryFistNoPower():
     "Fire the MercuryFist weapon with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MercuryFist(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 2)].unit.currenthp == 5
@@ -5404,8 +5404,8 @@ def t_WeaponMercuryFist2Power():
     "Fire the MercuryFist weapon with extra damage powered."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MercuryFist(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(2, 2)].unit.currenthp == 5
@@ -5424,7 +5424,7 @@ def t_WeaponPhaseCannonNoPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PhaseCannon(power1=False, power2=False)))
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5463,7 +5463,7 @@ def t_WeaponPhaseCannon1Power():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PhaseCannon(power1=True, power2=False)))
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5483,7 +5483,7 @@ def t_WeaponPhaseCannon2Power():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PhaseCannon(power1=False, power2=True)))
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5503,7 +5503,7 @@ def t_WeaponPhaseCannonMaxPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PhaseCannon(power1=True, power2=True)))
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5523,7 +5523,7 @@ def t_WeaponDefShrapnel1():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_DefShrapnel(power1=False, power2=False))) # power is ignored for this weapon
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5542,7 +5542,7 @@ def t_WeaponRailCannonNoPower():
     "Fire the RailCannon weapon with no power with the enemy at maximum effective range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=False, power2=False)))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(6, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5558,7 +5558,7 @@ def t_WeaponRailCannon1Power():
     "Fire the RailCannon weapon with 1 power with the enemy at maximum effective range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=True, power2=False)))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(6, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5574,7 +5574,7 @@ def t_WeaponRailCannon2Power():
     "Fire the RailCannon weapon with 2nd power with the enemy at maximum effective range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=False, power2=True)))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(6, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5590,7 +5590,7 @@ def t_WeaponRailCannonMaxPower():
     "Fire the RailCannon weapon with max power with the enemy at maximum effective range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=True, power2=True)))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(6, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5606,7 +5606,7 @@ def t_WeaponRailCannonMaxPowerFar():
     "Fire the RailCannon weapon with max power with the enemy at maximum range to make sure it doesn't take extra damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=True, power2=True)))
-    g.board[(7, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(7, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(7, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5622,7 +5622,7 @@ def t_WeaponRailCannonMaxPowerClose():
     "Fire the RailCannon weapon with max power with the enemy at minimum range to make sure it doesn't take ANY damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RailCannon(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5653,8 +5653,8 @@ def t_WeaponShockCannonNoPower():
     "Fire the ShockCannon with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShockCannon(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5672,8 +5672,8 @@ def t_WeaponShockCannon1Power():
     "Fire the ShockCannon with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShockCannon(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5691,8 +5691,8 @@ def t_WeaponShockCannon2Power():
     "Fire the ShockCannon with 2 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShockCannon(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5710,8 +5710,8 @@ def t_WeaponShockCannonMaxPower():
     "Fire the ShockCannon with max power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShockCannon(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -5729,7 +5729,7 @@ def t_WeaponShockCannonEdge():
     "Fire the ShockCannon and hit the edge"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShockCannon(power1=True, power2=True)))
-    g.board[(8, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(8, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(8, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5745,8 +5745,8 @@ def t_WeaponHeavyRocketNoPower():
     "Fire the HeavyRocket with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyRocket(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -5764,8 +5764,8 @@ def t_WeaponHeavyRocket2Power():
     "Fire the HeavyRocket with extra damage powered."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyRocket(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g, currenthp=6))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g, currenthp=6))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 6
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -5783,9 +5783,9 @@ def t_WeaponShrapnelCannonMaxPower():
     "Fire the ShrapnelCannon with extra damage powered."
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShrapnelCannon(power1=True, power2=True)))
-    g.board[(3, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 4)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 4)].unit.currenthp == 5
     assert g.board[(3, 3)].unit.currenthp == 5
@@ -5807,9 +5807,9 @@ def t_WeaponShrapnelCannonNoPower():
     "Fire the ShrapnelCannon with no power."
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShrapnelCannon(power1=False, power2=False)))
-    g.board[(3, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 4)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     assert g.board[(3, 4)].unit.currenthp == 5
     assert g.board[(3, 3)].unit.currenthp == 5
@@ -5831,7 +5831,7 @@ def t_WeaponAstraBombsNoPower():
     "Fire the AstraBombs weapon with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5847,7 +5847,7 @@ def t_WeaponAstraBombsMaxPower():
     "Fire the AstraBombs weapon with Max power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5863,12 +5863,12 @@ def t_WeaponAstraBombsMaxPowerAndRange():
     "Fire the AstraBombs weapon with Max power and hitting as many tiles as possible."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(6, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(7, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(6, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(7, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5889,7 +5889,7 @@ def t_WeaponAstraBombsOccupiedTarget():
     "Fire the AstraBombs weapon with the destination spot occupied."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AstraBombs(power1=True, power2=True))) # power1 is ignored
-    g.board[(8, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(8, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(8, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -5907,7 +5907,7 @@ def t_WeaponHermesEngines1():
     g = Game()
     g.board[(1, 3)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HermesEngines(power1=True, power2=True))) # power1 and power2 is ignored
     for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2), (8, 3):
-        g.board[sq].createUnitHere(Unit_Alpha_Scorpion(g))
+        g.board[sq].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 3)].unit.currenthp == 2
     for sq in (1, 2), (2, 4), (3, 2), (4, 4), (5, 2), (6, 4), (7, 2), (8, 3):
         assert g.board[sq].unit.currenthp == 5
@@ -5927,8 +5927,8 @@ def t_WeaponMicroArtilleryNoPower():
     "Fire the MicroArtillery weapon with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -5947,8 +5947,8 @@ def t_WeaponMicroArtilleryPower2():
     "Fire the MicroArtillery weapon with extra damage powered."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -5967,8 +5967,8 @@ def t_WeaponMicroArtilleryPower1():
     "Fire the MicroArtillery weapon with extra tiles powered."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -5988,8 +5988,8 @@ def t_WeaponMicroArtilleryMaxPower():
     "Fire the MicroArtillery weapon with max power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_MicroArtillery(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 2)].unit.currenthp == 5
@@ -6009,8 +6009,8 @@ def t_WeaponAegonMortarNoPower():
     "Fire the AegonMortar with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=False, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
@@ -6030,8 +6030,8 @@ def t_WeaponAegonMortar1Power():
     "Fire the AegonMortar with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=False)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
@@ -6050,8 +6050,8 @@ def t_WeaponAegonMortar2Power():
     "Fire the AegonMortar with 2 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=False, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
@@ -6070,8 +6070,8 @@ def t_WeaponAegonMortarMaxPower():
     "Fire the AegonMortar with max power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=True)))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(4, 1)].unit.currenthp == 5
@@ -6090,7 +6090,7 @@ def t_WeaponAegonMortarEdge():
     "Fire the AegonMortar and hit the edge"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_AegonMortar(power1=True, power2=True)))
-    g.board[(8, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(8, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(8, 1)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -6107,9 +6107,9 @@ def t_WeaponSmokeMortar1():
     "Fire the SmokeMortar similar to the ingame demo."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SmokeMortar(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6149,9 +6149,9 @@ def t_WeaponBurningMortarNoPower():
     "Fire the BurningMortar with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_BurningMortar(power1=False, power2=False))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6178,9 +6178,9 @@ def t_WeaponBurningMortar1Power():
     "Fire the BurningMortar with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_BurningMortar(power1=True, power2=False))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6208,9 +6208,9 @@ def t_WeaponRainingDeathNoPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), currenthp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6233,9 +6233,9 @@ def t_WeaponRainingDeath1Power():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=True, power2=False), currenthp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6258,9 +6258,9 @@ def t_WeaponRainingDeath2Power():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=True), currenthp=5, maxhp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6283,9 +6283,9 @@ def t_WeaponRainingDeathMaxPower():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=True, power2=True), currenthp=5, maxhp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_Building(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 5
     assert g.board[(2, 1)].unit.currenthp == 1
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6307,9 +6307,9 @@ def t_WeaponHeavyArtilleryNoPower():
     "Fire the HeavyArtillery with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyArtillery(power1=False, power2=False))) # power1 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6328,9 +6328,9 @@ def t_WeaponHeavyArtillery1Power():
     "Fire the HeavyArtillery with 1 power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_HeavyArtillery(power1=False, power2=True))) # power1 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 1)].unit.currenthp == 5
     assert g.board[(3, 1)].unit.currenthp == 5
@@ -6349,8 +6349,8 @@ def t_WeaponGeminiMissilesNoPower():
     "Fire the GeminiMissiles with no power"
     g = Game()
     g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_GeminiMissiles(power1=False, power2=False))) # power1 is ignored for this weapon
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 2)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 3)].unit.currenthp == 5
@@ -6369,8 +6369,8 @@ def t_WeaponGeminiMissilesMaxPower():
     "Fire the GeminiMissiles with Max power"
     g = Game()
     g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_GeminiMissiles(power1=True, power2=True))) # power1 is ignored for this weapon
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 3)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 2)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(3, 3)].unit.currenthp == 5
@@ -6389,7 +6389,7 @@ def t_WeaponGeminiMissilesMaxPowerOffBoard():
     "Fire the GeminiMissiles with Max power so that one of the missiles is off board"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_GeminiMissiles(power1=True, power2=True))) # power1 is ignored for this weapon
-    g.board[(2, 8)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 8)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(2, 8)].unit.currenthp == 5
     gs = g.board[(1, 1)].unit.weapon1.genShots()
@@ -6404,7 +6404,7 @@ def t_WeaponSmokePelletsNoPower():
     "Fire the SmokePellets with no power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SmokePellets(power1=False, power2=False))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
@@ -6428,7 +6428,7 @@ def t_WeaponSmokePelletsMaxPower():
     "Fire the SmokePellets with max power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_SmokePellets(power1=True, power2=True))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
@@ -6452,7 +6452,7 @@ def t_WeaponFireBeam():
     "Fire the FireBeam with max power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_FireBeam(power1=False, power2=False))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -6481,7 +6481,7 @@ def t_WeaponFrostBeam():
     "Fire the FrostBeam with max power"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_FrostBeam(power1=False, power2=False))) # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
     assert g.board[(1, 1)].unit.currenthp == 2
@@ -6510,9 +6510,9 @@ def t_WeaponShieldArrayNoPower():
     "Fire the ShieldArray with no power in the corner of the map"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShieldArray(power1=False, power2=False)))  # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
@@ -6537,9 +6537,9 @@ def t_WeaponShieldArrayMaxPower():
     "Fire the ShieldArray with max power in the corner of the map"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ShieldArray(power1=True, power2=True)))  # power2 is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_Flame_Mech(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
@@ -6565,7 +6565,7 @@ def t_WeaponShieldArrayCenterLow():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ShieldArray(power1=False, power2=False)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -6591,7 +6591,7 @@ def t_WeaponShieldArrayCenterHigh():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_ShieldArray(power1=True, power2=False)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -6616,10 +6616,10 @@ def t_WeaponPushBeamMountain():
     "Fire the PushBeam with a mountain blocking some of the shot"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=False, power2=False))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
     g.board[(4, 1)].createUnitHere(Unit_Mountain(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
@@ -6651,10 +6651,10 @@ def t_WeaponPushBeamBuilding():
     "Fire the PushBeam with a building blocking some of the shot"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=False, power2=False))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
     g.board[(4, 1)].createUnitHere(Unit_Building(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
@@ -6685,9 +6685,9 @@ def t_WeaponPushBeamNoMountain():
     "Fire the PushBeam with no mountain blocking it"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_PushBeam(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(3, 1)].createUnitHere(Unit_Flame_Mech(g))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].unit.currenthp == 5
@@ -6717,8 +6717,8 @@ def t_WeaponBoosters():
     "Fire the Boosters"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_Boosters(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(2, 2)].unit.currenthp == 5
@@ -6738,8 +6738,8 @@ def t_WeaponBoostersNullShot():
     "Fire the Boosters but try to land on an occupied tile"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_Boosters(power1=True, power2=True))) # power is ignored for this weapon
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.currenthp == 2
     assert g.board[(3, 1)].unit.currenthp == 5
     assert g.board[(2, 2)].unit.currenthp == 5
@@ -6757,7 +6757,7 @@ def t_WeaponSmokeBombs1():
     "Shoot the SmokeBombs with default power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -6770,7 +6770,7 @@ def t_WeaponSmokeBombs2():
     "Shoot the SmokeBombs with more damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 1)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -6783,8 +6783,8 @@ def t_WeaponSmokeBombs3():
     "Shoot the SmokeBombs with more range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -6799,8 +6799,8 @@ def t_WeaponSmokeBombs4():
     "Shoot the SmokeBombs with full power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=True)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -6816,8 +6816,8 @@ def t_WeaponSmokeBombsForest():
     g = Game()
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=False, power2=False)))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # jet moved from starting position
@@ -6832,9 +6832,9 @@ def t_WeaponSmokeBombsGen1():
     "Test the SmokeBombs shot generator with max range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeBombs(power1=True, power2=True))) # with range
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 4)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     assert next(gs) == (Direction.UP, 1)
     assert next(gs) == (Direction.UP, 2)
@@ -6847,7 +6847,7 @@ def t_WeaponHeatConverter1():
     "Shoot the HeatConverter but have the fire be off-board"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_HeatConverter(power1=False, power2=False))) # power is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].unit.effects == set() # no change
@@ -6874,8 +6874,8 @@ def t_WeaponSelfDestruct1():
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 2)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct(power1=False, power2=False))) # power is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -6893,8 +6893,8 @@ def t_WeaponTargetedStrike1():
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 2)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_TargetedStrike(power1=False, power2=False))) # power is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -6917,8 +6917,8 @@ def t_WeaponSmokeDrop1():
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 2)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SmokeDrop(power1=False, power2=False))) # power is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -6938,8 +6938,8 @@ def t_WeaponMissileBarrageLowPower():
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 2)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_MissileBarrage(power1=False, power2=False))) # power2 is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -6957,8 +6957,8 @@ def t_WeaponMissileBarrageMaxPower():
     g.board[(2, 1)].replaceTile(Tile_Forest(g))
     g.board[(1, 2)].replaceTile(Tile_Forest(g))
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_MissileBarrage(power1=True, power2=False))) # power2 is ignored
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(1, 2)].createUnitHere(Unit_Alpha_Scorpion(g, effects={Effects.ACID}))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -6973,8 +6973,8 @@ def t_WeaponWindTorrentUp():
     "Shoot WindTorrent Up."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
-    g.board[(2, 7)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 6)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 7)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 6)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(1):
         shot = next(gs)
@@ -6988,8 +6988,8 @@ def t_WeaponWindTorrentRight():
     "Shoot WindTorrent RIGHT."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
-    g.board[(7, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(6, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(7, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(6, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(2):
         shot = next(gs)
@@ -7003,8 +7003,8 @@ def t_WeaponWindTorrentDown():
     "Shoot WindTorrent Down."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(2, 3)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(2, 3)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(3):
         shot = next(gs)
@@ -7018,8 +7018,8 @@ def t_WeaponWindTorrentLeft():
     "Shoot WindTorrent Left."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_WindTorrent(power1=True, power2=False))) # power2 is ignored
-    g.board[(2, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
-    g.board[(3, 2)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 2)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(4):
         shot = next(gs)
@@ -7034,7 +7034,7 @@ def t_WeaponIceGeneratorLowPower():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=False, power2=False)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -7060,7 +7060,7 @@ def t_WeaponIceGeneratorMedPower1():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=True, power2=False)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -7086,7 +7086,7 @@ def t_WeaponIceGeneratorMedPower2():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=False, power2=True)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -7112,7 +7112,7 @@ def t_WeaponIceGeneratorMaxPower():
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
-            g.board[(x, y)].createUnitHere(Unit_Alpha_Scorpion(g))
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
     # replace one with our boi
     g.board[(4, 4)].createUnitHere(Unit_TechnoScarab_Mech(g, weapon1=Weapon_IceGenerator(power1=True, power2=True)))
     gs = g.board[(4, 4)].unit.weapon1.genShots()
@@ -7150,7 +7150,7 @@ def t_WeaponLightTankLowPower():
     "Shoot and deploy a LightTank with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7171,7 +7171,7 @@ def t_WeaponLightTank1Power():
     "Shoot and deploy a LightTank with power 1 powered for more hp."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=True, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7192,7 +7192,7 @@ def t_WeaponLightTankPower2():
     "Shoot and deploy a LightTank with power2 activated for damage."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7213,7 +7213,7 @@ def t_WeaponLightTankMaxPower():
     "Shoot and deploy a LightTank with Max power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7254,7 +7254,7 @@ def t_WeaponShieldTankLowPower():
     "Shoot and deploy a ShieldTank with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=False, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7275,7 +7275,7 @@ def t_WeaponShieldTankPower1():
     "Shoot and deploy a ShieldTank with power1."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7296,7 +7296,7 @@ def t_WeaponShieldTankPower1Miss():
     "Shoot and deploy a ShieldTank with power1 but with the vek out of range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=False)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7319,7 +7319,7 @@ def t_WeaponShieldTankMaxPower():
     "Shoot and deploy a ShieldTank with max power and the vek at range."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_ShieldTank(power1=True, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7361,7 +7361,7 @@ def t_WeaponAcidTankLowPower():
     "Shoot and deploy a AcidTank with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=False, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7383,7 +7383,7 @@ def t_WeaponAcidTank1Power():
     "Shoot and deploy a AcidTank with power 1 powered for more hp."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=True, power2=False)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7405,7 +7405,7 @@ def t_WeaponAcidTankPower2():
     "Shoot and deploy a AcidTank with power2 activated for pushing."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=False, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7427,7 +7427,7 @@ def t_WeaponAcidTankMaxPower():
     "Shoot and deploy a AcidTank with Max power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AcidTank(power1=True, power2=True)))
-    g.board[(4, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7469,7 +7469,7 @@ def t_WeaponPullTankLowPower():
     "Shoot and deploy a PullTank with no power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=False, power2=False)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7493,7 +7493,7 @@ def t_WeaponPullTank1Power():
     "Shoot and deploy a PullTank with power 1 powered for more hp."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=True, power2=False)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7517,7 +7517,7 @@ def t_WeaponPullTankPower2():
     "Shoot and deploy a PullTank with power2 activated for flying."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=False, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7540,7 +7540,7 @@ def t_WeaponPullTankMaxPower():
     "Shoot and deploy a PullTank with Max power."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_PullTank(power1=True, power2=True)))
-    g.board[(5, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(5, 1)].createUnitHere(Unit_AlphaScorpion(g))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
@@ -7666,7 +7666,7 @@ def t_WeaponFrenziedRepair():
     "Have a unit take damage and then repair and push a nearby vek."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_FrenziedRepair(), currenthp=10, maxhp=10))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 10
@@ -7690,7 +7690,7 @@ def t_WeaponMantisSlash():
     "Have a unit take damage and then use the repair weapon to hurt a nearby vek."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_MantisSlash(), currenthp=10, maxhp=10))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 10
@@ -7714,7 +7714,7 @@ def t_WeaponMantisSlashIce():
     "Have a get frozen and then use the repair weapon to break the ice and hurt a nearby vek."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, repweapon=Weapon_MantisSlash(), currenthp=10, maxhp=10))
-    g.board[(2, 1)].createUnitHere(Unit_Alpha_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].effects == set() # no tile effects
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.currenthp == 10
@@ -7733,6 +7733,59 @@ def t_WeaponMantisSlashIce():
     assert g.board[(2, 1)].unit == None  # vek pushed from here
     assert g.board[(3, 1)].unit.effects == set()
     assert g.board[(3, 1)].unit.currenthp == 3 # vek took 2 damage
+
+def t_WeaponUnstableGuts():
+    "Have a blob do its thing"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), currenthp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_Blob(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.currenthp == 1
+    assert g.board[(3, 1)].unit.currenthp == 5
+    shot = g.board[(2, 1)].unit.weapon1.qshot
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 4  # wielder took 1 damage
+    assert g.board[(2, 1)].unit == None  # blob exploded
+    assert g.board[(3, 1)].unit.currenthp == 4 # 1 damage
+
+def t_WeaponVolatileGuts():
+    "Have an alpha blob do its thing"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), currenthp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_AlphaBlob(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.currenthp == 1
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(2, 1)].unit.weapon1.validate()
+    shot = g.board[(2, 1)].unit.weapon1.qshot
+    g.board[(2, 1)].unit.weapon1.shoot(*shot) # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 2  # wielder took 3 damage
+    assert g.board[(2, 1)].unit == None  # blob exploded
+    assert g.board[(3, 1)].unit.currenthp == 2 # 3 damage
+
+def t_WeaponVolatileGutsSmokeInvalidates():
+    "Have an alpha blob get smoked and cancel its shot"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), currenthp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_AlphaBlob(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    assert g.board[(1, 1)].unit.currenthp == 5
+    assert g.board[(2, 1)].unit.currenthp == 1
+    assert g.board[(3, 1)].unit.currenthp == 5
+    g.board[(2, 1)].applySmoke()
+    g.board[(2, 1)].unit.weapon1.validate()
+    shot = g.board[(2, 1)].unit.weapon1.qshot
+    if shot is not None:
+        g.board[(2, 1)].unit.weapon1.shoot(*shot) # None
+        g.flushHurt()
+    assert g.board[(1, 1)].unit.currenthp == 5  # wielder took no damage since there was no shot
+    assert g.board[(2, 1)].unit.currenthp == 1 # blob did NOT explode
+    assert g.board[(3, 1)].unit.currenthp == 5 # 0 damage
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

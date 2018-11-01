@@ -3109,6 +3109,22 @@ def t_WeaponGravWellBump():
     assert g.board[(2, 1)].unit.currenthp == 1 # damage mountain now
     assert g.board[(2, 1)].unit.type == 'mountaindamaged'
 
+# def t_WeaponSpartanShieldNoPower(): # XXX CONTINUE!
+#     "Shoot SpartanShield with no power"
+#     g = Game()
+#     g.board[(1, 1)].createUnitHere(Unit_Aegis_Mech(g, weapon1=Weapon_SpartanShield(power1=False, power2=False)))
+#     g.board[(2, 1)].createUnitHere(Unit_Mountain(g))
+#     assert g.board[(1, 1)].unit.currenthp == 3
+#     assert g.board[(3, 1)].unit.currenthp == 1
+#     gs = g.board[(1, 1)].unit.weapon1.genShots()
+#     for i in range(7):
+#         shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+#     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.currenthp == 3 # untouched wielder
+#     assert g.board[(3, 1)].unit.currenthp == 1 # mountain not moved and undamaged
+#     assert g.board[(3, 1)].unit.type == 'mountain'
+
 def t_WeaponJanusCannonLow():
     "Shoot the Janus cannon with no power!"
     g = Game()
@@ -7787,6 +7803,33 @@ def t_WeaponVolatileGutsSmokeInvalidates():
     assert g.board[(2, 1)].unit.currenthp == 1 # blob did NOT explode
     assert g.board[(3, 1)].unit.currenthp == 5 # 0 damage
 
+def t_WebPush():
+    "Have a scorpion web a mech and then get pushed to break the web"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g))
+    g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
+    g.board[(2, 1)].unit._makeWeb((1, 1))
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit.currenthp == 3
+    assert g.board[(1, 1)].unit.web == {(2, 1)}
+    assert g.board[(2, 1)].unit.web == {(1, 1)}
+    g.board[(2, 1)].push(Direction.UP)
+    assert g.board[(1, 1)].unit.currenthp == 2
+    assert g.board[(2, 1)].unit == None # pushed from here
+    assert g.board[(2, 2)].unit.currenthp == 3
+    assert g.board[(1, 1)].unit.web == set()
+    assert g.board[(2, 2)].unit.web == set()
+
+def t_DefaultAssignedWeapon():
+    "Make sure that vek weapon objects aren't shared too much since a weapon object is hard-coded to be created in __init__"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Scorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
+    g.board[(1, 1)].unit.weapon1.qshot = (Direction.UP,)
+    g.board[(3, 1)].createUnitHere(Unit_Scorpion(g))
+    assert g.board[(1, 1)].unit.weapon1.qshot == (Direction.UP,)
+    assert g.board[(2, 1)].unit.weapon1.qshot == None
+    assert g.board[(3, 1)].unit.weapon1.qshot == None
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

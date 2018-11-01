@@ -41,7 +41,10 @@ class DirectionConst(Constant):
     "This is the up/down/left/right directions with a couple other methods. THIS SET OF CONSTANTS MUST BE FIRST SO IT GETS THE FIRST 4 NUMBERS!"
     def opposite(self, dir):
         "return the opposite of the direction provided as dir."
-        dir += 2
+        try:
+            dir += 2
+        except TypeError:
+            raise InvalidDirection
         if dir > 4:
             dir -= 4
         return dir
@@ -51,20 +54,29 @@ class DirectionConst(Constant):
             yield d
     def genPerp(self, dir):
         "A generator that yields 2 directions that are perpendicular to dir"
-        dir += 1
+        try:
+            dir += 1
+        except TypeError:
+            raise InvalidDirection
         if dir == 5:
             dir = 1
         yield dir
         yield self.opposite(dir)
     def getClockwise(self, dir):
         "return the next direction clockwise of dir"
-        dir += 1
+        try:
+            dir += 1
+        except TypeError:
+            raise InvalidDirection
         if dir > 4:
             return 1
         return dir
     def getCounterClockwise(self, dir):
         "return the next direction counter clockwise of dir"
-        dir -= 1
+        try:
+            dir -= 1
+        except TypeError:
+            raise InvalidDirection
         if not dir:
             return 4
         return dir
@@ -93,7 +105,7 @@ Effects = Constant(thegen,
     'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     'SHIELD',
-    'WEB',
+    # 'WEB', # web is no longer an effect
     'EXPLOSIVE'))
 
 # These are attributes that are applied to units.
@@ -154,6 +166,9 @@ class MissingCompanionTile(Exception):
 class NullWeaponShot(Exception):
     """This is raised when a friendly unit fires a weapon that has no effect at all on the game or an invalid shot (like one that went off the board).
     This prompts the logic to avoid continuing the current simulation. It's a bug if a user ever sees this."""
+
+class InvalidDirection(Exception):
+    "This is raised when an invalid direction is given to something."
 
 class FakeException(Exception):
     "This is raised to do some more effecient try/except if/else statements"
@@ -316,14 +331,15 @@ class Tile_Base(TileUnit_Base):
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
         pass
-    def putUnitHere(self, unit):
+    def _putUnitHere(self, unit):
         """Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit.
         If there's a unit already on the tile, it's overwritten and deleted. returns nothing."""
         self.unit = unit
         try:
-            self.unit.square = self.square
+            self.unit._breakAllWebs()
         except AttributeError: # raised by None.square = blah
-            return # bail, the unit has been replaced by nothing which is ok.
+            return  # bail, the unit has been replaced by nothing which is ok.
+        self.unit.square = self.square
         self._spreadEffects()
     def createUnitHere(self, unit):
         "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the game."
@@ -331,7 +347,7 @@ class Tile_Base(TileUnit_Base):
             self.game.playerunits.add(unit)
         elif unit.alliance == Alliance.ENEMY:
             self.game.enemyunits.add(unit)
-        self.putUnitHere(unit)
+        self._putUnitHere(unit)
     def replaceTile(self, newtile, keepeffects=True):
         """replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods.
         Warning: effects are given to the new tile even if it can't support them! For example, this will happily give a chasm fire or acid.
@@ -339,15 +355,15 @@ class Tile_Base(TileUnit_Base):
         unit = self.unit
         if keepeffects:
             newtile.effects.update(self.effects)
-        self.game.board[self.square] = newtile # TODO: have replaceTile() set self.game instead of passing it in through newtile
+        self.game.board[self.square] = newtile
         self.game.board[self.square].square = self.square
-        self.game.board[self.square].putUnitHere(unit)
+        self.game.board[self.square]._putUnitHere(unit)
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         assert Attributes.STABLE not in self.unit.attributes
         if destsquare == self.square:
             return # tried to move a unit to the same square it's already one. This has the unintended consequence of leaving the square blank!
-        self.game.board[destsquare].putUnitHere(self.unit)
+        self.game.board[destsquare]._putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
         """push unit on this tile in direction.
@@ -384,7 +400,7 @@ class Tile_Base(TileUnit_Base):
         elif direction == Direction.LEFT:
             destinationsquare = (self.square[0] - distance, self.square[1])
         else:
-            raise Exception("Invalid direction given.")
+            raise InvalidDirection
         try:
             self.game.board[destinationsquare]
         except KeyError:
@@ -395,7 +411,7 @@ class Tile_Base(TileUnit_Base):
         assert Attributes.STABLE not in self.unit.attributes
         unitfromdest = self.game.board[destsquare].unit # grab the unit that's about to be overwritten on the destination
         self.moveUnit(destsquare) # move unit from this square to destination
-        self.putUnitHere(unitfromdest)
+        self._putUnitHere(unitfromdest)
     def getEdgeSquare(self, direction):
         "return a tuple of the square at the edge of the board in direction from this tile."
         if direction == Direction.UP:
@@ -406,7 +422,7 @@ class Tile_Base(TileUnit_Base):
             return (self.square[0], 1)
         if direction == Direction.LEFT:
             return (1, self.square[1])
-        raise Exception("Invalid Direction given to getEdgeSquare()")
+        raise InvalidDirection
     def isSwallow(self):
         "return True if this tile kills non-massive non-flying units like water and chasm"
         try:
@@ -666,7 +682,7 @@ class Tile_Teleporter(Tile_Base):
 ##############################################################################
 class Unit_Base(TileUnit_Base):
     "The base class of all units. A unit is anything that occupies a square and stops other ground units from moving through it."
-    def __init__(self, game, type, currenthp, maxhp, effects=None, attributes=None):
+    def __init__(self, game, type, currenthp, maxhp, effects=None, attributes=None, web=None):
         """
         game is the Game instance
         type is the name of the unit (str)
@@ -674,6 +690,7 @@ class Unit_Base(TileUnit_Base):
         maxhp is the unit's maximum hitpoints (int)
         effects is a set of effects applied to this unit. Use Effects.EFFECTNAME for this.
         attributes is a set of attributes or properties that the unit has. use Attributes.ATTRNAME for this.
+        web is a set of squares with which this unit is webbed to/from
         """
         super().__init__(game=game, type=type, effects=effects)
         self.currenthp = currenthp
@@ -684,6 +701,10 @@ class Unit_Base(TileUnit_Base):
             self.attributes = set(attributes)
         self.damage_taken = 0 # This is a running count of how much damage this unit has taken during this turn.
             # This is done so that points awarded to a solution can be removed on a unit's death. We don't want solutions to be more valuable if an enemy is damaged before it's killed. We don't care how much damage was dealt to it if it dies.
+        if not web:
+            self.web = set()
+        else:
+            self.web = set(web)
     def applyEffectUnshielded(self, effect):
         "A helper method to check for the presence of a shield before applying an effect."
         if Effects.SHIELD not in self.effects:
@@ -752,6 +773,7 @@ class Unit_Base(TileUnit_Base):
         self.game.board[self.square].unit = None # it's dead, replace it with nothing
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.game.board[self.square].applyAcid()
+        self._breakAllWebs()
         self.explode()
     def explode(self):
         "Make the unit explode only if it is explosive (to be used after death). Explosion damage ignores acid and armor."
@@ -772,10 +794,29 @@ class Unit_Base(TileUnit_Base):
             return self._mountain
         except AttributeError:  # unit was missing the attribute
             return False
+    def _makeWeb(self, compsquare, prop=True):
+        """Make a web binding this unit to a unit on another square.
+        compsquare is a tuple of the companion square that is also webbed with this unit.
+        when prop is True, propagate this webbing to the companion.
+        returns nothing
+        """
+        self.web.add(compsquare)
+        if prop:
+            self.game.board[compsquare].unit._makeWeb(self.square, prop=False)
+    def _breakWeb(self, compsquare, prop=True):
+        "Same as MakeWeb except we remove the web."
+        self.web.remove(compsquare)
+        if prop:
+            self.game.board[compsquare].unit._breakWeb(self.square, prop=False)
+    def _breakAllWebs(self):
+        "same as breakWeb except we remove all webs that this unit has. This method doesn't use argumens and propagates by default"
+        for sq in self.web:
+            self.game.board[sq].unit._breakWeb(self.square, prop=False)
+        self.web = set()
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.currenthp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
 
-class Unit_Fighting_Base(Unit_Base): # XXX
+class Unit_Fighting_Base(Unit_Base):
     "The base class of all units that have at least 1 weapon."
     def __init__(self, game, type, currenthp, maxhp, effects=None, weapon1=None, attributes=None):
         super().__init__(game=game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
@@ -824,7 +865,7 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
     def applyAcid(self):
         pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.game.board[self.square].putUnitHere(Unit_Mountain_Damaged(self.game))
+        self.game.board[self.square]._putUnitHere(Unit_Mountain_Damaged(self.game))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, game, type='mountaindamaged', effects=None):
@@ -832,7 +873,7 @@ class Unit_Mountain_Damaged(Unit_Mountain):
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         self.currenthp = 0 # required for PrimeSpear to detect a unit that died
-        self.game.board[self.square].putUnitHere(None)
+        self.game.board[self.square]._putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
@@ -864,7 +905,8 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base):
         self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        self.game.board[self.square].putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
+        self._breakAllWebs()
+        self.game.board[self.square]._putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
         self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.game.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
@@ -960,7 +1002,7 @@ class Unit_MultiTile_Base(Unit_Base):
             except KeyError:
                 pass
             else:
-                self.game.board[self.square].putUnitHere(self) # put the unit here again to process effects spreading.
+                self.game.board[self.square]._putUnitHere(self) # put the unit here again to process effects spreading.
                 return False# and then stop processing things, the shield or ice took the damage.
         if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
             damage *= 2
@@ -986,7 +1028,8 @@ class Unit_Dam(Unit_MultiTile_Base):
             self.companion = (8, 4)
     def die(self):
         "Make the unit die."
-        self.game.board[self.square].putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+        self._breakAllWebs()
+        self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
             self.game.board[(x, self.square[1])].replaceTile(Tile_Water(self.game))
@@ -1105,7 +1148,7 @@ class Unit_AlphaBlobber(Unit_EnemyNonPsion_Base):
 
 class Unit_Scorpion(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='scorpion', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), effects=effects, attributes=attributes)
 
 class Unit_AcidScorpion(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='acidscorpion', currenthp=4, maxhp=4, effects=None, attributes=None):
@@ -1352,7 +1395,10 @@ class Unit_Mech_Base(Unit_Repairable_Base):
     def die(self):
         "Make the mech die."
         self.currenthp = 0
-        self.game.board[self.square].putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
+        if self.game.board[self.square].isSwallow() and Effects.SUBMERGED not in self.game.board[self.square].effects: # if tile is a chasm
+            pass # the unit is really dead, don't bother creating a mech corpse since it too will die
+        else: # make a mech corpse
+            self.game.board[self.square]._putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
         self.game.playerunits.discard(self)
     def repair(self, hp):
         "Repair the unit healing HP and removing bad effects."
@@ -2170,7 +2216,7 @@ class Weapon_ViceFist(Weapon_getRelSquare_Base, Weapon_DirectionalGen_Base):
         except AttributeError: # raised from None.alliance. This happens when you throw the unit into a chasm or such and it immediately dies
             pass # unit died, no point in damaging the tile that killed it.
 
-class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base): # TODO: change artilleryGen to yield squares instead of relative dirs and distance. We can avoid calculating the square twice
+class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base):
     "Default weapon for Siege Mech."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -2211,11 +2257,15 @@ class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base)
         if power2:
             self.damage += 1
     def shoot(self, direction):
+        targetsquare = self.game.board[self._getRelSquare(direction, 1)]
         try:
-            self.game.board[self._getRelSquare(direction, 1)].takeDamage(self.damage)
+            self.game.board[targetsquare].takeDamage(self.damage)
         except KeyError: # board[False]
             raise NullWeaponShot
-        # TODO: Implement direction flipping!
+        try:
+            self.game.board[targetsquare].unit.weapon1.flip()
+        except AttributeError: # None.weapon1 or weapon1.flip() where flip doesn't exist like a friendly
+            pass
         if self.gainshield:
             self.wieldingunit.applyShield()
 
@@ -2383,7 +2433,7 @@ class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerI
         if self.game.board[self.targetsquare].unit: # the tile only takes damage if a unit is present
             self.game.board[self.targetsquare].takeDamage(self.damage) # target takes damage
         else: # otherwise we just place a rock there
-            self.game.board[self.targetsquare].putUnitHere(Unit_Rock(self.game))
+            self.game.board[self.targetsquare]._putUnitHere(Unit_Rock(self.game))
         for d in Direction.genPerp(direction):
             try:
                 self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
@@ -2938,7 +2988,7 @@ class Weapon_ConfuseShot(Weapon_Projectile_Base, Weapon_NoUpgradesInit_Base):
                 raise NullWeaponShot # it's a wasted shot that did nothing
         except KeyError: #board[False]
             raise NullWeaponShot # didn't find a unit at all
-        # TODO: implement weapon direction flipping!
+        self.game.board[targetsquare].unit.weapon1.flip() # this should for sure be an enemy at this point
 
 class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base):
     "Surround yourself with Smoke to defend against nearby enemies."
@@ -3249,15 +3299,18 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
 # Vek weapons can't have shots generated for them like mech weapons do, so they lack genShots()
 # All vek weapons MUST have an attribute self.qshot (queuedshot) which is the shot they will take on their turn. If a shot is invalidated, self.qshot must be set to None
 # All vek weapons MUST have a validate() method to test whether their shot is still valid. This method will be run whenever the vek is moved.
-    # if the shot is invalid, it must set qshot to None and return False and return True otherwise.
-    # this method can be used to set up a future shot similar to how Weapon_ArtilleryGen_Base does.
+    # if the shot is invalid, it must set qshot to None and return False. return True otherwise.
+    # this method can be used to set up a future shot similar to how Weapon_ArtilleryGen_Base set self.targetsquare.
 # All vek weapons MUST have a flip() method to flip the direction of attack (aegis shield and confuse shot use this). Some weapons can't be flipped, but they still need a working method that does nothing.
+# Weapons that create webs in the game isn't done here since that's really done during the vek's move/target phase. The user should already have a gameboard with webs laid out.
 class Weapon_Vek_Base():
     "Base class for all vek weapons."
-    def __init__(self):
-        self.qshot = None
+    def __init__(self, qshot=None):
+        self.qshot = qshot
     def validate(self):
         "The only way this shot can be invalidated is by the wielder being killed or smoked"
+        if self.qshot is None:
+            return False
         if Effects.SMOKE in self.game.board[self.wieldingunit.square].effects:
             self.qshot = None
             return False
@@ -3289,12 +3342,33 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     damage = 3
 
 # We can't predict the shooting of these 2 weapons, but they need to be counted towards spawning new enemies
-class Weapon_UnstableGrowths(Weapon_IgnoreFlip_Base):
+class Weapon_UnstableGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
         print("TODO!")
 
-class Weapon_VolatileGrowths(Weapon_IgnoreFlip_Base):
+class Weapon_VolatileGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
         print("TODO!")
+
+class Weapon_StingingSpinneret(Weapon_Vek_Base):
+    "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."
+    damage = 1
+    def validate(self):
+        "qshot should be (Direction.XX)"
+        if super().validate(): # if a shot is queued and the unit is not smoked...
+            self.targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(*self.qshot, 1)
+            if not self.targetsquare: # shot was offboard
+                self.qshot = None
+            else:
+                return True
+        else:
+            return False
+    def flip(self):
+        try:
+            self.qshot = Direction.opposite(*self.qshot)
+        except InvalidDirection: # qshot was None
+            pass
+    def shoot(self):
+        self.game.board[self.targetsquare].takeDamage(self.damage)

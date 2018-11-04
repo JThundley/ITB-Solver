@@ -287,6 +287,10 @@ class Tile_Base(TileUnit_Base):
         "make a smoke cloud on the current tile"
         self.removeEffect(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
+        try: # invalidate qshots of enemies that get smoked
+            self.unit.weapon1.qshot = None
+        except AttributeError:
+            pass
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -341,6 +345,10 @@ class Tile_Base(TileUnit_Base):
             return  # bail, the unit has been replaced by nothing which is ok.
         self.unit.square = self.square
         self._spreadEffects()
+        try:
+            self.unit.weapon1.validate()
+        except AttributeError: # None.weapon1, _spreadEffects killed the unit or unit.None.validate(), unit didn't have a weapon1 somehow
+            pass
     def createUnitHere(self, unit):
         "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the game."
         if unit.alliance == Alliance.FRIENDLY:
@@ -1102,12 +1110,22 @@ class Unit_Enemy_Base(Unit_Repairable_Base):
 
 class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     "This is the base unit of all enemies that are not psions. Enemies have 1 weapon."
-    def __init__(self, game, type, currenthp, maxhp, weapon1=None, effects=None, attributes=None):
+    def __init__(self, game, type, currenthp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+        try:
+            self.weapon1.qshot = qshot
+        except AttributeError:
+            pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
         self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+    def applyIce(self):
+        super().applyIce()
+        try: # TODO: Can we get rid of this try once every vek has a weapon?
+            self.weapon1.qshot = None
+        except AttributeError: # ice cancels enemy shots
+            pass
 
 class Unit_EnemyFlying_Base(Unit_Enemy_Base):
     "A simple base unit for flying vek."
@@ -1147,32 +1165,36 @@ class Unit_AlphaBlobber(Unit_EnemyNonPsion_Base):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_UnstableGuts(), effects=effects, attributes=attributes)
 
 class Unit_Scorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='scorpion', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), effects=effects, attributes=attributes)
+    def __init__(self, game, type='scorpion', currenthp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AcidScorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='acidscorpion', currenthp=4, maxhp=4, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='acidscorpion', currenthp=4, maxhp=4, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_StingingSpinneretAcid(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaScorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_GoringSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Firefly(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='firefly', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='firefly', currenthp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_AcceleratingThorax(), qshot=qshot, effects=effects, attributes=attributes)
+
+class Unit_AcidFirefly(Unit_EnemyNonPsion_Base):
+    def __init__(self, game, type='acidfirefly', currenthp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_AcceleratingThoraxAcid(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaFirefly(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphascorpion', currenthp=5, maxhp=5, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_EnhancedThorax(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Leaper(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='leaper', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='leaper', currenthp=1, maxhp=1, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_Fangs(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaLeaper(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='alphaleaper', currenthp=3, maxhp=3, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphaleaper', currenthp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_SharpenedFangs(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Beetle(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='beetle', currenthp=4, maxhp=4, effects=None, attributes=None):
@@ -1302,12 +1324,12 @@ class Unit_SpiderLeader(Unit_EnemyLeader_Base):
         super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, effects=effects, attributes=attributes)
 
 class Unit_AlphaBlob(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='alphablob', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_VolatileGuts(), effects=effects, attributes=attributes)
+    def __init__(self, game, type='alphablob', currenthp=1, maxhp=1, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_VolatileGuts(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Blob(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='blob', currenthp=1, maxhp=1, effects=None, attributes=None):
-        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_UnstableGuts(), effects=effects, attributes=attributes)
+    def __init__(self, game, type='blob', currenthp=1, maxhp=1, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, currenthp=currenthp, maxhp=maxhp, weapon1=Weapon_UnstableGuts(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_SpiderlingEgg(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='spiderlingegg', currenthp=1, maxhp=1, effects=None, attributes=None):
@@ -2257,7 +2279,7 @@ class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base)
         if power2:
             self.damage += 1
     def shoot(self, direction):
-        targetsquare = self.game.board[self._getRelSquare(direction, 1)]
+        targetsquare = self._getRelSquare(direction, 1)
         try:
             self.game.board[targetsquare].takeDamage(self.damage)
         except KeyError: # board[False]
@@ -3297,16 +3319,24 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
 ################################ Vek Weapons #################################
 # All weapons have their ingame description in the docstring followed by the type/name of the enemy that wields this weapon.
 # Vek weapons can't have shots generated for them like mech weapons do, so they lack genShots()
-# All vek weapons MUST have an attribute self.qshot (queuedshot) which is the shot they will take on their turn. If a shot is invalidated, self.qshot must be set to None
-# All vek weapons MUST have a validate() method to test whether their shot is still valid. This method will be run whenever the vek is moved.
+# All vek weapons MUST have an attribute self.qshot (queuedshot) which is the shot they will take on their turn.
+# All vek weapons MUST have a validate() method to test whether their shot is still valid. This method will be run whenever the vek is moved and when the unit is created.
     # if the shot is invalid, it must set qshot to None and return False. return True otherwise.
-    # this method can be used to set up a future shot similar to how Weapon_ArtilleryGen_Base set self.targetsquare.
-# All vek weapons MUST have a flip() method to flip the direction of attack (aegis shield and confuse shot use this). Some weapons can't be flipped, but they still need a working method that does nothing.
+    # this method can and should be used to set up a future shot similar to how Weapon_ArtilleryGen_Base set self.targetsquare.
+# All shoot() methods take no arguments, they read their own qshot when shooting.
+# All vek weapons MUST have a flip() method to flip the direction of attack (spartan shield and confuse shot use this). Some weapons can't be flipped, but they still need a working method that does nothing.
+    # flip() must validate the shot afterwards unless the flip was ignored
 # Weapons that create webs in the game isn't done here since that's really done during the vek's move/target phase. The user should already have a gameboard with webs laid out.
+# Vek weapons will never raise NullWeaponShot
+
+# Vek weapon low-level base objects:
 class Weapon_Vek_Base():
     "Base class for all vek weapons."
     def __init__(self, qshot=None):
         self.qshot = qshot
+
+class Weapon_Validate_Base():
+    "This is the base validate class for all others."
     def validate(self):
         "The only way this shot can be invalidated is by the wielder being killed or smoked"
         if self.qshot is None:
@@ -3321,18 +3351,59 @@ class Weapon_IgnoreFlip_Base():
         "can't be flipped"
         pass
 
+class Weapon_DirectionalValidate_Base(Weapon_Validate_Base):
+    "A validate method that works for melee and projectile weapons."
+    def validate(self):
+        "qshot should be (Direction.XX,)"
+        if super().validate(): # if a shot is queued and the unit is not smoked...
+            self.targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(*self.qshot, 1)
+            if not self.targetsquare: # shot was offboard
+                self.qshot = None
+            else:
+                return True
+        return False
+
+class Weapon_DirectionalFlip_Base():
+    "A flip method that works for melee and projectile weapons."
+    def flip(self):
+        try:
+            self.qshot = (Direction.opposite(*self.qshot),)
+        except InvalidDirection: # qshot was None
+            pass
+        self.validate()
+
+# Vek weapon high-level base objects:
 class Weapon_Blob_Base(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Base weapon for blobs that explode"
     def __init__(self):
         self.qshot = () # give it a valid shot by default, blobs will never spawn in smoke
     def shoot(self):
-        for d in Direction.gen():
-            try:
-                self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, 1)].takeDamage(self.damage)
-            except KeyError: # game.board[False]
-                pass
-        self.wieldingunit.die()
+        if self.qshot is not None:
+            for d in Direction.gen():
+                try:
+                    self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, 1)].takeDamage(self.damage)
+                except KeyError: # game.board[False]
+                    pass
+            self.wieldingunit.die()
 
+class Weapon_SpinneretFangs_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
+    "Shared shoot method for melee attacks used by Scorpions and Leapers"
+    def shoot(self):
+        if self.qshot is not None:
+            self.game.board[self.targetsquare].takeDamage(self.damage)
+            return True
+        return False
+
+class Weapon_Thorax_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_getSquareOfUnitInDirection_Base):
+    "Base class for Firefly Thorax weapons"
+    def shoot(self):
+        if self.qshot is not None:
+            self.targetsquare = self._getSquareOfUnitInDirection(*self.qshot, edgeok=True)
+            self.game.board[self.targetsquare].takeDamage(self.damage)
+            return True
+        return False
+
+# Actual vek weapons:
 class Weapon_UnstableGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 1 damage. Kill it first to stop it. Blob"
     damage = 1
@@ -3341,7 +3412,7 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 3 damage. Kill it first to stop it. Alpha Blob"
     damage = 3
 
-# We can't predict the shooting of these 2 weapons, but they need to be counted towards spawning new enemies
+# TODO: We can't predict the shooting of these 2 weapons, but they need to be counted towards spawning new enemies
 class Weapon_UnstableGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
@@ -3352,23 +3423,40 @@ class Weapon_VolatileGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     def shoot(self):
         print("TODO!")
 
-class Weapon_StingingSpinneret(Weapon_Vek_Base):
+class Weapon_StingingSpinneret(Weapon_SpinneretFangs_Base):
     "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."
     damage = 1
-    def validate(self):
-        "qshot should be (Direction.XX)"
-        if super().validate(): # if a shot is queued and the unit is not smoked...
-            self.targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(*self.qshot, 1)
-            if not self.targetsquare: # shot was offboard
-                self.qshot = None
-            else:
-                return True
-        else:
-            return False
-    def flip(self):
-        try:
-            self.qshot = Direction.opposite(*self.qshot)
-        except InvalidDirection: # qshot was None
-            pass
+
+class Weapon_StingingSpinneretAcid(Weapon_SpinneretFangs_Base):
+    "Web an adjacent target, preparing to stab it for 1 damage and apply acid. (We don't actually do any webbing here). AcidScorpion."
+    damage = 1
     def shoot(self):
-        self.game.board[self.targetsquare].takeDamage(self.damage)
+        if super().shoot():
+            self.game.board[self.targetsquare].applyAcid()
+
+class Weapon_GoringSpinneret(Weapon_SpinneretFangs_Base):
+    "Web an adjacent target, preparing to stab it for 3 damage. (We don't actually do any webbing here). AlphaScorpion."
+    damage = 3
+
+class Weapon_AcceleratingThorax(Weapon_Thorax_Base):
+    "Launch a volatile mass of goo dealing 1 damage. Firefly"
+    damage = 1
+
+class Weapon_AcceleratingThoraxAcid(Weapon_Thorax_Base):
+    "Launch a volatile mass of goo dealing 1 damage and applying acid. AcidFirefly"
+    damage = 1
+    def shoot(self):
+        if super().shoot():
+            self.game.board[self.targetsquare].applyAcid()
+
+class Weapon_EnhancedThorax(Weapon_Thorax_Base):
+    "Launch a volatile mass of goo dealing 3 damage. AlphaFirefly"
+    damage = 3
+
+class Weapon_Fangs(Weapon_SpinneretFangs_Base):
+    "Web a target, preparing to stab it for 3 damage. Leaper"
+    damage = 3
+
+class Weapon_SharpenedFangs(Weapon_SpinneretFangs_Base):
+    "Web a target, preparing to stab it for 5 damage. AlphaLeaper"
+    damage = 5

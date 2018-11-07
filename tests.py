@@ -8441,6 +8441,84 @@ def t_WeaponAlphaExplosiveExpulsionsNormal():
     assert g.board[(7, 1)].unit.hp == 3  # mech took 3 damage
     assert g.board[(1, 1)].unit.hp == 5 # vek took no damage
 
+def t_WeaponAcidicVomit():
+    "Have a Centipede do his attack against a unit"
+    g = Game()
+    g.board[(6, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=6, maxhp=6)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_Centipede(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(6, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(6, 2)].effects == set() # no tile effects next to mech
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3  # vek took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # vek picked up no new effects
+    assert g.board[(6, 1)].unit.hp == 5  # mech took 1 damage
+    assert g.board[(6, 1)].unit.effects == {Effects.ACID} # and now has acid
+    assert g.board[(6, 2)].effects == {Effects.ACID}  # tile next to mech now has acid
+
+def t_WeaponAcidicVomitFlipped():
+    "Have a Centipede do his attack but he got flipped"
+    g = Game()
+    g.board[(6, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=6, maxhp=6)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_Centipede(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(6, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(6, 2)].effects == set() # no tile effects next to mech
+    g.board[(2, 1)].unit.weapon1.flip()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3  # vek took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # vek picked up no new effects
+    assert g.board[(6, 1)].unit.hp == 6  # mech took 0 damage
+    assert g.board[(6, 1)].unit.effects == set() # and didn't get acid
+    assert g.board[(6, 2)].effects == set()  # tile next to mech unaffected
+    assert g.board[(1, 1)].effects == {Effects.ACID}  # tile now has acid
+    assert g.board[(1, 2)].effects == {Effects.ACID}  # tile now has acid
+
+def t_WeaponCorrosiveVomit():
+    "Have an AlphaCentipede do his attack against a unit"
+    g = Game()
+    g.board[(6, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=6, maxhp=6)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_AlphaCentipede(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(6, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(6, 2)].effects == set() # no tile effects next to mech
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 5  # vek took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # vek picked up no new effects
+    assert g.board[(6, 1)].unit.hp == 4  # mech took 2 damage
+    assert g.board[(6, 1)].unit.effects == {Effects.ACID} # and now has acid
+    assert g.board[(6, 2)].effects == {Effects.ACID}  # tile next to mech now has acid
+
+def t_WeaponCorrosiveVomitFlipped():
+    "Have an AlphaCentipede do his attack but he got flipped"
+    g = Game()
+    g.board[(6, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=6, maxhp=6)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_AlphaCentipede(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(6, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(6, 2)].effects == set() # no tile effects next to mech
+    g.board[(2, 1)].unit.weapon1.flip()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 5  # vek took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # vek picked up no new effects
+    assert g.board[(6, 1)].unit.hp == 6  # mech took 0 damage
+    assert g.board[(6, 1)].unit.effects == set() # and didn't get acid
+    assert g.board[(6, 2)].effects == set()  # tile next to mech unaffected
+    assert g.board[(1, 1)].effects == {Effects.ACID}  # tile now has acid
+    assert g.board[(1, 2)].effects == {Effects.ACID}  # tile now has acid
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

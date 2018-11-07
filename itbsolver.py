@@ -1222,11 +1222,11 @@ class Unit_AlphaCrab(Unit_EnemyNonPsion_Base):
 
 class Unit_Centipede(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='centipede', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidicVomit(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaCentipede(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphacentipede', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_CorrosiveVomit(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Digger(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='digger', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
@@ -1821,7 +1821,7 @@ class Weapon_hurtAndPush_Base():
         self.game.board[square].push(direction) # now push it
         if dmgtile:
             self.game.board[square]._tileTakeDamage() # now the tile is directly hurt after the unit's been pushed so it doesn't pick up bad effects.
-        
+
 class Weapon_hurtAndPushEnemy_Base(Weapon_hurtAndPush_Base):
     def _hurtAndPushEnemy(self, square, direction):
         "Hurt and push an enemy dealing self.damage damage to them."
@@ -3396,14 +3396,17 @@ class Weapon_SpinneretFangs_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Bas
             return True
         return False
 
-class Weapon_Thorax_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_getSquareOfUnitInDirection_Base):
-    "Base class for Firefly Thorax weapons"
+class Weapon_VekProjectileShoot_Base(Weapon_getSquareOfUnitInDirection_Base):
+    "A base shoot method shared by vek projectile weapons such as the Firefly and Centipede weapons."
     def shoot(self):
         if self.qshot is not None:
             self.targetsquare = self._getSquareOfUnitInDirection(*self.qshot, edgeok=True)
             self.game.board[self.targetsquare].takeDamage(self.damage)
             return True
         return False
+
+class Weapon_Thorax_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+    "Base class for Firefly Thorax weapons"
 
 class Weapon_VekCharge_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_hurtAndPushEnemy_Base):
     "A base for vek charge weapons."
@@ -3539,3 +3542,22 @@ class Weapon_ExplosiveExpulsions(Weapon_ExplosiveExpulsions_Base):
 class Weapon_AlphaExplosiveExpulsions(Weapon_ExplosiveExpulsions_Base):
     "Launch artillery attack on 2 tiles for 3 damage (5 tile range). AlphaCrab"
     damage = 3
+
+class Weapon_Vomit_Base(Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+    "Base class for Centipede weapons"
+    def shoot(self):
+        if super().shoot():
+            self.game.board[self.targetsquare].applyAcid() # give acid to the square that was already damaged by the parent obj
+            for d in Direction.genPerp(*self.qshot):
+                secondarysquare = self.game.board[self.targetsquare].getRelSquare(d, 1)
+                try:
+                    self.game.board[secondarysquare].takeDamage(self.damage)
+                except KeyError: # board[False]
+                    continue # secondary square was offboard
+                self.game.board[secondarysquare].applyAcid() # give it acid after attacking it
+
+class Weapon_AcidicVomit(Weapon_Vomit_Base):
+    damage = 1
+
+class Weapon_CorrosiveVomit(Weapon_Vomit_Base):
+    damage = 2

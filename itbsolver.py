@@ -291,6 +291,8 @@ class Tile_Base(TileUnit_Base):
             self.unit.weapon1.qshot = None
         except AttributeError:
             pass
+        else: # this was an enemy that was smoked, let's also break all its webs:
+            self.unit._breakAllWebs()
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -340,7 +342,7 @@ class Tile_Base(TileUnit_Base):
         If there's a unit already on the tile, it's overwritten and deleted. returns nothing."""
         self.unit = unit
         try:
-            self.unit._breakAllWebs()
+            self.unit._breakAllWebs() # TODO: override _breakAllWebs in units that will never be webbed, such as rocks
         except AttributeError: # raised by None.square = blah
             return  # bail, the unit has been replaced by nothing which is ok.
         self.unit.square = self.square
@@ -642,7 +644,7 @@ class Tile_Lava(Tile_Water):
             return # but not the tile
     def applySmoke(self):
         "Smoke doesn't remove fire from the lava."
-        self.effects.add(Effects.SMOKE)
+        self.effects.add(Effects.SMOKE) # we don't break webs here since only flying units can be on lava and no flying units can web
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -734,17 +736,6 @@ class Unit_Base(TileUnit_Base):
         self.effects.add(Effects.WEB)
     def applyShield(self):
         self.effects.add(Effects.SHIELD)
-    # def _blockDamage(self):
-    #     "Let the unit's Shield or Ice block damage. This is the first part of takeDamage(). return True if damage was blocked, False if there was no shield/ice to block it."
-    #     for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
-    #         try:
-    #             self.effects.remove(effect)
-    #         except KeyError:
-    #             pass
-    #         else:
-    #             self.game.board[self.square]._spreadEffects() # spread effects now that they lost a shield or ice
-    #             return True # and then stop processing things, the shield or ice took the damage.
-    #     return False
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         """Process this unit taking damage. All effects are considered unless the ignore* flags are set in the arguments.
         Units will not die after reaching 0 hp here, run _allowDeath() to allow them to die. This is needed for vek units that can be killed and then pushed to do bump damage or spread effects.
@@ -1230,23 +1221,23 @@ class Unit_AlphaCentipede(Unit_EnemyNonPsion_Base):
 
 class Unit_Digger(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='digger', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_DiggingTusks(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaDigger(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphadigger', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AlphaDiggingTusks(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Hornet(Unit_EnemyFlying_Base):
     def __init__(self, game, type='hornet', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Stinger(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AcidHornet(Unit_EnemyFlying_Base):
     def __init__(self, game, type='acidhornet', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidStinger(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaHornet(Unit_EnemyFlying_Base):
     def __init__(self, game, type='alphahornet', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_LaunchingStinger(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_SoldierPsion(Unit_Psion_Base):
     def __init__(self, game, type='soldierpsion', hp=2, maxhp=2, effects=None, attributes=None):
@@ -1270,23 +1261,23 @@ class Unit_PsionTyrant(Unit_Psion_Base):
 
 class Unit_Spider(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='spider', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaSpider(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphaspider', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_LargeOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Burrower(Unit_EnemyBurrower_Base):
+class Unit_Burrower(Unit_EnemyBurrower_Base): # TODO: implement a special takeDamage() that causes the unit to burrow after taking damage
     def __init__(self, game, type='burrower', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SpikedCarapace(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaBurrower(Unit_EnemyBurrower_Base):
+class Unit_AlphaBurrower(Unit_EnemyBurrower_Base): # TODO: implement a special takeDamage() that causes the unit to burrow after taking damage
     def __init__(self, game, type='alphaburrower', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BladedCarapace(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_BeetleLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='beetleleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_FlamingAbdomen(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_LargeGoo(Unit_EnemyLeader_Base):
     def __init__(self, game, type='largegoo', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
@@ -3339,7 +3330,7 @@ class Weapon_Vek_Base():
 class Weapon_Validate_Base():
     "This is the base validate class for all others."
     def validate(self):
-        "The only way this shot can be invalidated is by the wielder being killed or smoked"
+        "The only way this shot can be invalidated is by the shot already being invalidated or the unit being smoked."
         if self.qshot is None:
             return False
         if Effects.SMOKE in self.game.board[self.wieldingunit.square].effects:
@@ -3374,24 +3365,38 @@ class Weapon_DirectionalFlip_Base():
         self.validate()
 
 # Vek weapon high-level base objects:
-class Weapon_Blob_Base(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
-    "Base weapon for blobs that explode"
-    def __init__(self):
-        self.qshot = () # give it a valid shot by default, blobs will never spawn in smoke
+class Weapon_SurroundingShoot_Base(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Base weapon for vek weapons that damage adjacent tiles such as blob and digger weapons."
     def shoot(self):
+        "return True if the shot happened, False if it didn't."
         if self.qshot is not None:
             for d in Direction.gen():
                 try:
                     self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, 1)].takeDamage(self.damage)
                 except KeyError: # game.board[False]
                     pass
+            return True
+        return False
+
+class Weapon_Blob_Base(Weapon_SurroundingShoot_Base):
+    "Base weapon for blobs that explode"
+    def shoot(self):
+        if super().shoot():
             self.wieldingunit.die()
 
 class Weapon_SpinneretFangs_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
-    "Shared shoot method for melee attacks used by Scorpions and Leapers"
+    "Shared shoot method for melee attacks used by Scorpions and Leapers (units that create webs before their attack)"
     def shoot(self):
         if self.qshot is not None:
             self.wieldingunit._breakAllWebs() # these units remove their webs before they attack
+            self.game.board[self.targetsquare].takeDamage(self.damage)
+            return True
+        return False
+
+class Weapon_Stinger_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
+    "Shared shoot method for melee attacks used by Hornets."
+    def shoot(self):
+        if self.qshot is not None:
             self.game.board[self.targetsquare].takeDamage(self.damage)
             return True
         return False
@@ -3461,7 +3466,31 @@ class Weapon_ExplosiveExpulsions_Base(Weapon_VekArtillery_Base):
             except KeyError:  # board[False]
                 pass  # the secondary target can be offboard
 
-# Actual vek weapons:
+class Weapon_Vomit_Base(Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+    "Base class for Centipede weapons"
+    def shoot(self):
+        if super().shoot():
+            self.game.board[self.targetsquare].applyAcid() # give acid to the square that was already damaged by the parent obj
+            for d in Direction.genPerp(*self.qshot):
+                secondarysquare = self.game.board[self.targetsquare].getRelSquare(d, 1)
+                try:
+                    self.game.board[secondarysquare].takeDamage(self.damage)
+                except KeyError: # board[False]
+                    continue # secondary square was offboard
+                self.game.board[secondarysquare].applyAcid() # give it acid after attacking it
+
+class Weapon_Carapace_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
+    "Base class for Burrower Carapace weapons"
+    def shoot(self):
+        if self.qshot is not None:
+            self.game.board[self.targetsquare].takeDamage(self.damage) # hit the main target square
+            for d in Direction.genPerp(*self.qshot):
+                try:
+                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].takeDamage(self.damage)
+                except KeyError: # board[False]
+                    continue # secondary square was offboard
+
+############################## Actual vek weapons: #######################################################
 class Weapon_UnstableGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 1 damage. Kill it first to stop it. Blob"
     damage = 1
@@ -3470,7 +3499,7 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 3 damage. Kill it first to stop it. Alpha Blob"
     damage = 3
 
-# TODO: We can't predict the shooting of these 2 weapons, but they need to be counted towards spawning new enemies
+# TODO: We can't predict the shooting of these 4 weapons, but they need to be counted towards spawning new enemies
 class Weapon_UnstableGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
@@ -3478,6 +3507,16 @@ class Weapon_UnstableGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
 
 class Weapon_VolatileGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     "Throw a sticky blob that will explode. Blobber"
+    def shoot(self):
+        print("TODO!")
+
+class Weapon_TinyOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Throw a sticky egg that hatches into a Spiderling. Spider"
+    def shoot(self):
+        print("TODO!")
+
+class Weapon_LargeOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Throw a sticky egg that hatches into an Alpha Spiderling. AlphaSpider"
     def shoot(self):
         print("TODO!")
 
@@ -3543,21 +3582,78 @@ class Weapon_AlphaExplosiveExpulsions(Weapon_ExplosiveExpulsions_Base):
     "Launch artillery attack on 2 tiles for 3 damage (5 tile range). AlphaCrab"
     damage = 3
 
-class Weapon_Vomit_Base(Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
-    "Base class for Centipede weapons"
-    def shoot(self):
-        if super().shoot():
-            self.game.board[self.targetsquare].applyAcid() # give acid to the square that was already damaged by the parent obj
-            for d in Direction.genPerp(*self.qshot):
-                secondarysquare = self.game.board[self.targetsquare].getRelSquare(d, 1)
-                try:
-                    self.game.board[secondarysquare].takeDamage(self.damage)
-                except KeyError: # board[False]
-                    continue # secondary square was offboard
-                self.game.board[secondarysquare].applyAcid() # give it acid after attacking it
-
 class Weapon_AcidicVomit(Weapon_Vomit_Base):
+    "Launch a volatile mass of goo, dealing 1 damage and applying A.C.I.D. on nearby units. Centipede"
     damage = 1
 
 class Weapon_CorrosiveVomit(Weapon_Vomit_Base):
+    "Launch a volatile mass of goo, dealing 2 damage and applying A.C.I.D. on nearby units. Centipede"
     damage = 2
+
+class Weapon_DiggingTusks(Weapon_SurroundingShoot_Base):
+    "Create a defensive rock wall before attacking adjacent tiles for 1 damage."
+    damage = 1
+
+class Weapon_AlphaDiggingTusks(Weapon_SurroundingShoot_Base):
+    "Create a defensive rock wall before attacking adjacent tiles for 2 damage."
+    damage = 2
+
+class Weapon_Stinger(Weapon_Stinger_Base):
+    "Stab the target for 1 damage. Hornet"
+    damage = 1
+
+class Weapon_AcidStinger(Weapon_Stinger_Base):
+    "Stab the target for 1 damage and apply A.C.I.D. AcidHornet"
+    damage = 1
+    def shoot(self):
+        if super().shoot():
+            self.game.board[self.targetsquare].applyAcid()
+
+class Weapon_LaunchingStinger(Weapon_Stinger_Base):
+    "Stab 2 tiles in front of the unit for 2 damage. AlphaHornet"
+    damage = 2
+    def shoot(self):
+        if super().shoot():
+            try:
+                self.game.board[self.game.board[self.targetsquare].getRelSquare(*self.qshot, 1)].takeDamage(self.damage)
+            except KeyError: # board[False], secondary tile was offboard
+                pass
+
+class Weapon_SpikedCarapace(Weapon_Carapace_Base):
+    "Slam against 3 tiles in a row, hitting each for 1 damage. Burrower"
+    damage = 1
+
+class Weapon_BladedCarapace(Weapon_Carapace_Base):
+    "Slam against 3 tiles in a row, hitting each for 2 damage. AlphaBurrower"
+    damage = 2
+
+class Weapon_FlamingAbdomen(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_hurtAndPushEnemy_Base):
+    "Charge, dealing 3 damage, and light every tile in the path on Fire. BeetleLeader"
+    # This weapon isn't affected by swallow tiles, just like a mech charge weapon
+    damage = 3
+    def shoot(self):
+        if self.qshot is not None:
+            firesquares = set() # a set of squares that will be set on fire after the wielder is moved
+            prevsquare = self.wieldingunit.square # set the previous tile since if we run into a unit we have to put the unit here
+            while True: # self.targetsquare is already set to the first tile from validation
+                if self.game.board[self.targetsquare].unit: # if the next square has a unit on it...
+                    self._hurtAndPushEnemy(self.targetsquare, *self.qshot) # hurt and push the enemy
+                    self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # then move to the square before this one
+                    break
+                else: # there was no unit
+                    firesquares.add(prevsquare)
+                    prevsquare = self.targetsquare
+                    self.targetsquare = self.game.board[self.targetsquare].getRelSquare(*self.qshot, 1)
+                    if not self.targetsquare: # if we went off the board
+                        self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move to that edge tile
+                        break
+            for sq in firesquares:
+                self.game.board[sq].applyFire()
+
+# class Weapon_GooAttack(Weapon_Stinger_Base):
+#     "Attempt to squish the adjacent tile, destroying its contents. LargeGoo, MediumGoo, SmallGoo all use this same exact weapon."
+#     damage = 4
+#     def shoot(self):
+#         """The way this weapon works is that it damages the unit like a regular melee unit would if it's a mech or if the unit doesn't die.
+#         However, if the unit dies and is NOT a mech, the goo takes the victim's spot on the board."""
+#         if super().shoot():

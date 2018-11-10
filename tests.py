@@ -1408,7 +1408,7 @@ def t_UnitWithAcidDiesInLava():
     "Lava doesn't get acid from an acid unit dying on it."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Lava(g))
-    g.board[(1, 2)].createUnitHere(Unit_AcidScorpion(g))
+    g.board[(1, 2)].createUnitHere(Unit_Scorpion(g))
     assert g.board[(1, 1)].effects == {Effects.SUBMERGED, Effects.FIRE}
     assert g.board[(1, 2)].unit.effects == set()
     g.board[(1, 2)].applyAcid()
@@ -1640,7 +1640,7 @@ def t_CataclysmEnvironmental():
     "test a cataclysm"
     g = Game(environeffect=Environ_Cataclysm(((1, 1), (2, 1), (3, 1))))
     g.board[(1, 1)].createUnitHere(Unit_Mirror_Mech(g))
-    g.board[(2, 1)].createUnitHere(Unit_AcidScorpion(g))
+    g.board[(2, 1)].createUnitHere(Unit_Scorpion(g))
     g.board[(2, 1)].applyFire()
     g.board[(3, 1)].createUnitHere(Unit_BlastPsion(g))
     g.board[(3, 1)].applySmoke()
@@ -1720,7 +1720,7 @@ def t_LavaFlowEnvironmental():
     g.board[(1, 1)].createUnitHere(Unit_Rocket_Mech(g))
     g.board[(2, 1)].createUnitHere(Unit_Firefly(g))
     g.board[(2, 1)].applyFire()
-    g.board[(3, 1)].createUnitHere(Unit_AcidHornet(g))
+    g.board[(3, 1)].createUnitHere(Unit_Hornet(g))
     g.board[(3, 1)].applySmoke()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -3622,6 +3622,22 @@ def t_WeaponRepulse5():
     assert g.board[(1, 2)].unit.hp == 1  # no change for building
     assert g.board[(1, 2)].unit.effects == {Effects.SHIELD}  # building is shielded
     assert g.board[(1, 2)].effects == set()  # no change for ally's tile
+
+def t_WeaponRepulse6():
+    "Shoot the Repulse weapon with full power and have a friendly gain a shield, then immediately lose it to the bump."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Pulse_Mech(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # no change for shooter
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}  # shooter shielded
+    assert g.board[(1, 1)].effects == set()  # no change for shooter's tile
+    assert g.board[(2, 1)].unit.hp == 3  # 2nd mech took NO bump damage
+    assert g.board[(2, 1)].unit.effects == set()  # he gained a shield and lose it
+    assert g.board[(2, 1)].effects == set()  # no change for 2nd mech's tile
+    assert g.board[(3, 1)].unit.type == 'mountaindamaged' # mountain got bumped into
 
 def t_WeaponGrapplingHook1():
     "Shoot the grappling hook weapon at an enemy with no power"
@@ -7973,21 +7989,21 @@ def t_WeaponStingingSpinneret():
     assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
     assert g.board[(2, 1)].unit.effects == set()
 
-def t_WeaponStingingSpinneretAcid():
-    "Have an  AcidScorpion do his attack"
-    g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
-    g.board[(2, 1)].createUnitHere(Unit_AcidScorpion(g, qshot=(Direction.LEFT,)))
-    assert g.board[(1, 1)].unit.hp == 5
-    assert g.board[(2, 1)].unit.hp == 4
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.effects == set()
-    g.board[(2, 1)].unit.weapon1.shoot()
-    g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
-    assert g.board[(1, 1)].unit.effects == {Effects.ACID}
-    assert g.board[(2, 1)].unit.hp == 4 # vek took no damage
-    assert g.board[(2, 1)].unit.effects == set()
+# def t_WeaponStingingSpinneretAcid(): # acid units aren't really implemented in the game
+#     "Have an  AcidScorpion do his attack"
+#     g = Game()
+#     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+#     g.board[(2, 1)].createUnitHere(Unit_AcidScorpion(g, qshot=(Direction.LEFT,)))
+#     assert g.board[(1, 1)].unit.hp == 5
+#     assert g.board[(2, 1)].unit.hp == 4
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.effects == set()
+#     g.board[(2, 1)].unit.weapon1.shoot()
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
+#     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
+#     assert g.board[(2, 1)].unit.hp == 4 # vek took no damage
+#     assert g.board[(2, 1)].unit.effects == set()
 
 def t_WeaponGoringSpinneret():
     "Have an AlphaScorpion do his attack"
@@ -8062,62 +8078,62 @@ def t_WeaponAcceleratingThoraxInvalidFlip():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(8, 1)].effects == set() # forest did not catch on fire
 
-def t_WeaponAcceleratingThoraxAcid():
-    "Have an AcidFirefly do his attack against our mech"
-    g = Game()
-    g.board[(8, 1)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
-    g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.LEFT,)))
-    assert g.board[(1, 1)].unit.hp == 5
-    assert g.board[(2, 1)].unit.hp == 3
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.effects == set()
-    g.board[(2, 1)].unit.weapon1.shoot()
-    g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
-    assert g.board[(1, 1)].unit.effects == {Effects.ACID}
-    assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
-    assert g.board[(2, 1)].unit.effects == set()
-    assert g.board[(8, 1)].effects == set() # forest did not catch on fire
+# def t_WeaponAcceleratingThoraxAcid(): # acid units aren't really implemented in the game
+#     "Have an AcidFirefly do his attack against our mech"
+#     g = Game()
+#     g.board[(8, 1)].replaceTile(Tile_Forest(g))
+#     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+#     g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.LEFT,)))
+#     assert g.board[(1, 1)].unit.hp == 5
+#     assert g.board[(2, 1)].unit.hp == 3
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.effects == set()
+#     g.board[(2, 1)].unit.weapon1.shoot()
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
+#     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
+#     assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
+#     assert g.board[(2, 1)].unit.effects == set()
+#     assert g.board[(8, 1)].effects == set() # forest did not catch on fire
 
-def t_WeaponAcceleratingThoraxAcidFlip():
-    "Have an AcidFirefly do his attack but it got flipped and hit the forest instead"
-    g = Game()
-    g.board[(8, 1)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
-    g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.LEFT,)))
-    assert g.board[(1, 1)].unit.hp == 5
-    assert g.board[(2, 1)].unit.hp == 3
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.effects == set()
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    g.board[(2, 1)].unit.weapon1.shoot()
-    g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 5  # wielder took 0 damage
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
-    assert g.board[(2, 1)].unit.effects == set()
-    assert g.board[(8, 1)].effects == {Effects.ACID} # forest erased by acid
+# def t_WeaponAcceleratingThoraxAcidFlip(): # acid units aren't really implemented in the game
+#     "Have an AcidFirefly do his attack but it got flipped and hit the forest instead"
+#     g = Game()
+#     g.board[(8, 1)].replaceTile(Tile_Forest(g))
+#     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+#     g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.LEFT,)))
+#     assert g.board[(1, 1)].unit.hp == 5
+#     assert g.board[(2, 1)].unit.hp == 3
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.effects == set()
+#     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+#     g.board[(2, 1)].unit.weapon1.shoot()
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.hp == 5  # wielder took 0 damage
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
+#     assert g.board[(2, 1)].unit.effects == set()
+#     assert g.board[(8, 1)].effects == {Effects.ACID} # forest erased by acid
 
-def t_WeaponAcceleratingThoraxAcidInvalidFlip():
-    "Have an AcidFirefly do his attack but it got flipped and invalidated instead"
-    g = Game()
-    g.board[(8, 1)].replaceTile(Tile_Forest(g))
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
-    g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.UP,)))
-    assert g.board[(1, 1)].unit.hp == 5
-    assert g.board[(2, 1)].unit.hp == 3
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.effects == set()
-    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-    assert g.board[(2, 1)].unit.weapon1.qshot is None
-    g.board[(2, 1)].unit.weapon1.shoot()
-    g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 5  # wielder took 0 damage
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
-    assert g.board[(2, 1)].unit.effects == set()
-    assert g.board[(8, 1)].effects == set() # forest did not catch on fire
+# def t_WeaponAcceleratingThoraxAcidInvalidFlip(): # acid units aren't really implemented in the game
+#     "Have an AcidFirefly do his attack but it got flipped and invalidated instead"
+#     g = Game()
+#     g.board[(8, 1)].replaceTile(Tile_Forest(g))
+#     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+#     g.board[(2, 1)].createUnitHere(Unit_AcidFirefly(g, qshot=(Direction.UP,)))
+#     assert g.board[(1, 1)].unit.hp == 5
+#     assert g.board[(2, 1)].unit.hp == 3
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.effects == set()
+#     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+#     assert g.board[(2, 1)].unit.weapon1.qshot is None
+#     g.board[(2, 1)].unit.weapon1.shoot()
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.hp == 5  # wielder took 0 damage
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
+#     assert g.board[(2, 1)].unit.effects == set()
+#     assert g.board[(8, 1)].effects == set() # forest did not catch on fire
 
 def t_WeaponEnhancedThorax():
     "Have an AlphaFirefly do his attack against our mech"
@@ -8238,13 +8254,14 @@ def t_WeaponPincersMine():
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # vek dashed from here
-    assert g.board[(6, 1)].unit.hp == 6  # mech took NO damage
-    assert g.board[(6, 1)].unit.effects == set()
-    assert g.board[(5, 1)].unit == None # vek died from the mine
-    assert g.board[(5, 1)].effects == set() # mine is gone
+    assert g.board[(7, 1)].unit.hp == 5  # mech took 1 damage
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.hp == 4 # vek took no damage
+    assert g.board[(5, 1)].unit.effects == set()  # vek froze from the mine and took no damage
+    assert g.board[(4, 1)].effects == {Effects.MINE} # mine is still there
 
 def t_WeaponPincersFreezeMine():
-    "Have a Beetle do his attack against a unit but there's a freezemine in the way"
+    "Have a Beetle do his attack against a unit but there's a freezemine in the way which it goes over"
     g = Game()
     g.board[(6, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=6, maxhp=6)) # extra hp given
     g.board[(1, 1)].createUnitHere(Unit_Beetle(g, qshot=(Direction.RIGHT,)))
@@ -8256,11 +8273,11 @@ def t_WeaponPincersFreezeMine():
     g.board[(1, 1)].unit.weapon1.shoot()
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # vek dashed from here
-    assert g.board[(6, 1)].unit.hp == 6  # mech took NO damage
-    assert g.board[(6, 1)].unit.effects == set()
-    assert g.board[(4, 1)].unit.hp == 4 # vek froze from the mine and took no damage
-    assert g.board[(4, 1)].unit.effects == {Effects.ICE}  # vek froze from the mine and took no damage
-    assert g.board[(4, 1)].effects == set() # mine is gone
+    assert g.board[(7, 1)].unit.hp == 5  # mech took 1 damage
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.hp == 4 # vek took no damage
+    assert g.board[(5, 1)].unit.effects == set()  # vek froze from the mine and took no damage
+    assert g.board[(4, 1)].effects == {Effects.FREEZEMINE} # mine is still there
 
 def t_WeaponPincersWater():
     "Have a Beetle do his attack against a unit but there's a water tile in the way"
@@ -8581,21 +8598,21 @@ def t_WeaponStinger():
     assert g.board[(2, 1)].unit.hp == 2 # vek took no damage
     assert g.board[(2, 1)].unit.effects == set()
 
-def t_WeaponStingerAcid():
-    "Have an  AcidHornet do his attack"
-    g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
-    g.board[(2, 1)].createUnitHere(Unit_AcidHornet(g, qshot=(Direction.LEFT,)))
-    assert g.board[(1, 1)].unit.hp == 5
-    assert g.board[(2, 1)].unit.hp == 3
-    assert g.board[(1, 1)].unit.effects == set()
-    assert g.board[(2, 1)].unit.effects == set()
-    g.board[(2, 1)].unit.weapon1.shoot()
-    g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
-    assert g.board[(1, 1)].unit.effects == {Effects.ACID}
-    assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
-    assert g.board[(2, 1)].unit.effects == set()
+# def t_WeaponStingerAcid(): # acid units aren't really implemented in the game
+#     "Have an  AcidHornet do his attack"
+#     g = Game()
+#     g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+#     g.board[(2, 1)].createUnitHere(Unit_AcidHornet(g, qshot=(Direction.LEFT,)))
+#     assert g.board[(1, 1)].unit.hp == 5
+#     assert g.board[(2, 1)].unit.hp == 3
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.effects == set()
+#     g.board[(2, 1)].unit.weapon1.shoot()
+#     g.flushHurt()
+#     assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
+#     assert g.board[(1, 1)].unit.effects == {Effects.ACID}
+#     assert g.board[(2, 1)].unit.hp == 3 # vek took no damage
+#     assert g.board[(2, 1)].unit.effects == set()
 
 def t_WeaponLaunchingStinger():
     "Have an AlphaHornet do his attack but the secondary tile is offboard"

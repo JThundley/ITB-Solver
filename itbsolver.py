@@ -105,7 +105,7 @@ Effects = Constant(thegen,
     'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     'SHIELD',
-    # 'WEB', # web is no longer an effect
+    # 'WEB', # web is no longer an effect constant, it's a set of squares that it's paired with
     'EXPLOSIVE'))
 
 # These are attributes that are applied to units.
@@ -1159,9 +1159,9 @@ class Unit_Scorpion(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='scorpion', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AcidScorpion(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='acidscorpion', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneretAcid(), qshot=qshot, effects=effects, attributes=attributes)
+# class Unit_AcidScorpion(Unit_EnemyNonPsion_Base): # acid units aren't really implemented in the game
+#     def __init__(self, game, type='acidscorpion', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
+#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneretAcid(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaScorpion(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphascorpion', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
@@ -1171,9 +1171,9 @@ class Unit_Firefly(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='firefly', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcceleratingThorax(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AcidFirefly(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type='acidfirefly', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcceleratingThoraxAcid(), qshot=qshot, effects=effects, attributes=attributes)
+# class Unit_AcidFirefly(Unit_EnemyNonPsion_Base): # acid units aren't really implemented in the game
+#     def __init__(self, game, type='acidfirefly', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcceleratingThoraxAcid(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaFirefly(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphascorpion', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
@@ -1231,9 +1231,9 @@ class Unit_Hornet(Unit_EnemyFlying_Base):
     def __init__(self, game, type='hornet', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Stinger(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AcidHornet(Unit_EnemyFlying_Base):
-    def __init__(self, game, type='acidhornet', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidStinger(), qshot=qshot, effects=effects, attributes=attributes)
+# class Unit_AcidHornet(Unit_EnemyFlying_Base): # acid units aren't really implemented in the game
+#     def __init__(self, game, type='acidhornet', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
+#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidStinger(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaHornet(Unit_EnemyFlying_Base):
     def __init__(self, game, type='alphahornet', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
@@ -2354,8 +2354,13 @@ class Weapon_Repulse(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base):
             except KeyError: # self.game.board[False]
                 continue # targetsquare was invalid, move on
             else: # targetsquare is a valid square on the board
-                if self.shieldally and (targetunit.alliance == Alliance.FRIENDLY or targetunit.isBuilding()): # try to shield allies if needed
-                    targetunit.applyShield()
+                try:
+                    if self.shieldally and (targetunit.alliance == Alliance.FRIENDLY or targetunit.isBuilding()): # try to shield allies if needed
+                        raise FakeException
+                except AttributeError: # None.alliance, no unit
+                    continue
+                except FakeException:
+                    targetunit.applyShield() # shield first and push 2nd. The game shows that you'll lose hp from bumping, but instead you get a shield and then immediately lose it to the bump and take no direct damage
                 self.game.board[targetsquare].push(d)
 
 class Weapon_ElectricWhip(Weapon_DirectionalGen_Base):
@@ -3384,17 +3389,8 @@ class Weapon_Blob_Base(Weapon_SurroundingShoot_Base):
         if super().shoot():
             self.wieldingunit.die()
 
-class Weapon_SpinneretFangs_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
-    "Shared shoot method for melee attacks used by Scorpions and Leapers (units that create webs before their attack)"
-    def shoot(self):
-        if self.qshot is not None:
-            self.wieldingunit._breakAllWebs() # these units remove their webs before they attack
-            self.game.board[self.targetsquare].takeDamage(self.damage)
-            return True
-        return False
-
-class Weapon_Stinger_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
-    "Shared shoot method for melee attacks used by Hornets."
+class Weapon_VekMelee_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base): # XXX
+    "Shared shoot method for melee attacks used by Scorpions, Leapers, and hornets."
     def shoot(self):
         if self.qshot is not None:
             self.game.board[self.targetsquare].takeDamage(self.damage)
@@ -3424,9 +3420,7 @@ class Weapon_VekCharge_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, We
                     self._hurtAndPushEnemy(self.targetsquare, *self.qshot) # hurt and push the enemy
                     self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # then move to the square before this one
                     return # and we're done
-                elif self.game.board[self.targetsquare].isSwallow()\
-                        or Effects.FREEZEMINE in self.game.board[self.targetsquare].effects \
-                        or Effects.MINE in self.game.board[self.targetsquare].effects: # if the tile is a swallow tile or has a mine on it
+                elif self.game.board[self.targetsquare].isSwallow():
                     self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the unit here so it can die or trip the mine
                     return
                 else: # there was no unit and the tile didn't kill the vek
@@ -3520,18 +3514,18 @@ class Weapon_LargeOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
     def shoot(self):
         print("TODO!")
 
-class Weapon_StingingSpinneret(Weapon_SpinneretFangs_Base):
+class Weapon_StingingSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."
     damage = 1
 
-class Weapon_StingingSpinneretAcid(Weapon_SpinneretFangs_Base):
-    "Web an adjacent target, preparing to stab it for 1 damage and apply acid. (We don't actually do any webbing here). AcidScorpion."
-    damage = 1
-    def shoot(self):
-        if super().shoot():
-            self.game.board[self.targetsquare].applyAcid()
+# class Weapon_StingingSpinneretAcid(Weapon_VekMelee_Base): # acid units aren't really implemented in the game
+#     "Web an adjacent target, preparing to stab it for 1 damage and apply acid. (We don't actually do any webbing here). AcidScorpion."
+#     damage = 1
+#     def shoot(self):
+#         if super().shoot():
+#             self.game.board[self.targetsquare].applyAcid()
 
-class Weapon_GoringSpinneret(Weapon_SpinneretFangs_Base):
+class Weapon_GoringSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 3 damage. (We don't actually do any webbing here). AlphaScorpion."
     damage = 3
 
@@ -3539,22 +3533,22 @@ class Weapon_AcceleratingThorax(Weapon_Thorax_Base):
     "Launch a volatile mass of goo dealing 1 damage. Firefly"
     damage = 1
 
-class Weapon_AcceleratingThoraxAcid(Weapon_Thorax_Base):
-    "Launch a volatile mass of goo dealing 1 damage and applying acid. AcidFirefly"
-    damage = 1
-    def shoot(self):
-        if super().shoot():
-            self.game.board[self.targetsquare].applyAcid()
+# class Weapon_AcceleratingThoraxAcid(Weapon_Thorax_Base): # acid units aren't really implemented in the game
+#     "Launch a volatile mass of goo dealing 1 damage and applying acid. AcidFirefly"
+#     damage = 1
+#     def shoot(self):
+#         if super().shoot():
+#             self.game.board[self.targetsquare].applyAcid()
 
 class Weapon_EnhancedThorax(Weapon_Thorax_Base):
     "Launch a volatile mass of goo dealing 3 damage. AlphaFirefly"
     damage = 3
 
-class Weapon_Fangs(Weapon_SpinneretFangs_Base):
+class Weapon_Fangs(Weapon_VekMelee_Base):
     "Web a target, preparing to stab it for 3 damage. Leaper"
     damage = 3
 
-class Weapon_SharpenedFangs(Weapon_SpinneretFangs_Base):
+class Weapon_SharpenedFangs(Weapon_VekMelee_Base):
     "Web a target, preparing to stab it for 5 damage. AlphaLeaper"
     damage = 5
 
@@ -3598,18 +3592,18 @@ class Weapon_AlphaDiggingTusks(Weapon_SurroundingShoot_Base):
     "Create a defensive rock wall before attacking adjacent tiles for 2 damage."
     damage = 2
 
-class Weapon_Stinger(Weapon_Stinger_Base):
+class Weapon_Stinger(Weapon_VekMelee_Base):
     "Stab the target for 1 damage. Hornet"
     damage = 1
 
-class Weapon_AcidStinger(Weapon_Stinger_Base):
-    "Stab the target for 1 damage and apply A.C.I.D. AcidHornet"
-    damage = 1
-    def shoot(self):
-        if super().shoot():
-            self.game.board[self.targetsquare].applyAcid()
+# class Weapon_AcidStinger(Weapon_VekMelee_Base): # acid units aren't really implemented in the game
+#     "Stab the target for 1 damage and apply A.C.I.D. AcidHornet"
+#     damage = 1
+#     def shoot(self):
+#         if super().shoot():
+#             self.game.board[self.targetsquare].applyAcid()
 
-class Weapon_LaunchingStinger(Weapon_Stinger_Base):
+class Weapon_LaunchingStinger(Weapon_VekMelee_Base):
     "Stab 2 tiles in front of the unit for 2 damage. AlphaHornet"
     damage = 2
     def shoot(self):
@@ -3650,7 +3644,7 @@ class Weapon_FlamingAbdomen(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, We
             for sq in firesquares:
                 self.game.board[sq].applyFire()
 
-# class Weapon_GooAttack(Weapon_Stinger_Base):
+# class Weapon_GooAttack(Weapon_VekMelee_Base):
 #     "Attempt to squish the adjacent tile, destroying its contents. LargeGoo, MediumGoo, SmallGoo all use this same exact weapon."
 #     damage = 4
 #     def shoot(self):

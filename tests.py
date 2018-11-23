@@ -8766,6 +8766,162 @@ def t_WeaponFlamingAbdomen():
     for x in range(2, 6):
         assert g.board[(x, 1)].effects == {Effects.FIRE}
 
+def t_WeaponGooAttackMechSurvive():
+    "Have a Goo do his attack against a mech that survives."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1 # unit took 4 damage
+    assert g.board[(2, 1)].unit.effects == set() # no new effects
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.type == 'technohornet' # not a corpse
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+
+def t_WeaponGooAttackMechDies():
+    "Have a Goo do his attack against a mech that dies."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=4, maxhp=4)) # less hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 4
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1 # unit took 4 damage, died and is now a mech corpse
+    assert g.board[(2, 1)].unit.effects == set() # no new effects
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.type == 'mechcorpse' # is a corpse
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+
+def t_WeaponGooAttackSubTank():
+    "Have a Goo do his attack against a deployable tank that dies."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_PullTank(g, hp=1, maxhp=1)) # less hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3 # goo took the spot of the pull tank
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit == None # goo moved from here
+
+def t_WeaponGooAttackEnemyDies():
+    "Have a Goo do his attack against a vek that dies."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, hp=1, maxhp=1)) # less hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3 # goo took the spot of the vek
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit == None # goo moved from here
+
+def t_WeaponGooAttackEnemySurvives():
+    "Have a Goo do his attack against a vek that survives."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, hp=5, maxhp=5)) # more hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3 # goo took the spot of the vek
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.hp == 1  # unit took 4 damage
+    assert g.board[(2, 1)].unit.effects == set()  # no new effects
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.type == 'alphascorpion'
+
+def t_WeaponGooAttackEnemySurvivesIce():
+    "Have a Goo do his attack against a frozen vek with low health that survives."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, hp=1, maxhp=1, effects={Effects.ICE})) # less hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3 # goo took the spot of the vek
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].unit.hp == 1  # unit took no damage
+    assert g.board[(2, 1)].unit.effects == set()  # lost its ice
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(2, 1)].unit.type == 'alphascorpion'
+
+def t_WeaponGooAttackBuildingDies():
+    "Have a Goo do his attack against a building that dies."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Building(g, hp=2, maxhp=2)) # more hp given
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3 # goo took the spot of the building
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit == None # goo moved from here
+
+def t_WeaponGooAttackMountainDies():
+    "Have a Goo do his attack against a mountain that dies. The mountain does NOT become a mountaindamaged!"
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 3 # goo took the spot of the mountain
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].unit == None # goo moved from here
+
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

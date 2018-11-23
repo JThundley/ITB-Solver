@@ -206,11 +206,15 @@ class Game():
         self.hurtplayerunits = [] # a list of the player's units hurt by a single action. All units here must be checked for death after they all take damage and then this is reset.
         self.hurtpsion = None # This is set to a single psion that was damaged since there can never be more than 1 psion on the board at at time
         self.hurtenemies = [] # a list of all enemy units that were hurt during a single action. This includes robots
+        self.postattackmoves = set() # a set of tuples of squares. This is for Goo units that need to move to their victim's squares "after" the attack.
+                                #  If we don't do this, a goo will replace the unit it killed on the board, and then that unit will erase the goo when it's deaths replaces the square with None.
     def flushHurt(self):
         "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
         # print("hurtplayerunits:", self.hurtplayerunits)
         # print("hurtpsion:", self.hurtpsion)
+        postattackmoves = self.postattackmoves
+        self.postattackmoves = set()
         while True:
             hurtplayerunits = self.hurtplayerunits
             hurtenemies = self.hurtenemies
@@ -225,6 +229,8 @@ class Game():
                 hpu.explode()
             for he in hurtenemies:
                 he._allowDeath()
+            for srcsquare, destsquare in postattackmoves:
+                self.board[srcsquare].moveUnit(destsquare)
             if not (self.hurtenemies or self.hurtplayerunits or self.hurtpsion):
                 return
 ##############################################################################
@@ -777,10 +783,12 @@ class Unit_Base(TileUnit_Base):
     def explode(self):
         "Make the unit explode only if it is explosive (to be used after death). Explosion damage ignores acid and armor."
         if Effects.EXPLOSIVE in self.effects:
-            for d in Direction.gen():
-                relsquare = self.game.board[self.square].getRelSquare(d, 1)
-                if relsquare:
-                    self.game.board[relsquare].takeDamage(1, ignorearmor=True, ignoreacid=True)
+            self.game.board[self.square].takeDamage(1, ignorearmor=True, ignoreacid=True) # take an additional damage on the square of the unit
+            for d in Direction.gen(): # as well as around it
+                try:
+                    self.game.board[self.game.board[self.square].getRelSquare(d, 1)].takeDamage(1, ignorearmor=True, ignoreacid=True)
+                except KeyError: # board[False]
+                    pass
     def isBuilding(self):
         "Return True if unit is a building or objectivebuilding, False if it is not."
         try:
@@ -1281,15 +1289,15 @@ class Unit_BeetleLeader(Unit_EnemyLeader_Base):
 
 class Unit_LargeGoo(Unit_EnemyLeader_Base):
     def __init__(self, game, type='largegoo', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_GooAttack(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_MediumGoo(Unit_EnemyLeader_Base):
     def __init__(self, game, type='mediumgoo', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_GooAttack(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_SmallGoo(Unit_EnemyLeader_Base):
     def __init__(self, game, type='smallgoo', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_GooAttack(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_HornetLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='hornetleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
@@ -3644,10 +3652,19 @@ class Weapon_FlamingAbdomen(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, We
             for sq in firesquares:
                 self.game.board[sq].applyFire()
 
-# class Weapon_GooAttack(Weapon_VekMelee_Base):
-#     "Attempt to squish the adjacent tile, destroying its contents. LargeGoo, MediumGoo, SmallGoo all use this same exact weapon."
-#     damage = 4
-#     def shoot(self):
-#         """The way this weapon works is that it damages the unit like a regular melee unit would if it's a mech or if the unit doesn't die.
-#         However, if the unit dies and is NOT a mech, the goo takes the victim's spot on the board."""
-#         if super().shoot():
+class Weapon_GooAttack(Weapon_VekMelee_Base):
+    "Attempt to squish the adjacent tile, destroying its contents. LargeGoo, MediumGoo, SmallGoo all use this same exact weapon."
+    damage = 4
+    def shoot(self):
+        """The way this weapon works is that it damages the unit like a regular melee unit would if it's a mech or if the unit doesn't die.
+        However, if the unit dies and is NOT a mech, the goo takes the victim's spot on the board. If it attacks a mountain, it kills it in a single shot without creating a damagedmountain first."""
+        if super().shoot():
+            targetunit = self.game.board[self.targetsquare].unit
+            try:
+                if (targetunit.hp > 0 or (targetunit.alliance == Alliance.FRIENDLY and Attributes.MASSIVE in targetunit.attributes)) and not targetunit.isMountain():
+                    # if the unit the goo attacked survived or if it was a mech that was killed and the unit wasn't a mountain
+                    return # Do nothing, the goo should NOT take the place of its victim
+                else: # the unit was a mountain or it died and it wasn't a mech
+                    raise AttributeError # so the goo takes the place of the unit
+            except AttributeError: # None.isMountain(), there was no unit
+                self.game.postattackmoves.add((self.wieldingunit.square, self.targetsquare)) # have the goo take the place of the unit it just killed

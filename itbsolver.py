@@ -1301,7 +1301,7 @@ class Unit_SmallGoo(Unit_EnemyLeader_Base):
 
 class Unit_HornetLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='hornetleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SuperStinger(), qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_PsionAbomination(Unit_Psion_Base):
@@ -1311,16 +1311,16 @@ class Unit_PsionAbomination(Unit_Psion_Base):
 
 class Unit_ScorpionLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='scorpionleader', hp=7, maxhp=7, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_MassiveSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_FireflyLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='fireflyleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BurningThorax(), qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
 class Unit_SpiderLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='spiderleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_PlentifulOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaBlob(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphablob', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
@@ -1332,15 +1332,15 @@ class Unit_Blob(Unit_EnemyNonPsion_Base):
 
 class Unit_SpiderlingEgg(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='spiderlingegg', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SpiderlingEgg(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_Spiderling(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='spiderling', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyMandibles(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_AlphaSpiderling(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type='alphaspiderling', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyMandiblesAlpha(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_EnemyBot_Base(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type, hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
@@ -3397,7 +3397,7 @@ class Weapon_Blob_Base(Weapon_SurroundingShoot_Base):
         if super().shoot():
             self.wieldingunit.die()
 
-class Weapon_VekMelee_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base): # XXX
+class Weapon_VekMelee_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base):
     "Shared shoot method for melee attacks used by Scorpions, Leapers, and hornets."
     def shoot(self):
         if self.qshot is not None:
@@ -3491,6 +3491,18 @@ class Weapon_Carapace_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Wea
                     self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].takeDamage(self.damage)
                 except KeyError: # board[False]
                     continue # secondary square was offboard
+
+class Weapon_GreaterHornet_Base(Weapon_VekMelee_Base):
+    "A base class for AlphaHornet and HornetLeader that stab multiple tiles. self.range must be set by the child object"
+    damage = 2 # both units do 2 damage
+    def shoot(self):
+        if super().shoot(): # hit the first tile
+            for r in range(self.extrarange):
+                self.targetsquare = self.game.board[self.targetsquare].getRelSquare(*self.qshot, 1)
+                try:
+                    self.game.board[self.targetsquare].takeDamage(self.damage)
+                except KeyError: # board[False], secondary tile was offboard
+                    return # don't process further shots
 
 ############################## Actual vek weapons: #######################################################
 class Weapon_UnstableGuts(Weapon_Blob_Base):
@@ -3611,15 +3623,9 @@ class Weapon_Stinger(Weapon_VekMelee_Base):
 #         if super().shoot():
 #             self.game.board[self.targetsquare].applyAcid()
 
-class Weapon_LaunchingStinger(Weapon_VekMelee_Base):
+class Weapon_LaunchingStinger(Weapon_GreaterHornet_Base):
     "Stab 2 tiles in front of the unit for 2 damage. AlphaHornet"
-    damage = 2
-    def shoot(self):
-        if super().shoot():
-            try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(*self.qshot, 1)].takeDamage(self.damage)
-            except KeyError: # board[False], secondary tile was offboard
-                pass
+    extrarange = 1
 
 class Weapon_SpikedCarapace(Weapon_Carapace_Base):
     "Slam against 3 tiles in a row, hitting each for 1 damage. Burrower"
@@ -3668,3 +3674,66 @@ class Weapon_GooAttack(Weapon_VekMelee_Base):
                     raise AttributeError # so the goo takes the place of the unit
             except AttributeError: # None.isMountain(), there was no unit
                 self.game.postattackmoves.add((self.wieldingunit.square, self.targetsquare)) # have the goo take the place of the unit it just killed
+
+class Weapon_SuperStinger(Weapon_GreaterHornet_Base):
+    "Stab three tiles in a row for 2 damage each. HornetLeader"
+    extrarange = 2
+
+# class Weapon_Overpowered():
+#     "All other Vek gain +1 HP, Regeneration, and explode on death. Psion Abomination"
+#     # TODO!
+
+class Weapon_MassiveSpinneret(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_hurtAndPushEnemy_Base, Weapon_Validate_Base):
+    "Web all targets, preparing to deal 2 damage to adjacent tiles (This attack also pushes targets). ScorpionLeader"
+    damage = 2
+    def shoot(self):
+        if self.qshot is not None:
+            for d in Direction.gen():
+                try:
+                    self._hurtAndPushEnemy(self.game.board[self.wieldingunit.square].getRelSquare(d, 1), d)
+                except NullWeaponShot: # game.board[False]
+                    pass
+
+class Weapon_BurningThorax(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_Validate_Base, Weapon_getSquareOfUnitInDirection_Base):
+    "Launch goo projectiles in two directions, dealing 4 damage with each. FireflyLeader."
+    # The shot validation for this unit is very wonky. The way Vek targeting works as far as I can tell is that any vek that attacks in a specific direction
+    # targets 1 square in the direction of their attack. This means that units like the AlphaHornet can't choose to use less range, they can only choose direction.
+    # When the vek is moved to the edge of the board so that their target square goes off the board, their attack is cancelled. This is all good and fine and makes sense.
+    # The problem with this FireflyLeader is that he attacks the same way except it isn't apparent which direction he's targeting since he shoots out of both directions at once.
+    # Through testing, I've seen this unit have his shot cancelled for seemingly no reason. For example, I had a mech above the firefly in the same y axis and he targeted me.
+    # Its upward shot would hit me, while his bottom shot would just hit an empty tile. I then teleported the firefly down to the edge of the board and his shot was canceled!
+    # This means that his AI targeted the square below it and away from my mech, and then deduced that this was a good shot to take since the butt-shot would have hit my mech.
+    # Why would it target that way instead of toward me? No idea. I did further testing of this in the map editor where I put mountains on every tile except 2, one for a swap mech
+    # and one for the FireflyLeader. What I found was inconsistency. The firefly would always target me, but after I teleported it against the wall it would sometimes have
+    # its attack canceled, sometimes it wouldn't. The UI gives no indication of which way the firefly was actually targeting and it doesn't even choose which direction to target
+    # consistently. This leads me to the conclusion that it's random and the player can never tell which way the firefly targeted. That means moving it to the edge of the map is
+    # a total gamble. I think the only sensible thing for me to do in this program is to treat this weapon as impossible to positionally invalidate.
+    def shoot(self):
+        if self.qshot is not None:
+            for d in self.qshot[0], Direction.opposite(*self.qshot):
+                try:
+                    self.game.board[self._getSquareOfUnitInDirection(d, edgeok=True)].takeDamage(4)
+                except NullWeaponShot: # caused by the wielder being up against the wall, the other shot is so valid so we ignore this
+                    pass
+
+class Weapon_PlentifulOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_Validate_Base):
+    "Throw out 2-3 Spider eggs. SpiderLeader"
+    def shoot(self):
+        if self.qshot is not None:
+            pass # This weapon, just like the blobber, creates new units in unpredictable locations. The creation of these new units needs to be counted against your score.
+            # TODO!
+
+class Weapon_SpiderlingEgg(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Hatch into Spiderling. SpiderlingEgg. The unit name and weapon name are the same."
+    def validate(self):
+        pass
+    def shoot(self): # A spiderling egg will always hatch unless it is killed first, so we ignore qshot.
+        pass # TODO: count the creation of a new spiderling toward the simulation's score
+
+class Weapon_TinyMandibles(Weapon_VekMelee_Base):
+    "Weak 1 damage attack against a single adjacent target. Spiderling"
+    damage = 1
+
+class Weapon_TinyMandiblesAlpha(Weapon_VekMelee_Base):
+    "Weak 2 damage attack against a single adjacent target. AlphaSpiderling"
+    damage = 2

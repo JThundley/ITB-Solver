@@ -8651,6 +8651,32 @@ def t_WeaponLaunchingStinger2():
     assert g.board[(3, 1)].unit.hp == 4 # vek took no damage
     assert g.board[(3, 1)].unit.effects == set()
 
+def t_WeaponLaunchingStinger3():
+    "Have an AlphaHornet do his attack where he actually hits 2 tiles and doesn't hit a third unit that is present"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(4, 1)].createUnitHere(Unit_AlphaHornet(g, qshot=(Direction.LEFT,)))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 4
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    g.board[(4, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5  # mech took NO damage
+    assert g.board[(2, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(3, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.hp == 4 # vek took no damage
+    assert g.board[(4, 1)].unit.effects == set()
+
 def t_WeaponLaunchingStingerFlip():
     "Have an AlphaHornet do his attack where he was going to miss but flipping makes him hit"
     g = Game()
@@ -8922,6 +8948,161 @@ def t_WeaponGooAttackMountainDies():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(1, 1)].unit == None # goo moved from here
 
+def t_WeaponSuperStinger():
+    "Have a HornetLeader do his attack but the secondary tile is offboard"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_HornetLeader(g, qshot=(Direction.LEFT,)))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 6
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.hp == 6 # vek took no damage
+    assert g.board[(2, 1)].unit.effects == set()
+
+def t_WeaponSuperStinger2():
+    "Have a HornetLeader do his attack where he actually hits 2 tiles"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 1)].createUnitHere(Unit_HornetLeader(g, qshot=(Direction.LEFT,)))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    g.board[(3, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(2, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.hp == 6 # vek took no damage
+    assert g.board[(3, 1)].unit.effects == set()
+
+def t_WeaponSuperStinger3():
+    "Have a HornetLeader do his attack where he actually hits 3 tiles"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(4, 1)].createUnitHere(Unit_HornetLeader(g, qshot=(Direction.LEFT,)))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 6
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    g.board[(4, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(2, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(3, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.hp == 6 # vek took no damage
+    assert g.board[(4, 1)].unit.effects == set()
+
+def t_WeaponSuperStinger4():
+    "Have a HornetLeader do his attack where he actually hits 3 tiles and there's a 4th that isn't hit"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(4, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(5, 1)].createUnitHere(Unit_HornetLeader(g, qshot=(Direction.LEFT,)))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 5
+    assert g.board[(5, 1)].unit.hp == 6
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.effects == set()
+    g.board[(5, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5  # mech took NO damage
+    assert g.board[(2, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(3, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(4, 1)].unit.hp == 3  # mech took 2 damage
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.hp == 6 # vek took no damage
+    assert g.board[(5, 1)].unit.effects == set()
+
+def t_WeaponMassiveSpinneret():
+    "Have a ScorpionLeader do his attack."
+    g = Game()
+    g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_ScorpionLeader(g, qshot=()))
+    assert g.board[(1, 1)].unit.hp == 7
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(1, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 7  # Vek took no damage
+    assert g.board[(2, 1)].unit == None # mech pushed from here
+    assert g.board[(1, 2)].unit == None # mech pushed from here
+    assert g.board[(3, 1)].unit.hp == 3 # mech took 2 damage
+    assert g.board[(1, 3)].unit.hp == 3 # mech took 2 damage
+
+def t_WeaponBurningThorax():
+    "Have a FireflyLeader do his attack."
+    g = Game()
+    g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_FireflyLeader(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(1, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 6  # Vek took no damage
+    assert g.board[(2, 1)].unit.hp == 1 # mech took 4 damage
+    assert g.board[(1, 2)].unit.hp == 5 # mech took no damage
+
+def t_WeaponTinyMandibles():
+    "Have a Spiderling do his attack."
+    g = Game()
+    g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_Spiderling(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(1, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # Vek took no damage
+    assert g.board[(2, 1)].unit.hp == 4 # mech took 1 damage
+    assert g.board[(1, 2)].unit.hp == 5 # mech took no damage
+
+def t_WeaponTinyMandiblesAlpha():
+    "Have an AlphaSpiderling do his attack."
+    g = Game()
+    g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_AlphaSpiderling(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(1, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # Vek took no damage
+    assert g.board[(2, 1)].unit.hp == 3 # mech took 2 damage
+    assert g.board[(1, 2)].unit.hp == 5 # mech took no damage
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

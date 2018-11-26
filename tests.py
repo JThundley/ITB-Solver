@@ -1240,20 +1240,24 @@ def t_DamDiesWithAcidOnGround():
     assert g.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the acid on the ground left acid in the water
     assert g.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
 
-def t_ShieldedDamHitWithAcidGetsAcid():
-    "If the dam is shielded and then hit with acid, it's immediately inflicted with acid."
-    g = Game()
-    g.board[(8, 3)].replaceTile(Tile_Water(g))
-    g.board[(8, 4)].replaceTile(Tile_Water(g))
-    g.board[(8, 3)].createUnitHere(Unit_Dam(g))
-    g.board[(8, 4)].createUnitHere(Unit_Dam(g))
-    g.board[(8, 4)].applyShield()
-    assert g.board[(8, 3)].unit.effects == {Effects.SHIELD}
-    assert g.board[(8, 4)].unit.effects == {Effects.SHIELD}
-    g.board[(8, 3)].applyAcid()
-    g.flushHurt()
-    assert g.board[(8, 3)].unit.effects == {Effects.SHIELD, Effects.ACID}
-    assert g.board[(8, 4)].unit.effects == {Effects.SHIELD, Effects.ACID}
+# I don't think this is true and was created under a mistaken understanding.
+# My guess is that I tested this out with the acid projector before I realized that the weapon gives targets acid regardless of shield.
+# By my estimation, the only way the dam can get acid is from an acid weapon which ignores the shield in the case of the acid projector
+# and the vek weapons that give acid also do damage which remove the shield. The Dam can't move so it can't get acid from a tile
+# def t_ShieldedDamHitWithAcidGetsAcid():
+#     "If the dam is shielded and then hit with acid, it's immediately inflicted with acid."
+#     g = Game()
+#     g.board[(8, 3)].replaceTile(Tile_Water(g))
+#     g.board[(8, 4)].replaceTile(Tile_Water(g))
+#     g.board[(8, 3)].createUnitHere(Unit_Dam(g))
+#     g.board[(8, 4)].createUnitHere(Unit_Dam(g))
+#     g.board[(8, 4)].applyShield()
+#     assert g.board[(8, 3)].unit.effects == {Effects.SHIELD}
+#     assert g.board[(8, 4)].unit.effects == {Effects.SHIELD}
+#     g.board[(8, 3)].applyAcid()
+#     g.flushHurt()
+#     assert g.board[(8, 3)].unit.effects == {Effects.SHIELD, Effects.ACID}
+#     assert g.board[(8, 4)].unit.effects == {Effects.SHIELD, Effects.ACID}
 
 def t_ShieldedUnitDoesntGetAcidFromGround():
     "a shielded unit does not pick up acid from the ground."
@@ -1302,8 +1306,8 @@ def t_ShieldedUnitRepairsDoesntRemoveAcidFromGround():
     assert g.board[(2, 1)].effects == set()  # nothing on that tile
     assert g.board[(2, 1)].unit == None  # nothing on that tile
 
-def t_ShieldedUnitGetsAcidFromWater():
-    "if a non-flying shielded unit goes into acid water, it gets acid!"
+def t_ShieldedUnitDoesntGetAcidFromWater():
+    "if a non-flying shielded unit goes into acid water, it doesn't get acid"
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Water(g))
     g.board[(2, 1)].createUnitHere(Unit_ScorpionLeader(g))
@@ -1320,7 +1324,7 @@ def t_ShieldedUnitGetsAcidFromWater():
     g.board[(2, 1)].moveUnit((1, 1))
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.ACID, Effects.SUBMERGED} # still acid in the water
-    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD, Effects.ACID} # Shielded and acid!
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD,} # Shielded with no acid
     assert g.board[(2, 1)].effects == set() # nothing on that tile
     assert g.board[(2, 1)].unit == None  # nothing on that tile
 
@@ -9058,6 +9062,36 @@ def t_WeaponMassiveSpinneret():
     assert g.board[(1, 2)].unit == None # mech pushed from here
     assert g.board[(3, 1)].unit.hp == 3 # mech took 2 damage
     assert g.board[(1, 3)].unit.hp == 3 # mech took 2 damage
+
+def t_WeaponMassiveSpinneretOnIceFire():
+    "Have a ScorpionLeader web his nearby targets while on ice, then the ice is melted by fire causing his attack to be cancelled but the web remains."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Ice(g))
+    g.board[(1, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5, weapon1=Weapon_FlameThrower()))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_ScorpionLeader(g, qshot=()))
+    g.board[(1, 1)].unit._makeWeb((1, 2))
+    g.board[(1, 1)].unit._makeWeb((2, 1))
+    assert g.board[(1, 1)].unit.hp == 7
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(1, 2)].unit.hp == 5
+    assert g.board[(2, 1)].unit.web == {(1, 1)}
+    assert g.board[(1, 2)].unit.web == {(1, 1)}
+    assert g.board[(1, 1)].unit.web == {(2, 1), (1, 2)}
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    g.board[(2, 1)].unit.weapon1.shoot(Direction.LEFT, 1) # this should sink the scorpion boss into the water, disabling his attack.
+    g.flushHurt()
+    g.board[(1, 1)].unit.weapon1.shoot() # this did nothing
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 7  # Vek took no damage
+    assert g.board[(2, 1)].unit.hp == 5 # mech took NO damage
+    assert g.board[(1, 2)].unit.hp == 5 # mech took NO damage
+    assert g.board[(2, 1)].unit.web == {(1, 1)} # webs remain
+    assert g.board[(1, 2)].unit.web == {(1, 1)}
+    assert g.board[(1, 1)].unit.web == {(2, 1), (1, 2)}
+    assert g.board[(1, 1)].effects == {Effects.SUBMERGED} # tile is now water
+    assert g.board[(1, 1)].unit.effects == set() # no fire on the boss
 
 def t_WeaponBurningThorax():
     "Have a FireflyLeader do his attack."

@@ -295,10 +295,11 @@ class Tile_Base(TileUnit_Base):
         self.effects.add(Effects.SMOKE)
         try: # invalidate qshots of enemies that get smoked
             self.unit.weapon1.qshot = None
-        except AttributeError:
+        except AttributeError: # either there was no unit or the unit had no weapon
             pass
-        else: # this was an enemy that was smoked, let's also break all its webs:
-            self.unit._breakAllWebs()
+        else:
+            if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
+                self.unit._breakAllWebs()
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -343,15 +344,14 @@ class Tile_Base(TileUnit_Base):
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
         pass
-    def _putUnitHere(self, unit):
+    def _putUnitHere(self, unit): # XXX
         """Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit.
-        If there's a unit already on the tile, it's overwritten and deleted. returns nothing."""
+        If there's a unit already on the tile, it's overwritten but not properly deleted. returns nothing."""
         self.unit = unit
         try:
-            self.unit._breakAllWebs() # TODO: override _breakAllWebs in units that will never be webbed, such as rocks
-        except AttributeError: # raised by None.square = blah
+            self.unit.square = self.square
+        except AttributeError: # raised by None.square
             return  # bail, the unit has been replaced by nothing which is ok.
-        self.unit.square = self.square
         self._spreadEffects()
         try:
             self.unit.weapon1.validate()
@@ -378,7 +378,8 @@ class Tile_Base(TileUnit_Base):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
         assert Attributes.STABLE not in self.unit.attributes
         if destsquare == self.square:
-            return # tried to move a unit to the same square it's already one. This has the unintended consequence of leaving the square blank!
+            return # tried to move a unit to the same square it's already one. This had the unintended consequence of leaving the square blank!
+        self.unit._breakAllWebs() # TODO: override _breakAllWebs in units that can't move anyway such as rocks and stable units. Their webbing is inconsequential.
         self.game.board[destsquare]._putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
@@ -390,7 +391,7 @@ class Tile_Base(TileUnit_Base):
             if Attributes.STABLE in self.unit.attributes:
                 return False # stable units can't be pushed
         except AttributeError:
-            return False# There was no unit to push
+            return False # There was no unit to push
         else: # push the unit
             destinationsquare = self.getRelSquare(direction, 1)
             try:
@@ -528,11 +529,11 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
             self.removeEffect(e)
-        self.game.board[self.square].replaceTile(Tile_Water(self.game))
-        try:
+        try: # it's important that we set the unit on fire first. Otherwise the tile will be changed to water, then the unit will be set on fire in water. whoops.
             self.unit.applyFire()
         except AttributeError:
-            return
+            pass
+        self.game.board[self.square].replaceTile(Tile_Water(self.game))
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
         pass
@@ -568,9 +569,13 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
             if Attributes.FLYING not in self.unit.attributes:
                 self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
                 if Effects.ACID in self.effects: # spread acid from tile to unit but don't remove it from the tile
-                    self.unit.effects.add(Effects.ACID) # do not use applyAcid() here. Shielded units get acid from water even though the shield usually blocks acid.
+                    self.unit.applyAcid()
                 if Effects.ACID in self.unit.effects: # if the unit has acid and is massive but not flying, spread acid from unit to tile
                     self.effects.add(Effects.ACID) # don't call self.applyAcid() here or it'll give it to the unit and not the tile.
+                try: # if this was a massive vek boss that fell in the water...
+                    self.unit.weapon1.qshot = None # invalidate his shot
+                except AttributeError: # this has the side effect of giving mechs a qshot, but that shouldn't effect anything
+                    pass
             self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
 
 class Tile_Ice(Tile_Water_Ice_Damaged_Base):
@@ -734,10 +739,7 @@ class Unit_Base(TileUnit_Base):
         self.removeEffect(Effects.FIRE)
         self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
-        if Effects.SUBMERGED in self.game.board[self.square].effects: # if we're in some kind of water...
-            self.effects.add(Effects.ACID) # you get acid regardless of shield
-        else:
-            self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
+        self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
@@ -821,7 +823,7 @@ class Unit_Base(TileUnit_Base):
             self.game.board[sq].unit._breakWeb(self.square, prop=False)
         self.web = set()
     def __str__(self):
-        return "%s %s/%s HP. Effects: %s, Attributes: %s" % (self.type, self.hp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)))
+        return "%s %s/%s HP. Effects: %s, Attributes: %s Webs: %s" % (self.type, self.hp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)), self.web)
 
 class Unit_Fighting_Base(Unit_Base):
     "The base class of all units that have at least 1 weapon."
@@ -3346,10 +3348,11 @@ class Weapon_Validate_Base():
         "The only way this shot can be invalidated is by the shot already being invalidated or the unit being smoked."
         if self.qshot is None:
             return False
-        if Effects.SMOKE in self.game.board[self.wieldingunit.square].effects:
-            self.qshot = None
-            return False
-        return True
+        for eff in Effects.SMOKE, Effects.SUBMERGED:
+            if eff in self.game.board[self.wieldingunit.square].effects:
+                self.qshot = None
+                return False
+            return True
 
 class Weapon_IgnoreFlip_Base():
     def flip(self):

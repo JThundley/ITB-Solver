@@ -9138,6 +9138,206 @@ def t_WeaponTinyMandiblesAlpha():
     assert g.board[(2, 1)].unit.hp == 3 # mech took 2 damage
     assert g.board[(1, 2)].unit.hp == 5 # mech took no damage
 
+def t_WeaponCannon8RMarkI1():
+    "Have a CannonBot do his attack."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_CannonBot(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # bot took no damage
+    assert g.board[(2, 1)].unit.hp == 4 # mech took 1 damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 1)].effects == {Effects.FIRE}
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+
+def t_WeaponCannon8RMarkI2():
+    "Have a CannonBot do his attack but not hit a unit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_CannonBot(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # bot took no damage
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == {Effects.FIRE}
+
+def t_WeaponCannon8RMarkII1():
+    "Have a CannonMech do his attack."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_CannonMech(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # bot took no damage
+    assert g.board[(2, 1)].unit.hp == 2 # mech took 3 damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 1)].effects == {Effects.FIRE}
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+
+def t_WeaponCannon8RMarkIIShielded():
+    "Have a CannonMech do his attack against a shielded unit."
+    g = Game()
+    g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5, effects={Effects.SHIELD,}))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_CannonMech(g, qshot=(Direction.RIGHT,)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD,}
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1  # bot took no damage
+    assert g.board[(2, 1)].unit.hp == 5 # mech took 0 damage
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 1)].effects == {Effects.FIRE}
+    assert g.board[(8, 1)].unit == None
+    assert g.board[(8, 1)].effects == set()
+
+def t_WeaponVk8RocketsMarkI():
+    "Have an ArtilleryBot do his attack."
+    g = Game()
+    g.board[(3, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_ArtilleryBot(g, qshot=(Direction.RIGHT, 2)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(3, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1 # Vek took no damage
+    assert g.board[(3, 1)].unit.hp == 4 # mech took 1 damage
+    assert g.board[(3, 2)].unit.hp == 4 # mech took 1 damage
+
+def t_WeaponVk8RocketsMarkII():
+    "Have an ArtilleryMech do his attack."
+    g = Game()
+    g.board[(3, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(3, 2)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5))  # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_ArtilleryMech(g, qshot=(Direction.RIGHT, 2)))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(3, 2)].unit.hp == 5
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1 # Vek took no damage
+    assert g.board[(3, 1)].unit.hp == 2 # mech took 3 damage
+    assert g.board[(3, 2)].unit.hp == 2 # mech took 3 damage
+
+def t_WeaponBKRBeamMarkI():
+    "Do the BurstBeam weapon demo with a LaserBot instead"
+    g = Game()
+    g.board[(8, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_LaserBot(g, qshot=(Direction.RIGHT,)))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
+    g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.type == 'mountain'
+    assert g.board[(8, 1)].effects == set() # forest not on fire
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1 # wielder untouched
+    assert g.board[(2, 1)].unit.hp == 3 # vek took 2 damage
+    assert g.board[(3, 1)].unit.hp == 4 # vek took 1 damage
+    assert g.board[(4, 1)].unit.hp == 1 # friendly took 1 damage
+    assert g.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+    assert g.board[(8, 1)].effects == set()  # forest still not on fire
+
+def t_WeaponBKRBeamMarkII():
+    "Do the BurstBeam weapon demo with a LaserMech instead"
+    g = Game()
+    g.board[(8, 1)].replaceTile(Tile_Forest(g))
+    g.board[(1, 1)].createUnitHere(Unit_LaserMech(g, qshot=(Direction.RIGHT,)))
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
+    g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 5
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.type == 'mountain'
+    assert g.board[(8, 1)].effects == set() # forest not on fire
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1 # wielder untouched
+    assert g.board[(2, 1)].unit.hp == 1 # vek took 4 damage
+    assert g.board[(3, 1)].unit.hp == 2 # vek took 3 damage
+    assert g.board[(4, 1)].unit.type == 'mechcorpse' # friendly mech died from 2 damage
+    assert g.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+    assert g.board[(8, 1)].effects == set()  # forest still not on fire
+
+def t_WeaponSelfRepair():
+    "Have a BotLeader heal himself."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=()))
+    assert g.board[(1, 1)].unit.hp == 5
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.effects == set()  # no unit effects
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5 # BotLeader healed to full
+    assert g.board[(1, 1)].unit.effects == set() # no unit effects
+    assert g.board[(1, 1)].effects == set() # no tile effects
+
+def t_WeaponSelfRepairIce():
+    "Have a BotLeader try to heal himself but he gets frozen."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=()))
+    assert g.board[(1, 1)].unit.hp == 5
+    g.board[(1, 1)].takeDamage(3)
+    g.board[(1, 1)].applyIce()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE} # shit's cold
+    assert g.board[(1, 1)].effects == set()  # no tile effects
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2 # BotLeader didn't heal
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE} # still frozen
+    assert g.board[(1, 1)].effects == set() # no tile effects
+
+def t_WeaponSelfRepairFireTile():
+    "Have a BotLeader heal himself but him and his tile is on fire."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=()))
+    assert g.board[(1, 1)].unit.hp == 5
+    g.board[(1, 1)].takeDamage(3)
+    g.board[(1, 1)].applyFire()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # shit's hot
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # tile's on fire
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5 # BotLeader healed
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # still on fire
+    assert g.board[(1, 1)].effects == {Effects.FIRE} # tile still on fire
+
 ########### write tests for these:
 # shielded blobber bombs still explode normally
 # If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.

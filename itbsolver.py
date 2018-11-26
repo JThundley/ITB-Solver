@@ -344,7 +344,7 @@ class Tile_Base(TileUnit_Base):
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
         pass
-    def _putUnitHere(self, unit): # XXX
+    def _putUnitHere(self, unit):
         """Run this method whenever a unit lands on this tile whether from the player moving or a unit getting pushed. unit can be None to get rid of a unit.
         If there's a unit already on the tile, it's overwritten but not properly deleted. returns nothing."""
         self.unit = unit
@@ -1345,49 +1345,53 @@ class Unit_AlphaSpiderling(Unit_EnemyNonPsion_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyMandiblesAlpha(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_EnemyBot_Base(Unit_EnemyNonPsion_Base):
-    def __init__(self, game, type, hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
-        self.robot = True # we must identify these enemy bots as separately since they don't get vek passives.
+    def __init__(self, game, type, hp=1, maxhp=1, weapon1=None, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
+        self.robot = True # we must identify these enemy bots as separately since they don't get vek passives. TODO: This isn't used anywhere
 
 class Unit_CannonBot(Unit_EnemyBot_Base):
     def __init__(self, game, type='cannonbot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Cannon8RMarkI(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_CannonMech(Unit_EnemyBot_Base):
     def __init__(self, game, type='cannonmech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Cannon8RMarkII(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_ArtilleryBot(Unit_EnemyBot_Base):
     def __init__(self, game, type='artillerybot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Vk8RocketsMarkI(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_ArtilleryMech(Unit_EnemyBot_Base):
     def __init__(self, game, type='artillerymech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Vk8RocketsMarkII(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_LaserBot(Unit_EnemyBot_Base):
     def __init__(self, game, type='laserbot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BKRBeamMarkI(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_LaserMech(Unit_EnemyBot_Base):
     def __init__(self, game, type='lasermech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BKRBeamMarkII(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_MineBot(Unit_EnemyBot_Base):
-    def __init__(self, game, type='minebot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+    def __init__(self, game, type='minebot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None): # this unit doesn't get a weapon.
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=None, qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_MineMech(Unit_EnemyBot_Base):
-    def __init__(self, game, type='minemech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+# class Unit_MineMech(Unit_EnemyBot_Base): # this unit isn't actually used in the game
+#     def __init__(self, game, type='minemech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
+#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_BotLeader(Unit_EnemyBot_Base):
-    def __init__(self, game, type='botleader', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+class Unit_BotLeader_Attacking(Unit_EnemyBot_Base):
+    def __init__(self, game, type='botleaderattacking', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Vk8RocketsMarkIII(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_BotLeaderHard(Unit_EnemyBot_Base):
-    def __init__(self, game, type='botleaderhard', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
+    def __init__(self, game, type='botleaderhealing', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SelfRepair(), qshot=qshot, effects=effects, attributes=attributes)
+
+# class Unit_BotLeaderHard(Unit_EnemyBot_Base): # doesn't exist in game
+#     def __init__(self, game, type='botleaderhard', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
+#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
 
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
@@ -1948,6 +1952,15 @@ class Weapon_DeploySelfEffectLimitedLarge_Base():
                     except KeyError:  # board[False]
                         pass  # this is fine
 
+class Weapon_BlocksBeamShot_Base():
+    "Provides a method shared by BurstBeam and BKRBeam used by bots"
+    def blocksBeamShot(self, unit):
+        "Return True if unit will block a beam shot that usually penetrates, False if we can penetrate through it."
+        try:
+            return unit.blocksbeamshot
+        except AttributeError:  # units that allow penetration don't have this attribute set at all
+            return False
+
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for charge weapons."
@@ -2098,7 +2111,7 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
             self.game.board[self.targetsquare].takeDamage(self.damage)
         self._pushAdjacent(self.targetsquare) # now push all the tiles around targetsquare
 
-class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
+class Weapon_BurstBeam(Weapon_DirectionalGen_Base, Weapon_BlocksBeamShot_Base):
     """Laser Mech's default weapon.
     If ally immune is powered and you have a friendly on a forest tile, the forest tile does NOT ignite from damage when you shoot.
     If ally immune is powered, it will not hurt *some* objective units like:
@@ -2123,10 +2136,9 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
         if power2:
             self.damage += 1
     def shoot(self, direction):
-        relsquare = 1 # start 1 square from the wielder
         currentdamage = self.damage # damage being dealt as the beam travels. This decreases the further we go until we reach 1
         try:
-            targettile = self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, relsquare)]  # get the target tile, not square
+            targettile = self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)]  # get the target tile, not square
         except KeyError:  # self.game.board[False] means we went off the board
             raise NullWeaponShot
         while True:
@@ -2138,21 +2150,14 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base):
                 break
             if currentdamage != 1:
                 currentdamage -= 1
-            relsquare += 1
             try:
-                targettile = self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(direction, relsquare)] # get the target tile, not square
+                targettile = self.game.board[self.game.board[targettile.square].getRelSquare(direction, 1)] # get the target tile, not square
             except KeyError: # self.game.board[False] means we went off the board
                 break # no more pew pew
     def isBeamAlly(self, unit):
         "return True if unit is considered an ally to the beam weapon when it has the first upgrade powered."
         try:
             return unit.alliance == Alliance.FRIENDLY or unit.beamally
-        except AttributeError:  # units that allow penetration don't have this attribute set at all
-            return False
-    def blocksBeamShot(self, unit):
-        "Return True if unit will block a beam shot that usually penetrates, False if we can penetrate through it."
-        try:
-            return unit.blocksbeamshot
         except AttributeError:  # units that allow penetration don't have this attribute set at all
             return False
 
@@ -3363,7 +3368,7 @@ class Weapon_DirectionalValidate_Base(Weapon_Validate_Base):
     "A validate method that works for melee and projectile weapons."
     def validate(self):
         "qshot should be (Direction.XX,). This method checks one square in direction to make sure it's onboard."
-        if super().validate(): # if a shot is queued and the unit is not smoked...
+        if super().validate(): # if a shot is queued and the unit is not smoked or submerged...
             self.targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(*self.qshot, 1)
             if not self.targetsquare: # shot was offboard
                 self.qshot = None
@@ -3372,7 +3377,7 @@ class Weapon_DirectionalValidate_Base(Weapon_Validate_Base):
         return False
 
 class Weapon_DirectionalFlip_Base():
-    "A flip method that works for melee, projectile, and charge weapons."
+    "A flip method that works for melee, projectile, and charge weapons. Doesn't work for artillery"
     def flip(self):
         try:
             self.qshot = (Direction.opposite(*self.qshot),)
@@ -3442,7 +3447,7 @@ class Weapon_VekCharge_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, We
                         return
 
 class Weapon_VekArtillery_Base(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_getRelSquare_Base):
-    "Base object for vek artillery weapons for Scarabs and Crabs."
+    "Base object for vek artillery weapons for Scarabs and Crabs and the bots."
     def validate(self):
         "qshot is stored as (Direction, RelDistance)"
         if super().validate():
@@ -3506,6 +3511,39 @@ class Weapon_GreaterHornet_Base(Weapon_VekMelee_Base):
                     self.game.board[self.targetsquare].takeDamage(self.damage)
                 except KeyError: # board[False], secondary tile was offboard
                     return # don't process further shots
+
+class Weapon_Cannon8R_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+    "Base class for the weapons used by Cannon-Bot and Cannon-Mech."
+    def shoot(self):
+        if super().shoot():
+            self.game.board[self.targetsquare].applyFire()
+
+class Weapon_Vk8Rockets_Base(Weapon_VekArtillery_Base):
+    "Base class for the weapons used by ArtilleryBot and ArtilleryMech"
+    def shoot(self):
+        if super().shoot(): # this hits the targeted square
+            for d in Direction.genPerp(self.qshot[0]): # now hit the 2 squares beside it
+                try:
+                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].takeDamage(self.damage)
+                except KeyError: # board[False]
+                    pass # secondary hit was off the board
+
+class Weapon_BKRBeam_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_BlocksBeamShot_Base):
+    "Base class for laser bot/mech weapons"
+    def shoot(self):
+        if self.qshot is not None:
+            currentdamage = self.damage # damage being dealt as the beam travels. This decreases the further we go until we reach 1
+            targettile = self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(self.qshot[0], 1)]  # get the target tile, not square
+            while True:
+                targettile.takeDamage(currentdamage) # damage the tile
+                if self.blocksBeamShot(targettile.unit): # no more pew pew
+                    return
+                if currentdamage != 1:
+                    currentdamage -= 1
+                try:
+                    targettile = self.game.board[self.game.board[targettile.square].getRelSquare(self.qshot[0], 1)] # get the target tile, not square
+                except KeyError: # self.game.board[False] means we went off the board
+                    return # no more pew pew
 
 ############################## Actual vek weapons: #######################################################
 class Weapon_UnstableGuts(Weapon_Blob_Base):
@@ -3740,3 +3778,45 @@ class Weapon_TinyMandibles(Weapon_VekMelee_Base):
 class Weapon_TinyMandiblesAlpha(Weapon_VekMelee_Base):
     "Weak 2 damage attack against a single adjacent target. AlphaSpiderling"
     damage = 2
+
+class Weapon_Cannon8RMarkI(Weapon_Cannon8R_Base):
+    "Projectile that causes target to burn. CannonBot"
+    damage = 1
+
+class Weapon_Cannon8RMarkII(Weapon_Cannon8R_Base):
+    "Stronger projectile that causes target to burn. CannonMech"
+    damage = 3
+
+class Weapon_Vk8RocketsMarkI(Weapon_Vk8Rockets_Base):
+    "Launch Rockets at 3 tiles (dealing 1 damage). ArtilleryBot"
+    damage = 1
+
+class Weapon_Vk8RocketsMarkII(Weapon_Vk8Rockets_Base):
+    "Launch Rockets at 3 tiles (dealing 3 damage). ArtilleryMech"
+    damage = 3
+
+class Weapon_BKRBeamMarkI(Weapon_BKRBeam_Base):
+    "Piercing beam, damage reduced by range (2 damage). LaserBot"
+    damage = 2
+
+class Weapon_BKRBeamMarkII(Weapon_BKRBeam_Base):
+    "Piercing beam, damage reduced by range (4 damage). LaserMech"
+    damage = 4
+
+# MineBot weapon not implemented because it's actually something done during the enemy move/target phase.
+# It moves and leaves a mine in its place AFTER the player has taken his turn.
+
+class Weapon_Vk8RocketsMarkIII(Weapon_Vk8Rockets_Base):
+    "Launch Rockets at 3 tiles dealing 2 damage to each. BotLeader_Attacking"
+    damage = 2
+
+class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip_Base):
+    """This is the BotLeader's self-Repair weapon that it uses after taking damage. BotLeader_Healing
+    The Bot Leader gets a shield on the start of his target phase, so this weapon here won't actually give the shield."""
+    # this does remove fire and presumably acid
+    def shoot(self):
+        if self.qshot is not None:
+            self.wieldingunit.hp = self.wieldingunit.maxhp
+            if Effects.FIRE not in self.game.board[self.wieldingunit.square].effects: # these repairs do not remove bad effects from the tile. If you trap him on a fire tile and he repairs there, he keeps fire.
+                self.wieldingunit.removeEffect(Effects.FIRE) # repair doesn't remove acid from the unit, but it does remove fire.
+            # Ice cancels the attack like a regular weapon, he can't repair out of ice.

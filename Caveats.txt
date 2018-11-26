@@ -1,0 +1,32 @@
+This program can only simulate behavior in the game that is reliably predictable. There are some things in the game that are random that it cannot account for.
+This is a list of those things and the difference between they behave in this simulation compared to the actual game.
+
+==One turn only==
+This program simulates the best outcome for one turn only. It doesn't take into consideration how many turns you have left or the state of the island or how many islands you have left.
+That being said, things that effect you in the near future are still considered by the scoring system. For example, your mechs catching fire is still bad as well as failing objectives.
+This program doesn't consider the positions of units when it comes to defending buildings and such. This means that this program doesn't care if you demolished a mountain allowing vek to move closer
+to buildings. If you hurt a vek while destroying the mountain, it's considered a good play. The same thing can be said about launching a rock next to a building to protect it. Yes it's a good play, but this
+program only cares if it protected the building during this turn.
+
+==Limited Use Weapons==
+The simulation will happily use up all of your limited-use weapons in the search for the best outcome. If you'd rather save those weapons for another turn, you shouldn't tell this program that you have them.
+
+==The power grid taking damage==
+When a building is attacked in the game, you have a certain chance to dodge the attack and take no damage based on your grid defense percent.
+This is RNG and the game will roll to see if you take damage or not. It's so random that you can take your turn, damage a building, then use your temporal reset
+to try the same exact moves again and have the building not take damage the 2nd or 3rd time. Since the program can't tell whether or not you'll dodge, it assumes buildings will always take damage.
+
+==Dying Goo==
+When large or medium goos (the green blob boss) die, they split into 2 smaller goos. These goos are placed onto the board randomly, I can't predict where they will land.
+This means that in this program, when they die they don't appear on the board at all. This can cause the program to find a favorable solution only for you to realize that
+it's blocked by a newly spawned goo.
+
+==Firefly Leader's shot invalidation==
+Like all vek with an attack that fires in a certain direction, the Firefly Leader's shot can also be invalidated. The thing about this particular unit/weapon is that you can't tell which direction
+it actually targeted. I've seen it target an empty tile away from my mech so that the mirror projectile that fires out its ass will hit me. Moving the Firefly Leader to the edge so that its targeted
+tile is off the board cancels it's attack even though the ass shot was still valid. Because it's impossible to know which side of its attack it actually targeted, this program treats it as a weapon
+that cannot be canceled because it was moved. Smoke and water/lava still invalidate it as normal. You can use this knowledge to take a risk and move the Firefly Leader to the edge in the hopes that
+the attack will be canceled. You have a 50/50 chance!
+
+==Pilot Skills increasing==
+When your pilot gains XP and levels, a random skill is rewarded. Because I can't tell what that score will be, pilot XP is completely ignored here.

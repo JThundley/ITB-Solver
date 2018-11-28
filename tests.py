@@ -9328,7 +9328,7 @@ def t_WeaponSelfRepairFireTile():
     g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=()))
     assert g.board[(1, 1)].unit.hp == 5
     g.board[(1, 1)].takeDamage(3)
-    g.board[(1, 1)].applyFire()
+    g.board[(1, 1)].applyFire() # apply fire to tile and unit
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # shit's hot
     assert g.board[(1, 1)].effects == {Effects.FIRE} # tile's on fire
@@ -9337,6 +9337,36 @@ def t_WeaponSelfRepairFireTile():
     assert g.board[(1, 1)].unit.hp == 5 # BotLeader healed
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # still on fire
     assert g.board[(1, 1)].effects == {Effects.FIRE} # tile still on fire
+
+def t_WeaponSelfRepairFireNotTile():
+    "Have a BotLeader heal himself but he's fire (but not his tile)."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=(), effects={Effects.FIRE}))
+    assert g.board[(1, 1)].unit.hp == 5
+    g.board[(1, 1)].takeDamage(3)
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE} # shit's hot
+    assert g.board[(1, 1)].effects == set() # tile's not
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5 # BotLeader healed
+    assert g.board[(1, 1)].unit.effects == set() # repair put out the fire
+    assert g.board[(1, 1)].effects == set() # tile still not on fire
+
+def t_WeaponSelfRepairAcid():
+    "Have a BotLeader heal himself but and he keeps acid."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_BotLeader_Healing(g, qshot=(), effects={Effects.ACID}))
+    assert g.board[(1, 1)].unit.hp == 5
+    g.board[(1, 1)].takeDamage(2)
+    assert g.board[(1, 1)].unit.hp == 1 # 4 damage taken because of acid
+    assert g.board[(1, 1)].unit.effects == {Effects.ACID} # shit's acidy
+    assert g.board[(1, 1)].effects == set() # tile's not
+    g.board[(1, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 5 # BotLeader healed
+    assert g.board[(1, 1)].unit.effects == {Effects.ACID} # still has acid
+    assert g.board[(1, 1)].effects == set() # tile still normal
 
 ########### write tests for these:
 # shielded blobber bombs still explode normally

@@ -7882,7 +7882,23 @@ def t_WeaponUnstableGuts():
     assert g.board[(3, 1)].unit.hp == 5
     g.board[(2, 1)].unit.weapon1.shoot() # ()
     g.flushHurt()
-    assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 damage
+    assert g.board[(1, 1)].unit.hp == 4  # mech took 1 damage
+    assert g.board[(2, 1)].unit == None  # blob exploded
+    assert g.board[(3, 1)].unit.hp == 4 # 1 damage
+
+def t_WeaponUnstableGutsShielded():
+    "Have a blob do its thing but it's shielded"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_Blob(g, qshot=(), effects={Effects.SHIELD}))
+    g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
+    assert g.board[(1, 1)].unit.hp == 5
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD}
+    assert g.board[(3, 1)].unit.hp == 5
+    g.board[(2, 1)].unit.weapon1.shoot() # ()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 4  # mech took 1 damage
     assert g.board[(2, 1)].unit == None  # blob exploded
     assert g.board[(3, 1)].unit.hp == 4 # 1 damage
 
@@ -8796,6 +8812,38 @@ def t_WeaponFlamingAbdomen():
     for x in range(2, 6):
         assert g.board[(x, 1)].effects == {Effects.FIRE}
 
+def t_WeaponBeetleLeaderOnFireChargesOverWater():
+    "If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire."
+    g = Game()
+    g.board[(4, 1)].replaceTile(Tile_Water(g))
+    g.board[(7, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=5, maxhp=5)) # extra hp given
+    g.board[(2, 1)].createUnitHere(Unit_BeetleLeader(g, qshot=(Direction.RIGHT,), effects={Effects.FIRE}))
+    assert g.board[(7, 1)].unit.hp == 5
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(7, 1)].effects == set()
+    assert g.board[(2, 1)].unit.hp == 6
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(1, 1)].effects == set()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(2, 1)].unit == None # vek charged from here
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # vek starting point caught fire
+    assert g.board[(6, 1)].unit.hp == 6 # to here, took no damage
+    assert g.board[(6, 1)].unit.effects == {Effects.FIRE} # beetle still on fire
+    assert g.board[(6, 1)].effects == set()
+    assert g.board[(7, 1)].unit == None # mech pushed from here
+    assert g.board[(7, 1)].effects == set() # no fire here
+    assert g.board[(8, 1)].unit.hp == 2 # mech took 2 damage
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].effects == set()
+    for x in range(2, 6):
+        if x == 4:
+            assert g.board[(x, 1)].effects == {Effects.SUBMERGED} # the water tile
+        else:
+            assert g.board[(x, 1)].effects == {Effects.FIRE}
+
+
 def t_WeaponGooAttackMechSurvive():
     "Have a Goo do his attack against a mech that survives."
     g = Game()
@@ -9369,8 +9417,6 @@ def t_WeaponSelfRepairAcid():
     assert g.board[(1, 1)].effects == set() # tile still normal
 
 ########### write tests for these:
-# shielded blobber bombs still explode normally
-# If a huge charging vek like the beetle leader is on fire and charges over water, he remains on fire.
 # mech corpses that fall into chasms cannot be revived.
 
 ########## special objective units:
@@ -9384,7 +9430,6 @@ def t_WeaponSelfRepairAcid():
 
 ########## Weapons stuff for later
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
-# Cannon-bot's weapon is "Cannon 84 Mark I". it's a projectile weapon that does one damage and sets target on fire.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 
 # Satellite launches happen after enemy attacks.
@@ -9392,7 +9437,7 @@ def t_WeaponSelfRepairAcid():
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
-# blobbers will move out of smoke and throw out a bomb after you take your turn.
+# blobbers will move out of smoke and throw out a bomb after you take your turn. This means you can't smoke them to stop them from throwing out a blob unless they can't move
 
 ########## Research these:
 # You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.

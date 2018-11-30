@@ -1046,15 +1046,20 @@ class Unit_Dam(Unit_MultiTile_Base):
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 
-class Unit_Train(Unit_MultiTile_Base):
+class Unit_SupplyTrain(Unit_MultiTile_Base):
     def __init__(self, game, type='train', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.beamally = True
+        self.train = True
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
         for xoffset in -1, 1: # check the tiles ahead of and behind this one on the X axis for another train unit.
-            if self.game.board[(self.square[0]+xoffset, self.square[1])].unit.type == 'train':
-                self.companion = (self.square[0]+xoffset, self.square[1])
+            try:
+                if self.game.board[(self.square[0]+xoffset, self.square[1])].unit.train:
+                    self.companion = (self.square[0]+xoffset, self.square[1])
+                    return
+            except AttributeError: # None.train or unit.train and the unit is not the train
+                continue
 
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -3820,3 +3825,20 @@ class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip
             if Effects.FIRE not in self.game.board[self.wieldingunit.square].effects: # these repairs do not remove bad effects from the tile. If you trap him on a fire tile and he repairs there, he keeps fire.
                 self.wieldingunit.removeEffect(Effects.FIRE) # repair doesn't remove acid from the unit, but it does remove fire.
             # Ice cancels the attack like a regular weapon, he can't repair out of ice.
+
+############################## Objective Weapons ###########################################
+# Objective weapons that the player controls (terraformer, acidlauncher) have the same requirements as player weapons, except don't have power arguments.
+# Objective weapons that the player does NOT control (train, satellite rockets) have the same requirements as enemy weapons.
+    # They require a qshot to indicate whether it is attacking this turn or not.
+
+# class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+#     def validate(self):
+#         "The only way this shot can be invalidated is by the shot already being invalidated. The train is immune to smoke and it will never go in water."
+#         if self.qshot is None:
+#             return False
+#         return True
+#     def shoot(self):
+#         if self.qshot is not None:
+#             caboosesquare = self.game.board[self.wieldingunit.square].getRelSquare(Direction.RIGHT, 1)
+#             if self.game.board[caboosesquare].unit: # the first tile in front of the train is occupied
+#                 self.game.board[caboosesquare].unit.die()

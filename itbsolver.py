@@ -1037,7 +1037,7 @@ class Unit_Dam(Unit_MultiTile_Base):
             self.companion = (8, 4)
     def die(self):
         "Make the unit die."
-        self._breakAllWebs()
+        # self._breakAllWebs() # this isn't needed, right?
         self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
@@ -1046,20 +1046,36 @@ class Unit_Dam(Unit_MultiTile_Base):
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 
-class Unit_SupplyTrain(Unit_MultiTile_Base):
-    def __init__(self, game, type='train', hp=1, maxhp=1, attributes=None, effects=None):
+class Unit_SupplyTrain_Base(Unit_MultiTile_Base):
+    "Base class for the undamaged train"
+    def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.attributes.update({Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE, Attributes.STABLE})
         self.beamally = True
-        self.train = True
+        self._setCompanion()
+    def die(self):
+        "Make the unit die."
+        self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
+        # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
+        self._deathAction()
+        if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
+            self._replicate('die')
+
+class Unit_SupplyTrain(Unit_SupplyTrain_Base):
+    def __init__(self, game, type='supplytrain', hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
-        for xoffset in -1, 1: # check the tiles ahead of and behind this one on the X axis for another train unit.
-            try:
-                if self.game.board[(self.square[0]+xoffset, self.square[1])].unit.train:
-                    self.companion = (self.square[0]+xoffset, self.square[1])
-                    return
-            except AttributeError: # None.train or unit.train and the unit is not the train
-                continue
+        self.companion = (self.square[0]-1, self.square[1])
+    def _deathAction(self):
+        self.game.board[self.square].putUnitHere(Unit_SupplyTrainDamaged(self.game))
+
+class Unit_SupplyTrainCaboose(Unit_SupplyTrain_Base):
+    def __init__(self, game, type='supplytraincaboose', hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def _setCompanion(self):
+        "Set the train's companion tile. This has to be run each time it moves forward."
+        self.companion = (self.square[0]+1, self.square[1])
 
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):

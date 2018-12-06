@@ -1185,6 +1185,49 @@ def t_DamDies():
         for x in range(1, 7):
             assert g.board[(x, y)].type == 'water'
 
+def t_DamDiesInstantDeath():
+    "In this test, we kill one with an instakill and make sure they both die and flood the map."
+    g = Game()
+    g.board[(8, 3)].replaceTile(Tile_Water(g))
+    g.board[(8, 4)].replaceTile(Tile_Water(g))
+    g.board[(8, 3)].createUnitHere(Unit_Dam(g))
+    g.board[(8, 4)].createUnitHere(Unit_Dam(g))
+    g.board[(7, 4)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct()))  # power is ignored
+    assert g.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert g.board[(8, 4)].effects == {Effects.SUBMERGED}
+    assert g.board[(7, 3)].effects == set() # the tiles next to the dam are normal
+    assert g.board[(7, 4)].effects == set()
+    gs = g.board[(7, 4)].unit.weapon1.genShots()
+    g.board[(7, 4)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(8, 3)].unit.type == 'volcano'
+    assert g.board[(8, 4)].unit.type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 7):
+            assert g.board[(x, y)].type == 'water'
+
+def t_DamDiesInstantDeathWebbed():
+    "In this test, we kill one with an instakill and make sure they both die and flood the map except it's webbed."
+    g = Game()
+    g.board[(8, 3)].replaceTile(Tile_Water(g))
+    g.board[(8, 4)].replaceTile(Tile_Water(g))
+    g.board[(8, 3)].createUnitHere(Unit_Dam(g))
+    g.board[(8, 4)].createUnitHere(Unit_Dam(g))
+    g.board[(7, 4)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct()))  # power is ignored
+    g.board[(7, 4)].unit._makeWeb((8, 4))
+    assert g.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert g.board[(8, 4)].effects == {Effects.SUBMERGED}
+    assert g.board[(7, 3)].effects == set() # the tiles next to the dam are normal
+    assert g.board[(7, 4)].effects == set()
+    gs = g.board[(7, 4)].unit.weapon1.genShots()
+    g.board[(7, 4)].unit.weapon1.shoot(*next(gs))
+    g.flushHurt()
+    assert g.board[(8, 3)].unit.type == 'volcano'
+    assert g.board[(8, 4)].unit.type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 7):
+            assert g.board[(x, y)].type == 'water'
+
 def t_DamDiesWithAcidUnits():
     "In this test, we kill one and make sure that a unit with acid dies and leaves acid in the new water. Also a flying unit will survive the flood."
     g = Game()
@@ -1238,6 +1281,33 @@ def t_DamDiesWithAcidOnGround():
             assert g.board[(x, y)].type == 'water'
     g.flushHurt()
     assert g.board[(7, 3)].effects == {Effects.ACID, Effects.SUBMERGED} # the acid on the ground left acid in the water
+    assert g.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
+
+def t_DamDiesFromElectricWhip():
+    "In this test, we kill the dam by chaning the electric whip through it."
+    g = Game()
+    g.board[(8, 3)].replaceTile(Tile_Water(g))
+    g.board[(8, 4)].replaceTile(Tile_Water(g))
+    g.board[(8, 2)].createUnitHere(Unit_Mountain(g))
+    g.board[(8, 5)].createUnitHere(Unit_Mountain(g))
+    g.board[(8, 3)].createUnitHere(Unit_Dam(g))
+    g.board[(8, 4)].createUnitHere(Unit_Dam(g))
+    g.board[(7, 4)].createUnitHere(Unit_Scorpion(g))
+    g.board[(7, 5)].createUnitHere(Unit_TechnoBeetle_Mech(g, weapon1=Weapon_ElectricWhip()))
+    assert g.board[(8, 3)].effects == {Effects.SUBMERGED}
+    assert g.board[(8, 4)].effects == {Effects.SUBMERGED}
+    gs = g.board[(7, 5)].unit.weapon1.genShots()
+    for i in range(3):
+        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
+    g.board[(7, 5)].unit.weapon1.shoot(*shot)  # (Direction.DOWN,)
+    g.flushHurt()
+    assert g.board[(8, 3)].unit.type == 'volcano'
+    assert g.board[(8, 4)].unit.type == 'volcano'
+    for y in (3, 4):
+        for x in range(1, 8):
+            assert g.board[(x, y)].type == 'water'
+    g.flushHurt()
+    assert g.board[(7, 3)].effects == {Effects.SUBMERGED} # the acid on the ground left acid in the water
     assert g.board[(7, 4)].effects == {Effects.SUBMERGED} # this tile never got acid
 
 # I don't think this is true and was created under a mistaken understanding.

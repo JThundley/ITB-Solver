@@ -9486,6 +9486,59 @@ def t_WeaponSelfRepairAcid():
     assert g.board[(1, 1)].unit.effects == {Effects.ACID} # still has acid
     assert g.board[(1, 1)].effects == set() # tile still normal
 
+def t_TrainPainGauntlet():
+    "Have a train get hit with acid and attacked 3 times to ensure it progresses through its stages correctly."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    g.board[(1, 1)].unit.applyAcid() # acid has no effect on the train in our sim
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    g.board[(1, 1)].takeDamage(2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traindamagedcaboose'
+    assert g.board[(2, 1)].unit.type == 'traindamaged'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    g.board[(2, 1)].takeDamage(2)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincorpse'
+    assert g.board[(2, 1)].unit.type == 'traincorpse'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    g.board[(1, 1)].takeDamage(2) # damaging the corpse to make sure nothing weird happens
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincorpse'
+    assert g.board[(2, 1)].unit.type == 'traincorpse'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

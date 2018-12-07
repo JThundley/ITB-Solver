@@ -355,7 +355,7 @@ class Tile_Base(TileUnit_Base):
         self._spreadEffects()
         try:
             self.unit.weapon1.validate()
-        except AttributeError: # None.weapon1, _spreadEffects killed the unit or unit.None.validate(), unit didn't have a weapon1 somehow
+        except AttributeError: # None.weapon1, _spreadEffects killed the unit or unit.None.validate(), unit didn't have a weapon1
             pass
     def createUnitHere(self, unit):
         "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the game."
@@ -1046,13 +1046,13 @@ class Unit_Dam(Unit_MultiTile_Base):
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
 
-class Unit_SupplyTrain_Base(Unit_MultiTile_Base):
+class Unit_Train_Base(Unit_MultiTile_Base):
     "Base class for the undamaged train"
     def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update({Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE, Attributes.STABLE})
         self.beamally = True
-        self._setCompanion()
+        # self._setCompanion() this can't be done on init because self.square is set after this
     def die(self):
         "Make the unit die."
         self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
@@ -1060,22 +1060,49 @@ class Unit_SupplyTrain_Base(Unit_MultiTile_Base):
         self._deathAction()
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
+    def applyAcid(self):
+        "The train having acid has no consequence in the game. The train always has 1hp and leaves a corpse so it can't transfer acid anywhere"
+        pass
 
-class Unit_SupplyTrain(Unit_SupplyTrain_Base):
-    def __init__(self, game, type='supplytrain', hp=1, maxhp=1, attributes=None, effects=None):
+class Unit_Train(Unit_Train_Base):
+    def __init__(self, game, type='train', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
         self.companion = (self.square[0]-1, self.square[1])
     def _deathAction(self):
-        self.game.board[self.square].putUnitHere(Unit_SupplyTrainDamaged(self.game))
+        self.game.board[self.square]._putUnitHere(Unit_TrainDamaged(self.game))
 
-class Unit_SupplyTrainCaboose(Unit_SupplyTrain_Base):
-    def __init__(self, game, type='supplytraincaboose', hp=1, maxhp=1, attributes=None, effects=None):
+class Unit_TrainCaboose(Unit_Train_Base):
+    def __init__(self, game, type='traincaboose', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
         self.companion = (self.square[0]+1, self.square[1])
+    def _deathAction(self):
+        self.game.board[self.square]._putUnitHere(Unit_TrainDamagedCaboose(self.game))
+
+class Unit_TrainDamaged_Base(Unit_Train):
+    def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def _deathAction(self):
+        self.game.board[self.square]._putUnitHere(Unit_TrainCorpse(self.game))
+
+class Unit_TrainDamaged(Unit_TrainDamaged_Base):
+    def __init__(self, game, type='traindamaged', hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+
+class Unit_TrainDamagedCaboose(Unit_TrainDamaged_Base):
+    def __init__(self, game, type='traindamagedcaboose', hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+
+class Unit_TrainCorpse(Unit_TrainCaboose):
+    def __init__(self, game, type='traincorpse', hp=1, maxhp=1, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        return # invincible
+    def die(self):
+        return # invincible
 
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -3847,14 +3874,25 @@ class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip
 # Objective weapons that the player does NOT control (train, satellite rockets) have the same requirements as enemy weapons.
     # They require a qshot to indicate whether it is attacking this turn or not.
 
-# class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
-#     def validate(self):
-#         "The only way this shot can be invalidated is by the shot already being invalidated. The train is immune to smoke and it will never go in water."
-#         if self.qshot is None:
-#             return False
-#         return True
-#     def shoot(self):
-#         if self.qshot is not None:
-#             caboosesquare = self.game.board[self.wieldingunit.square].getRelSquare(Direction.RIGHT, 1)
-#             if self.game.board[caboosesquare].unit: # the first tile in front of the train is occupied
-#                 self.game.board[caboosesquare].unit.die()
+class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    def validate(self):
+        "The only way this shot can be invalidated is by the shot already being invalidated. Freezing it will cancel the shot, but that isn't checked here. The train is immune to smoke and it will never go in water."
+        if self.qshot is None:
+            return False
+        return True
+    def shoot(self):
+        if self.qshot is not None:
+            prevsquare = self.wieldingunit.square
+            for r in 1, 2:
+                targetsquare = self.game.board[prevsquare].getRelSquare(Direction.RIGHT, 1)
+                try: # try to kill the units in the way of the train
+                    self.game.board[targetsquare].unit.die()
+                except AttributeError: # None.die()
+                    prevsquare = targetsquare # no unit, the train moves right one square.
+                else: # there was a unit in the way that died.
+                    if prevsquare != targetsquare: # if the train needs to be moved
+                        self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move the front of the train
+                        oldcaboosesquare = self.wieldingunit.companion
+                        self.game.board[self.wieldingunit.square]._setCompanion()
+                        self.game.board[oldcaboosesquare].moveUnit(self.wieldingunit.companion)  # move the caboose of the train
+                        self.game.board[self.wieldingunit.companion]._setCompanion()

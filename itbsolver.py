@@ -293,13 +293,19 @@ class Tile_Base(TileUnit_Base):
         "make a smoke cloud on the current tile"
         self.removeEffect(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
-        try: # invalidate qshots of enemies that get smoked
-            self.unit.weapon1.qshot = None
-        except AttributeError: # either there was no unit or the unit had no weapon
-            pass
-        else:
-            if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
-                self.unit._breakAllWebs()
+        try:
+            if Attributes.IMMUNESMOKE not in self.unit.attributes:
+                raise FakeException
+        except AttributeError: # x not in self.None.attributes
+            pass # no unit which is fine
+        except FakeException:
+            try: # invalidate qshots of enemies that get smoked
+                self.unit.weapon1.qshot = None
+            except AttributeError: # either there was no unit or the unit had no weapon
+                pass
+            else:
+                if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
+                    self.unit._breakAllWebs()
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -376,7 +382,7 @@ class Tile_Base(TileUnit_Base):
         self.game.board[self.square]._putUnitHere(unit)
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
-        assert Attributes.STABLE not in self.unit.attributes
+        # assert Attributes.STABLE not in self.unit.attributes # the train is a stable unit that moves
         if destsquare == self.square:
             return # tried to move a unit to the same square it's already one. This had the unintended consequence of leaving the square blank!
         self.unit._breakAllWebs() # TODO: override _breakAllWebs in units that can't move anyway such as rocks and stable units. Their webbing is inconsequential.
@@ -727,16 +733,22 @@ class Unit_Base(TileUnit_Base):
         else:
             self.web = set(web)
     def applyEffectUnshielded(self, effect):
-        "A helper method to check for the presence of a shield before applying an effect."
+        "A helper method to check for the presence of a shield before applying an effect. return True if the effect was added, False if not."
         if Effects.SHIELD not in self.effects:
             self.effects.add(effect)
+            return True
+        return False
     def applyFire(self):
         self.removeEffect(Effects.ICE)
         if not Attributes.IMMUNEFIRE in self.attributes:
             self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyIce(self):
-        self.applyEffectUnshielded(Effects.ICE) # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-        self.removeEffect(Effects.FIRE)
+        if self.applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+            self.removeEffect(Effects.FIRE)
+        try:
+            self.weapon1.qshot = None
+        except AttributeError:  # self.None.qshot
+            pass
         self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
         self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
@@ -748,8 +760,6 @@ class Unit_Base(TileUnit_Base):
         """Process this unit taking damage. All effects are considered unless the ignore* flags are set in the arguments.
         Units will not die after reaching 0 hp here, run _allowDeath() to allow them to die. This is needed for vek units that can be killed and then pushed to do bump damage or spread effects.
         return False if ice or a shield blocked the damage, True otherwise."""
-        # if self._blockDamage():
-        #     return False
         for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
@@ -995,7 +1005,7 @@ class Unit_MultiTile_Base(Unit_Base):
                 getattr(self.game.board[self.companion], meth)()
             self.game.board[self.companion].unit.replicate = True
     def applyIce(self):
-        self.applyEffectUnshielded(Effects.ICE)
+        super().applyIce()
         self._replicate('applyIce')
     def applyAcid(self):
         super().applyAcid()
@@ -1067,6 +1077,14 @@ class Unit_Train_Base(Unit_MultiTile_Base):
 class Unit_Train(Unit_Train_Base):
     def __init__(self, game, type='train', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.weapon1 = Weapon_ChooChoo()
+        # close to copypasta from Unit_Fighting_Base
+        self.weapon1.wieldingunit = self
+        self.weapon1.game = self.game
+        if Effects.ICE in self.effects: # Make qshot active if unit isn't frozen, nothing else will stop it from moving.
+            self.weapon1.qshot = None
+        else:
+            self.weapon1.qshot = ()
     def _setCompanion(self):
         "Set the train's companion tile. This has to be run each time it moves forward."
         self.companion = (self.square[0]-1, self.square[1])
@@ -1171,10 +1189,10 @@ class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
     def applyIce(self):
         super().applyIce()
-        try: # TODO: Can we get rid of this try once every vek has a weapon?
-            self.weapon1.qshot = None
-        except AttributeError: # ice cancels enemy shots
-            pass
+        # try: # TODO: Can we get rid of this try once every vek has a weapon?
+        #    self.weapon1.qshot = None
+        # except AttributeError: # ice cancels enemy shots
+        #    pass
 
 class Unit_EnemyFlying_Base(Unit_EnemyNonPsion_Base):
     "A simple base unit for flying vek."
@@ -3882,6 +3900,11 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
         return True
     def shoot(self):
         if self.qshot is not None:
+            try:
+                self.oldcaboosesquare = self.wieldingunit.companion
+            except AttributeError: # companion isn't set yet
+                self.wieldingunit._setCompanion()
+                self.oldcaboosesquare = self.wieldingunit.companion
             prevsquare = self.wieldingunit.square
             for r in 1, 2:
                 targetsquare = self.game.board[prevsquare].getRelSquare(Direction.RIGHT, 1)
@@ -3892,7 +3915,14 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
                 else: # there was a unit in the way that died.
                     if prevsquare != targetsquare: # if the train needs to be moved
                         self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move the front of the train
-                        oldcaboosesquare = self.wieldingunit.companion
-                        self.game.board[self.wieldingunit.square]._setCompanion()
-                        self.game.board[oldcaboosesquare].moveUnit(self.wieldingunit.companion)  # move the caboose of the train
-                        self.game.board[self.wieldingunit.companion]._setCompanion()
+                        self._moveCaboose()
+                    self.game.board[self.wieldingunit.square].takeDamage(1)
+                    return
+            # If we made it here, that means there was no unit in the way. Move the train right 2 squares:
+            self.game.board[self.wieldingunit.square].moveUnit(targetsquare)  # move the front of the train
+            self._moveCaboose()
+    def _moveCaboose(self):
+        "Move the caboose of the train and update the campion of the already moved front of the train"
+        self.wieldingunit._setCompanion()
+        self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
+        self.game.board[self.wieldingunit.companion].unit._setCompanion()

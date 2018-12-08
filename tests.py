@@ -785,6 +785,22 @@ def t_ShieldBlocksIceFromFire():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
 
+def t_ShieldBlocksDirectIceFromFire():
+    "What happens when a unit is set on fire, shielded, then frozen? Ice has no effect, unit remains shielded and on fire. Tile remains on fire. Here, ice is given directly to the unit."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Blobber(g))
+    assert g.board[(1, 1)].unit.effects == set()
+    g.board[(1, 1)].applyFire()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
+    g.board[(1, 1)].applyShield()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
+    g.board[(1, 1)].unit.applyIce()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD}
+
 def t_ShieldBlocksIce():
     "You can't be frozen when you have a shield"
     g = Game()
@@ -9538,6 +9554,146 @@ def t_TrainPainGauntlet():
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].effects == set()
+
+def t_WeaponChooChoo1():
+    "Use the train's Choo Choo weapon with no unit in the way."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    assert g.board[(1, 1)].unit == None # caboose moved from here
+    assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(3, 1)].unit.hp == 1
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.type == 'traincaboose'
+    assert g.board[(4, 1)].unit.type == 'train'
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(3, 1)].effects == set()
+    assert g.board[(4, 1)].effects == set()
+
+def t_WeaponChooChoo2():
+    "Use the train's Choo Choo weapon with a unit directly in front of the train."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    g.board[(3, 1)].createUnitHere(Unit_Scorpion(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(3, 1)].unit.hp == 3
+    g.board[(2, 1)].unit.weapon1.shoot()
+    #assert g.board[(1, 1)].unit == None # caboose moved from here
+    #assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traindamagedcaboose'
+    assert g.board[(2, 1)].unit.type == 'traindamaged'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(3, 1)].unit == None # vek died
+
+def t_WeaponChooChoo3():
+    "Use the train's Choo Choo weapon with a unit 1 square in front of the train."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    g.board[(4, 1)].createUnitHere(Unit_Scorpion(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(4, 1)].unit.hp == 3
+    g.board[(2, 1)].unit.weapon1.shoot()
+    assert g.board[(1, 1)].unit == None # caboose moved from here
+    #assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.type == 'traindamagedcaboose'
+    assert g.board[(3, 1)].unit.type == 'traindamaged'
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(3, 1)].effects == set()
+    assert g.board[(4, 1)].unit == None # vek died
+
+def t_WeaponChooChoo4():
+    "Use the train's Choo Choo weapon with a unit 2 square in front of the train. (out of harm's way)"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    g.board[(5, 1)].createUnitHere(Unit_Scorpion(g))
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(5, 1)].unit.hp == 3
+    g.board[(2, 1)].unit.weapon1.shoot()
+    assert g.board[(1, 1)].unit == None # caboose moved from here
+    assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.type == 'traincaboose'
+    assert g.board[(4, 1)].unit.type == 'train'
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(3, 1)].effects == set()
+    assert g.board[(4, 1)].effects == set()
+    assert g.board[(5, 1)].unit.hp == 3 # vek untouched
+
+def t_WeaponChooChooIce():
+    "Use the train's Choo Choo weapon with a unit 2 square in front of the train but the train gets frozen."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(2, 1)].createUnitHere(Unit_Train(g))
+    g.board[(5, 1)].createUnitHere(Unit_Scorpion(g))
+    assert g.board[(2, 1)].unit.weapon1.qshot == ()
+    g.board[(2, 1)].applyIce()
+    #print(type(g.board[(2, 1)].unit.weapon1.qshot))
+    assert g.board[(2, 1)].unit.weapon1.qshot == None
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(5, 1)].unit.hp == 3
+    g.board[(2, 1)].unit.weapon1.shoot() # this should have done nothing
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == {Effects.ICE} # still frozen
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
+    assert g.board[(5, 1)].unit.hp == 3 # vek untouched
+
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

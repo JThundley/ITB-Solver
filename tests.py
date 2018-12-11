@@ -9672,7 +9672,6 @@ def t_WeaponChooChooIce():
     g.board[(5, 1)].createUnitHere(Unit_Scorpion(g))
     assert g.board[(2, 1)].unit.weapon1.qshot == ()
     g.board[(2, 1)].applyIce()
-    #print(type(g.board[(2, 1)].unit.weapon1.qshot))
     assert g.board[(2, 1)].unit.weapon1.qshot == None
     assert g.board[(1, 1)].unit.hp == 1
     assert g.board[(2, 1)].unit.hp == 1
@@ -9693,6 +9692,25 @@ def t_WeaponChooChooIce():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].effects == set()
     assert g.board[(5, 1)].unit.hp == 3 # vek untouched
+
+def t_WeaponChooChooOffboard():
+    "Use the train's Choo Choo weapon and properly handle it trying to go offboard"
+    g = Game()
+    g.board[(7, 1)].createUnitHere(Unit_TrainCaboose(g))
+    g.board[(8, 1)].createUnitHere(Unit_Train(g))
+    assert g.board[(8, 1)].unit.weapon1.qshot == ()
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.type == 'traincaboose'
+    assert g.board[(8, 1)].unit.type == 'train'
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(7, 1)].effects == set()
+    assert g.board[(8, 1)].effects == set()
+    try:
+        g.board[(8, 1)].unit.weapon1.shoot()
+    except Exception as e:
+        assert e.args[0] == "Train's Choo Choo weapon tried to move it off the board."
 
 
 ########### write tests for these:

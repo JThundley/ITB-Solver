@@ -3893,11 +3893,10 @@ class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip
     # They require a qshot to indicate whether it is attacking this turn or not.
 
 class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Move forward 2 spaces, but will be destroyed if blocked. Train"
     def validate(self):
         "The only way this shot can be invalidated is by the shot already being invalidated. Freezing it will cancel the shot, but that isn't checked here. The train is immune to smoke and it will never go in water."
-        if self.qshot is None:
-            return False
-        return True
+        pass
     def shoot(self):
         if self.qshot is not None:
             try:
@@ -3912,6 +3911,8 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
                     self.game.board[targetsquare].unit.die()
                 except AttributeError: # None.die()
                     prevsquare = targetsquare # no unit, the train moves right one square.
+                except KeyError: # board[False]
+                    raise Exception("Train's Choo Choo weapon tried to move it off the board.")
                 else: # there was a unit in the way that died.
                     if prevsquare != targetsquare: # if the train needs to be moved
                         self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move the front of the train
@@ -3921,8 +3922,21 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
             # If we made it here, that means there was no unit in the way. Move the train right 2 squares:
             self.game.board[self.wieldingunit.square].moveUnit(targetsquare)  # move the front of the train
             self._moveCaboose()
-    def _moveCaboose(self):
+    def _moveCaboose(self): # TODO: consider not actually moving the train at all. The train's NPC action is the last thing to happen in a turn besides vek spawning which can never be affected by the train's position.
         "Move the caboose of the train and update the campion of the already moved front of the train"
         self.wieldingunit._setCompanion()
         self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
         self.game.board[self.wieldingunit.companion].unit._setCompanion()
+
+class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+    "Launch a satellite into space, destroying surrounding area. SatelliteRocket"
+    def validate(self):
+        pass
+    def shoot(self):
+        if self.qshot is not None:
+            for d in Direction.gen():  # all tiles around wielder must die # copypasta from Weapon_SelfDestruct
+                try:
+                    self.game.board[self._getRelSquare(d, 1)].die()
+                except KeyError:  # game.board[False]
+                    pass
+            # no need to actually remove the rocket from the board as it makes no difference at the end of a turn.

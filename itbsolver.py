@@ -1131,12 +1131,28 @@ class Unit_DisposalUnit(Unit_Terraformer):
     def __init__(self, game, type='disposalunit', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
 
-class Unit_SatelliteRocket(Sub_Unit_Base):
+class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base):
     def __init__(self, game, type='satelliterocket', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SatelliteLaunch(), attributes=attributes, effects=effects)
+        self.moves = moves
         self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
         self.beamally = False
+    def die(self):
+        print("satelliterocket died!")
+        super().die()
+        self.game.board[self.square]._putUnitHere(Unit_SatelliteRocketCorpse(self.game))
+
+class Unit_SatelliteRocketCorpse(Unit_Fighting_Base):
+    def __init__(self, game, type='satelliterocketcorpse', hp=1, maxhp=1, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+        self.moves = moves
+        self.alliance = Alliance.NEUTRAL
+        self.attributes.add(Attributes.STABLE)
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        return # invincible
+    def die(self):
+        return # invincible
 
 class Unit_EarthMover(Sub_Unit_Base):
     def __init__(self, game, type='earthmover', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -3928,7 +3944,7 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
         self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
         self.game.board[self.wieldingunit.companion].unit._setCompanion()
 
-class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_getRelSquare_Base):
     "Launch a satellite into space, destroying surrounding area. SatelliteRocket"
     def validate(self):
         pass

@@ -9712,6 +9712,42 @@ def t_WeaponChooChooOffboard():
     except Exception as e:
         assert e.args[0] == "Train's Choo Choo weapon tried to move it off the board."
 
+def t_WeaponSatelliteLaunch():
+    "Do the satellite launch from the satellite rocket."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_SatelliteRocket(g))
+    g.board[(1, 1)].unit.weapon1.qshot = () # we have to manually tell the rocket that it will shoot when told since it doesn't by default.
+    g.board[(2, 1)].createUnitHere(Unit_AlphaHornet(g))
+    g.board[(1, 2)].createUnitHere(Unit_AlphaHornet(g))
+    assert g.board[(1, 1)].unit.weapon1.qshot == ()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 4
+    assert g.board[(1, 2)].unit.hp == 4
+    g.board[(1, 1)].unit.weapon1.shoot()
+    assert g.board[(1, 1)].unit.hp == 2 # the rocket is left there because we only simulate 1 turn
+    assert g.board[(2, 1)].unit == None # both vek died
+    assert g.board[(1, 2)].unit == None
+
+def t_SatelliteRocketDies():
+    "Have the satelite rocket take damage to test its stages of pain."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_SatelliteRocket(g))
+    assert g.board[(1, 1)].unit.weapon1.qshot == None
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.type == 'satelliterocket'
+    g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.weapon1.qshot == None
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'satelliterocket'
+    g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'satelliterocketcorpse'
+    g.board[(1, 1)].takeDamage(1)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 1 # nothing happens to the corpse when it takes damage
+    assert g.board[(1, 1)].unit.type == 'satelliterocketcorpse'
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

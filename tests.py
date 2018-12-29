@@ -9749,6 +9749,37 @@ def t_SatelliteRocketDies():
     assert g.board[(1, 1)].unit.hp == 1 # nothing happens to the corpse when it takes damage
     assert g.board[(1, 1)].unit.type == 'satelliterocketcorpse'
 
+def t_WeaponDisintegrator():
+    "Have the Disintegrator shoot it's weapon."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_AcidLauncher(g))
+    g.board[(1, 6)].createUnitHere(Unit_Hornet(g))
+    g.board[(1, 7)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 8)].createUnitHere(Unit_Flame_Mech(g))
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(1, 1)].unit.type == 'acidlauncher'
+    assert g.board[(1, 6)].effects == set()
+    assert g.board[(1, 6)].unit.hp == 2
+    assert g.board[(1, 7)].effects == set()
+    assert g.board[(1, 7)].unit.hp == 1
+    assert g.board[(1, 8)].effects == set()
+    assert g.board[(1, 8)].unit.hp == 3
+    assert g.board[(2, 7)].effects == set()
+    gs = g.board[(1, 1)].unit.weapon1.genShots()
+    for shot in range(7):
+        shot = next(gs)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)  # (1, 7)
+    g.flushHurt()
+    assert g.board[(1, 6)].effects == {Effects.ACID}
+    assert g.board[(1, 6)].unit == None # vek killed
+    assert g.board[(1, 7)].effects == {Effects.ACID}
+    assert g.board[(1, 7)].unit == None # mountain is gone
+    assert g.board[(1, 8)].effects == set() # acid is on the mech corpse
+    assert g.board[(1, 8)].unit.type == 'mechcorpse'
+    assert g.board[(2, 7)].effects == {Effects.ACID}
+    assert g.board[(2, 7)].unit == None # never was a unit here
+
+
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

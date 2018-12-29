@@ -1125,11 +1125,11 @@ class Unit_TrainCorpse(Unit_TrainCaboose):
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
-        self.attributes.add(Attributes.STABLE)
 
-class Unit_DisposalUnit(Unit_Terraformer):
-    def __init__(self, game, type='disposalunit', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+class Unit_AcidLauncher(Sub_Unit_Base):
+    def __init__(self, game, type='acidlauncher', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Disintegrator(), attributes=attributes, effects=effects)
+        self.attributes.add(Attributes.STABLE)
 
 class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base):
     def __init__(self, game, type='satelliterocket', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -3956,3 +3956,20 @@ class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_get
                 except KeyError:  # game.board[False]
                     pass
             # no need to actually remove the rocket from the board as it makes no difference at the end of a turn.
+
+class Weapon_Disintegrator(Weapon_AnyTileGen_Base):
+    "Dissolve all target tiles with acid. acidlauncher"
+    def shoot(self, x, y):
+        self.action((x, y))
+        for d in Direction.gen(): # do all tiles around the target
+            try:
+                self.action(self.game.board[(x, y)].getRelSquare(d, 1))
+            except KeyError:
+                pass # tried to target off the board
+    def action(self, square):
+        "Kill the unit and put acid on the tile of square."
+        try:
+            self.game.board[square].unit.die()
+        except AttributeError: # board[square].None.die()
+            pass
+        self.game.board[square].applyAcid()

@@ -170,6 +170,10 @@ class NullWeaponShot(Exception):
 class InvalidDirection(Exception):
     "This is raised when an invalid direction is given to something."
 
+class CantHappenInGame(Exception):
+    """This is raised when something happens that's not permitted in game.
+    For example, if the Terraformer's shot goes off the board. The in-game Terraformer will never be placed to allow this."""
+
 class FakeException(Exception):
     "This is raised to do some more effecient try/except if/else statements"
 ############# THE MAIN GAME BOARD!
@@ -452,6 +456,11 @@ class Tile_Base(TileUnit_Base):
             return self._swallow
         except AttributeError:
             return False
+    def isGrassland(self):
+        try:
+            return self._grassland
+        except AttributeError:
+            return False
     def __str__(self):
         return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
@@ -674,11 +683,7 @@ class Tile_Grassland(Tile_Base):
     "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
     def __init__(self, game, square=None, type='grassland', effects=None):
         super().__init__(game, square, type, effects=effects)
-
-class Tile_Terraformed(Tile_Base):
-    "This tile was terraformed as part of your bonus objective. Also just a regular ground tile."
-    def __init__(self, game, square=None, type='terraformed', effects=None):
-        super().__init__(game, square, type, effects=effects)
+        self._grassland = True
 
 class Tile_Teleporter(Tile_Base):
     "End movement here to warp to the matching pad. Swap with any present unit."
@@ -1124,7 +1129,8 @@ class Unit_TrainCorpse(Unit_TrainCaboose):
 
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, Weapon1=Weapon_Terraformer(), attributes=attributes, effects=effects)
+        self.attributes.add(Attributes.STABLE)
 
 class Unit_AcidLauncher(Sub_Unit_Base):
     def __init__(self, game, type='acidlauncher', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -3966,3 +3972,21 @@ class Weapon_Disintegrator(Weapon_AnyTileGen_Base):
         except AttributeError: # board[square].None.die()
             pass
         self.game.board[square].applyAcid()
+
+class Weapon_Terraformer(Weapon_DirectionalGen_Base):
+    "Eradicate all life in front of the Terraformer. Terraformer. Yes, the unit is called Terraformer and the weapon is also called Terraformer"
+    def shoot(self, dir):
+        targetsquare = self.wieldingunit.square
+        for distance in 1, 2:
+            targetsquare = self.game.board[targetsquare].getRelSquare(dir, 1)
+            self._convertGrassland(targetsquare)
+            for perpsq in Direction.genPerp(dir):
+                self._convertGrassland(self.game.board[targetsquare].getRelSquare(perpsq, 1))
+    def _convertGrassland(self, sq):
+        "kill the unit on square and convert the tile to sand if it was a grassland tile, ground if it wasn't."
+        self.game.board[sq].die()
+        if self.game.board[sq].isGrassland():
+            self.game.board[sq].replaceTile(Tile_Sand)
+            # TODO: count the score for the objective goal here
+        else:
+            self.game.board[sq].replaceTile(Tile_Ground)

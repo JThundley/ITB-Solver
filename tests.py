@@ -9789,6 +9789,8 @@ def t_WeaponDisintegrator():
     assert g.board[(2, 7)].effects == {Effects.ACID}
     assert g.board[(2, 7)].unit == None # never was a unit here
 
+# When writing Terraformer tests, test it killing an explosive unit to make sure it doesn't make smoke on the newly created sand tile
+
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

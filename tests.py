@@ -8004,15 +8004,20 @@ def t_WeaponVolatileGuts():
     assert g.board[(3, 1)].unit.hp == 2 # 3 damage
 
 def t_WeaponVolatileGutsFlip():
-    "Have an alpha blob get flipped which does nothing"
+    "Have an alpha blob get flipped by ConfuseShot which raises NullWeaponShot"
     g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_AlphaBlob(g, qshot=()))
     g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.hp == 5
     assert g.board[(2, 1)].unit.hp == 1
     assert g.board[(3, 1)].unit.hp == 5
-    g.board[(2, 1)].unit.weapon1.flip()
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    except NullWeaponShot:
+        pass # expected
+    else:
+        raise # ya fucked up
     g.board[(2, 1)].unit.weapon1.shoot()
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # wielder took 3 damage
@@ -8673,15 +8678,20 @@ def t_WeaponAlphaDiggingTusks():
     assert g.board[(3, 1)].unit.hp == 3 # 2 damage
 
 def t_WeaponAlphaDiggingTusksFlip():
-    "Have an alpha digger get flipped which does nothing"
+    "Have an alpha digger get flipped by ConfuseShot which raises NullWealonShot"
     g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_RainingDeath(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_ConfuseShot(power1=False, power2=False), hp=5, maxhp=5)) # extra hp given
     g.board[(2, 1)].createUnitHere(Unit_AlphaDigger(g, qshot=()))
     g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.hp == 5
     assert g.board[(2, 1)].unit.hp == 4
     assert g.board[(3, 1)].unit.hp == 5
-    g.board[(2, 1)].unit.weapon1.flip()
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    except NullWeaponShot:
+        pass # this is expected
+    else:
+        raise # oh noes
     g.board[(2, 1)].unit.weapon1.shoot()
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 3  # wielder took 2 damage

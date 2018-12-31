@@ -3099,11 +3099,9 @@ class Weapon_ConfuseShot(Weapon_Projectile_Base, Weapon_NoUpgradesInit_Base):
     def shoot(self, direction):
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=False)
         try:
-            if not self.game.board[targetsquare].unit.alliance == Alliance.ENEMY: # if we hit a unit that's not an enemy...
-                raise NullWeaponShot # it's a wasted shot that did nothing
-        except KeyError: #board[False]
-            raise NullWeaponShot # didn't find a unit at all
-        self.game.board[targetsquare].unit.weapon1.flip() # this should for sure be an enemy at this point
+            self.game.board[targetsquare].unit.weapon1.flip()
+        except (KeyError, AttributeError): # KeyError: board[False]; AttributeError: unit.None, weapon doesn't have flip() method
+            raise NullWeaponShot # didn't find a unit at all or attacked unit can't be flipped. Waste of a shot.
 
 class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base):
     "Surround yourself with Smoke to defend against nearby enemies."
@@ -3418,8 +3416,8 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
     # if the shot is invalid, it must set qshot to None and return False. return True otherwise.
     # this method can and should be used to set up a future shot similar to how Weapon_ArtilleryGen_Base set self.targetsquare.
 # All shoot() methods take no arguments, they read their own qshot when shooting.
-# All vek weapons MUST have a flip() method to flip the direction of attack (spartan shield and confuse shot use this). Some weapons can't be flipped, but they still need a working method that does nothing.
-    # flip() must validate the shot afterwards unless the flip was ignored
+# Any vek weapons that can have their shot direction flipped MUST have a flip() method to flip the direction of attack (spartan shield and confuse shot use this).
+    # If a weapon can't be flipped, it doesn't need a flip() method.
 # Weapons that create webs in the game isn't done here since that's really done during the vek's move/target phase. The user should already have a gameboard with webs laid out.
 # Vek weapons will never raise NullWeaponShot
 
@@ -3440,11 +3438,6 @@ class Weapon_Validate_Base():
                 self.qshot = None
                 return False
             return True
-
-class Weapon_IgnoreFlip_Base():
-    def flip(self):
-        "can't be flipped"
-        pass
 
 class Weapon_DirectionalValidate_Base(Weapon_Validate_Base):
     "A validate method that works for melee and projectile weapons."
@@ -3468,7 +3461,7 @@ class Weapon_DirectionalFlip_Base():
         self.validate()
 
 # Vek weapon high-level base objects:
-class Weapon_SurroundingShoot_Base(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_SurroundingShoot_Base(Weapon_Vek_Base):
     "Base weapon for vek weapons that damage adjacent tiles such as blob and digger weapons."
     def shoot(self):
         "return True if the shot happened, False if it didn't."
@@ -3637,22 +3630,22 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     damage = 3
 
 # TODO: We can't predict the shooting of these 4 weapons, but they need to be counted towards spawning new enemies
-class Weapon_UnstableGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_UnstableGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
         print("TODO!")
 
-class Weapon_VolatileGrowths(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_VolatileGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
         print("TODO!")
 
-class Weapon_TinyOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_TinyOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into a Spiderling. Spider"
     def shoot(self):
         print("TODO!")
 
-class Weapon_LargeOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_LargeOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into an Alpha Spiderling. AlphaSpider"
     def shoot(self):
         print("TODO!")
@@ -3806,7 +3799,7 @@ class Weapon_SuperStinger(Weapon_GreaterHornet_Base):
 #     "All other Vek gain +1 HP, Regeneration, and explode on death. Psion Abomination"
 #     # TODO!
 
-class Weapon_MassiveSpinneret(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_hurtAndPushEnemy_Base, Weapon_Validate_Base):
+class Weapon_MassiveSpinneret(Weapon_Vek_Base, Weapon_hurtAndPushEnemy_Base, Weapon_Validate_Base):
     "Web all targets, preparing to deal 2 damage to adjacent tiles (This attack also pushes targets). ScorpionLeader"
     damage = 2
     def shoot(self):
@@ -3817,7 +3810,7 @@ class Weapon_MassiveSpinneret(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_hu
                 except NullWeaponShot: # game.board[False]
                     pass
 
-class Weapon_BurningThorax(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_Validate_Base, Weapon_getSquareOfUnitInDirection_Base):
+class Weapon_BurningThorax(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_getSquareOfUnitInDirection_Base):
     "Launch goo projectiles in two directions, dealing 4 damage with each. FireflyLeader."
     # The shot validation for this unit is very wonky. The way Vek targeting works as far as I can tell is that any vek that attacks in a specific direction
     # targets 1 square in the direction of their attack. This means that units like the AlphaHornet can't choose to use less range, they can only choose direction.
@@ -3839,14 +3832,14 @@ class Weapon_BurningThorax(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_Valid
                 except NullWeaponShot: # caused by the wielder being up against the wall, the other shot is so valid so we ignore this
                     pass
 
-class Weapon_PlentifulOffspring(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_Validate_Base):
+class Weapon_PlentifulOffspring(Weapon_Vek_Base, Weapon_Validate_Base):
     "Throw out 2-3 Spider eggs. SpiderLeader"
     def shoot(self):
         if self.qshot is not None:
             pass # This weapon, just like the blobber, creates new units in unpredictable locations. The creation of these new units needs to be counted against your score.
             # TODO!
 
-class Weapon_SpiderlingEgg(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_SpiderlingEgg(Weapon_Vek_Base):
     "Hatch into Spiderling. SpiderlingEgg. The unit name and weapon name are the same."
     def validate(self):
         pass
@@ -3892,7 +3885,7 @@ class Weapon_Vk8RocketsMarkIII(Weapon_Vk8Rockets_Base):
     "Launch Rockets at 3 tiles dealing 2 damage to each. BotLeader_Attacking"
     damage = 2
 
-class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip_Base):
+class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base):
     """This is the BotLeader's self-Repair weapon that it uses after taking damage. BotLeader_Healing
     The Bot Leader gets a shield on the start of his target phase, so this weapon here won't actually give the shield."""
     # this does remove fire and presumably acid
@@ -3908,7 +3901,7 @@ class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_IgnoreFlip
 # Objective weapons that the player does NOT control (train, satellite rockets) have the same requirements as enemy weapons.
     # They require a qshot to indicate whether it is attacking this turn or not.
 
-class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
+class Weapon_ChooChoo(Weapon_Vek_Base):
     "Move forward 2 spaces, but will be destroyed if blocked. Train"
     def validate(self):
         "The only way this shot can be invalidated is by the shot already being invalidated. Freezing it will cancel the shot, but that isn't checked here. The train is immune to smoke and it will never go in water."
@@ -3944,7 +3937,7 @@ class Weapon_ChooChoo(Weapon_Vek_Base, Weapon_IgnoreFlip_Base):
         self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
         self.game.board[self.wieldingunit.companion].unit._setCompanion()
 
-class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_IgnoreFlip_Base, Weapon_getRelSquare_Base):
+class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_getRelSquare_Base):
     "Launch a satellite into space, destroying surrounding area. SatelliteRocket"
     def validate(self):
         pass

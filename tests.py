@@ -9789,7 +9789,82 @@ def t_WeaponDisintegrator():
     assert g.board[(2, 7)].effects == {Effects.ACID}
     assert g.board[(2, 7)].unit == None # never was a unit here
 
-# When writing Terraformer tests, test it killing an explosive unit to make sure it doesn't make smoke on the newly created sand tile
+def t_WeaponTerraformer():
+    "Have the Terraformer shoot it's weapon."
+    g = Game()
+    for x in range(5, 7):
+        for y in range(2, 5):
+            g.board[(x, y)].replaceTile(Tile_Grassland(g))
+    g.board[(5, 4)].replaceTile(Tile_Ground(g)) # put the mountain's tile back to ground lol
+    g.board[(4, 3)].createUnitHere(Unit_Terraformer(g))
+    g.board[(5, 3)].createUnitHere(Unit_Hornet(g))
+    g.board[(5, 4)].createUnitHere(Unit_Mountain(g))
+    g.board[(6, 2)].createUnitHere(Unit_Flame_Mech(g))
+    assert g.board[(4, 3)].unit.hp == 2
+    assert g.board[(4, 3)].unit.type == 'terraformer'
+    assert g.board[(5, 3)].effects == set()
+    assert g.board[(5, 3)].unit.hp == 2
+    assert g.board[(5, 3)].isGrassland()
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(5, 4)].unit.hp == 1
+    assert g.board[(5, 4)].type == 'ground'
+    assert g.board[(6, 2)].effects == set()
+    assert g.board[(6, 2)].unit.hp == 3
+    assert g.board[(6, 2)].isGrassland()
+    assert not g.board[(7, 3)].isGrassland()
+    gs = g.board[(4, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(4, 3)].unit.weapon1.shoot(*shot)  # (RIGHT,)
+    g.flushHurt()
+    assert g.board[(5, 3)].effects == set()
+    assert g.board[(5, 3)].unit == None # vek killed
+    assert g.board[(5, 3)].type == "sand"
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(5, 4)].unit == None # mountain is gone
+    assert g.board[(5, 4)].type == 'ground' # mountains leave ground tiles when destroyed
+    assert g.board[(6, 2)].effects == set()
+    assert g.board[(6, 2)].unit.type == 'mechcorpse'
+    assert g.board[(6, 2)].type == "sand"
+
+def t_WeaponTerraformer():
+    "Have the Terraformer shoot it's weapon but there's an explosive unit that dies."
+    g = Game()
+    for x in range(5, 7):
+        for y in range(2, 5):
+            g.board[(x, y)].replaceTile(Tile_Grassland(g))
+    g.board[(5, 4)].replaceTile(Tile_Ground(g)) # put the mountain's tile back to ground lol
+    g.board[(4, 3)].createUnitHere(Unit_Terraformer(g))
+    g.board[(5, 3)].createUnitHere(Unit_Hornet(g, effects=(Effects.EXPLOSIVE,)))
+    g.board[(5, 4)].createUnitHere(Unit_Mountain(g))
+    g.board[(6, 2)].createUnitHere(Unit_Flame_Mech(g))
+    assert g.board[(4, 3)].unit.hp == 2
+    assert g.board[(4, 3)].unit.type == 'terraformer'
+    assert g.board[(5, 3)].effects == set()
+    assert g.board[(5, 3)].unit.hp == 2
+    assert g.board[(5, 3)].isGrassland()
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(5, 4)].unit.hp == 1
+    assert g.board[(5, 4)].type == 'ground'
+    assert g.board[(6, 2)].effects == set()
+    assert g.board[(6, 2)].unit.hp == 3
+    assert g.board[(6, 2)].isGrassland()
+    assert not g.board[(7, 3)].isGrassland()
+    gs = g.board[(4, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(4, 3)].unit.weapon1.shoot(*shot)  # (RIGHT,)
+    g.flushHurt()
+    assert g.board[(5, 3)].effects == {Effects.SMOKE}
+    assert g.board[(5, 3)].unit == None # vek killed
+    assert g.board[(5, 3)].type == "sand"
+    assert g.board[(5, 4)].effects == {Effects.SMOKE}
+    assert g.board[(5, 4)].unit == None # mountain is gone
+    assert g.board[(5, 4)].type == 'ground' # mountains leave ground tiles when destroyed
+    assert g.board[(5, 4)].effects == set() # no smoke here, never became a sand tile
+    assert g.board[(6, 2)].effects == {Effects.SMOKE}
+    assert g.board[(6, 2)].unit.type == 'mechcorpse'
+    assert g.board[(6, 2)].type == "sand"
 
 
 ########### write tests for these:

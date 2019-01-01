@@ -1129,7 +1129,7 @@ class Unit_TrainCorpse(Unit_TrainCaboose):
 
 class Unit_Terraformer(Sub_Unit_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, Weapon1=Weapon_Terraformer(), attributes=attributes, effects=effects)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Terraformer(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
 
 class Unit_AcidLauncher(Sub_Unit_Base):
@@ -3984,9 +3984,14 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
                 self._convertGrassland(self.game.board[targetsquare].getRelSquare(perpsq, 1))
     def _convertGrassland(self, sq):
         "kill the unit on square and convert the tile to sand if it was a grassland tile, ground if it wasn't."
-        self.game.board[sq].die()
-        if self.game.board[sq].isGrassland():
-            self.game.board[sq].replaceTile(Tile_Sand)
-            # TODO: count the score for the objective goal here
+        try:
+            tile = self.game.board[sq]
+        except KeyError:
+            raise CantHappenInGame("The Terraformer was placed in a way that it's weapon shoots off the board. This can't happen in the game.")
+        tile.die()
+        if tile.isGrassland():
+            tile.replaceTile(Tile_Sand(self.game))
+            # TODO: count the score for the objective goal here.
+            # Maybe this should only be counted once per shot. We shouldn't create a scenario where terraforming more grassland tiles is more valuable than killing more vek.
         else:
-            self.game.board[sq].replaceTile(Tile_Ground)
+            tile.replaceTile(Tile_Ground(self.game))

@@ -9822,12 +9822,12 @@ def t_WeaponTerraformer():
     assert g.board[(5, 3)].type == "sand"
     assert g.board[(5, 4)].effects == set()
     assert g.board[(5, 4)].unit == None # mountain is gone
-    assert g.board[(5, 4)].type == 'ground' # mountains leave ground tiles when destroyed
+    assert g.board[(5, 4)].type == 'ground' # mountains leave ground tiles when destroyed, NOT sand
     assert g.board[(6, 2)].effects == set()
     assert g.board[(6, 2)].unit.type == 'mechcorpse'
     assert g.board[(6, 2)].type == "sand"
 
-def t_WeaponTerraformer():
+def t_WeaponTerraformer2():
     "Have the Terraformer shoot it's weapon but there's an explosive unit that dies."
     g = Game()
     for x in range(5, 7):
@@ -9858,11 +9858,11 @@ def t_WeaponTerraformer():
     assert g.board[(5, 3)].effects == {Effects.SMOKE}
     assert g.board[(5, 3)].unit == None # vek killed
     assert g.board[(5, 3)].type == "sand"
-    assert g.board[(5, 4)].effects == {Effects.SMOKE}
     assert g.board[(5, 4)].unit == None # mountain is gone
+    assert g.board[(5, 4)].effects == set() # destroyed mountain doesn't leave smoke since there was never sand here.
     assert g.board[(5, 4)].type == 'ground' # mountains leave ground tiles when destroyed
     assert g.board[(5, 4)].effects == set() # no smoke here, never became a sand tile
-    assert g.board[(6, 2)].effects == {Effects.SMOKE}
+    assert g.board[(6, 2)].effects == set() # this sand tile wasn't hit by the explosion
     assert g.board[(6, 2)].unit.type == 'mechcorpse'
     assert g.board[(6, 2)].type == "sand"
 

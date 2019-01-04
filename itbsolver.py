@@ -389,7 +389,7 @@ class Tile_Base(TileUnit_Base):
         # assert Attributes.STABLE not in self.unit.attributes # the train is a stable unit that moves
         if destsquare == self.square:
             return # tried to move a unit to the same square it's already one. This had the unintended consequence of leaving the square blank!
-        self.unit._breakAllWebs() # TODO: override _breakAllWebs in units that can't move anyway such as rocks and stable units. Their webbing is inconsequential.
+        self.unit._breakAllWebs()
         self.game.board[destsquare]._putUnitHere(self.unit)
         self.unit = None
     def push(self, direction):
@@ -862,7 +862,20 @@ class Unit_Repairable_Base(Unit_Fighting_Base):
         if self.hp > self.maxhp:
             self.hp = self.maxhp
 
-class Unit_NoDelayedDeath_Base(Unit_Base):
+class Unit_Unwebbable_Base():
+    """A base class that provide blank web methods for units that aren't effected by webs.
+    (NPC units and stable units)
+    """
+    def applyWeb(self):
+        pass
+    def _breakAllWebs(self):
+        pass
+    def _breakWeb(self, compsquare, prop=True):
+        pass
+    def _makeWeb(self, compsquare, prop=True):
+        pass
+
+class Unit_NoDelayedDeath_Base(Unit_Base, Unit_Unwebbable_Base):
     "A base class for units that get to bypass the hurt queues such as buildings and other neutral units."
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         res = super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
@@ -987,7 +1000,7 @@ class Unit_PullTank(Sub_Unit_Base):
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
-class Unit_MultiTile_Base(Unit_Base):
+class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base):
     "This is the base class for multi-tile units such as the Dam and Train. Effects and damage to one unit also happens to the other."
     def __init__(self, game, type, hp, maxhp, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
@@ -1063,10 +1076,10 @@ class Unit_Dam(Unit_MultiTile_Base):
 
 class Unit_Train_Base(Unit_MultiTile_Base):
     "Base class for the undamaged train"
+    _beamally = True
     def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update({Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE, Attributes.STABLE})
-        self.beamally = True
         # self._setCompanion() this can't be done on init because self.square is set after this
     def die(self):
         "Make the unit die."
@@ -1127,29 +1140,29 @@ class Unit_TrainCorpse(Unit_TrainCaboose):
     def die(self):
         return # invincible
 
-class Unit_Terraformer(Sub_Unit_Base):
+class Unit_Terraformer(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Terraformer(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
 
-class Unit_AcidLauncher(Sub_Unit_Base):
+class Unit_AcidLauncher(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='acidlauncher', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Disintegrator(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
 
 class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base):
+    alliance = Alliance.NEUTRAL
+    # is not a beamally
     def __init__(self, game, type='satelliterocket', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SatelliteLaunch(), attributes=attributes, effects=effects)
         self.moves = moves
-        self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
-        self.beamally = False
     def die(self):
         print("satelliterocket died!")
         super().die()
         self.game.board[self.square]._putUnitHere(Unit_SatelliteRocketCorpse(self.game))
 
-class Unit_SatelliteRocketCorpse(Unit_Fighting_Base):
+class Unit_SatelliteRocketCorpse(Unit_Fighting_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='satelliterocketcorpse', hp=1, maxhp=1, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.moves = moves
@@ -1160,31 +1173,32 @@ class Unit_SatelliteRocketCorpse(Unit_Fighting_Base):
     def die(self):
         return # invincible
 
-class Unit_EarthMover(Sub_Unit_Base):
+class Unit_EarthMover(Sub_Unit_Base, Unit_Unwebbable_Base):
+    _beamally = True
+    alliance = Alliance.NEUTRAL
     def __init__(self, game, type='earthmover', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
-        self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
-        self.beamally = True
 
-class Unit_PrototypeRenfieldBomb(Unit_Base):
+class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
+    alliance = Alliance.NEUTRAL
+    _beamally = True
     def __init__(self, game, type='prototypebomb', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.alliance = Alliance.NEUTRAL
         self.effects.add(Effects.EXPLOSIVE)
         self.attributes.add(Attributes.IMMUNEFIRE)
-        self.beamally = True
 
-class Unit_RenfieldBomb(Unit_Base):
+class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
+    alliance = Alliance.NEUTRAL
+    _beamally = True
     def __init__(self, game, type='renfieldbomb', hp=4, maxhp=4, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.IMMUNEFIRE)
-        self.beamally = True
+
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################
-class Unit_Enemy_Base(Unit_Repairable_Base):
+class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base):
     "A base class for almost all enemies."
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
@@ -2230,7 +2244,7 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base, Weapon_BlocksBeamShot_Base):
         except KeyError:  # self.game.board[False] means we went off the board
             raise NullWeaponShot
         while True:
-            if self.allyimmune and self.isBeamAlly(targettile.unit):
+            if self.allyimmune and self.is_beamally(targettile.unit):
                 pass # no damage
             else:
                 targettile.takeDamage(currentdamage) # damage the tile
@@ -2242,10 +2256,10 @@ class Weapon_BurstBeam(Weapon_DirectionalGen_Base, Weapon_BlocksBeamShot_Base):
                 targettile = self.game.board[self.game.board[targettile.square].getRelSquare(direction, 1)] # get the target tile, not square
             except KeyError: # self.game.board[False] means we went off the board
                 break # no more pew pew
-    def isBeamAlly(self, unit):
+    def is_beamally(self, unit):
         "return True if unit is considered an ally to the beam weapon when it has the first upgrade powered."
         try:
-            return unit.alliance == Alliance.FRIENDLY or unit.beamally
+            return unit.alliance == Alliance.FRIENDLY or unit._beamally
         except AttributeError:  # units that allow penetration don't have this attribute set at all
             return False
 
@@ -3988,10 +4002,10 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
             tile = self.game.board[sq]
         except KeyError:
             raise CantHappenInGame("The Terraformer was placed in a way that it's weapon shoots off the board. This can't happen in the game.")
-        tile.die()
         if tile.isGrassland():
             tile.replaceTile(Tile_Sand(self.game))
             # TODO: count the score for the objective goal here.
             # Maybe this should only be counted once per shot. We shouldn't create a scenario where terraforming more grassland tiles is more valuable than killing more vek.
         else:
             tile.replaceTile(Tile_Ground(self.game))
+        tile.die()

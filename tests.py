@@ -9579,16 +9579,17 @@ def t_WeaponChooChoo1():
     assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].effects == set()
     g.board[(2, 1)].unit.weapon1.shoot()
-    assert g.board[(1, 1)].unit == None # caboose moved from here
-    assert g.board[(2, 1)].unit == None # train front moved from here
-    assert g.board[(3, 1)].unit.hp == 1
-    assert g.board[(4, 1)].unit.hp == 1
-    assert g.board[(3, 1)].unit.type == 'traincaboose'
-    assert g.board[(4, 1)].unit.type == 'train'
-    assert g.board[(3, 1)].unit.effects == set()
-    assert g.board[(4, 1)].unit.effects == set()
-    assert g.board[(3, 1)].effects == set()
-    assert g.board[(4, 1)].effects == set()
+    # The train no longer actually moves because it doesn't need to
+    #assert g.board[(1, 1)].unit == None # caboose moved from here
+    #assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
 
 def t_WeaponChooChoo2():
     "Use the train's Choo Choo weapon with a unit directly in front of the train."
@@ -9634,16 +9635,17 @@ def t_WeaponChooChoo3():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(4, 1)].unit.hp == 3
     g.board[(2, 1)].unit.weapon1.shoot()
-    assert g.board[(1, 1)].unit == None # caboose moved from here
+    # Train no longer moves
+    #assert g.board[(1, 1)].unit == None # caboose moved from here
     #assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(1, 1)].unit.hp == 1
     assert g.board[(2, 1)].unit.hp == 1
-    assert g.board[(3, 1)].unit.hp == 1
-    assert g.board[(2, 1)].unit.type == 'traindamagedcaboose'
-    assert g.board[(3, 1)].unit.type == 'traindamaged'
+    assert g.board[(1, 1)].unit.type == 'traindamagedcaboose'
+    assert g.board[(2, 1)].unit.type == 'traindamaged'
+    assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].unit.effects == set()
-    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
     assert g.board[(2, 1)].effects == set()
-    assert g.board[(3, 1)].effects == set()
     assert g.board[(4, 1)].unit == None # vek died
 
 def t_WeaponChooChoo4():
@@ -9662,16 +9664,17 @@ def t_WeaponChooChoo4():
     assert g.board[(2, 1)].effects == set()
     assert g.board[(5, 1)].unit.hp == 3
     g.board[(2, 1)].unit.weapon1.shoot()
-    assert g.board[(1, 1)].unit == None # caboose moved from here
-    assert g.board[(2, 1)].unit == None # train front moved from here
-    assert g.board[(4, 1)].unit.hp == 1
-    assert g.board[(3, 1)].unit.hp == 1
-    assert g.board[(3, 1)].unit.type == 'traincaboose'
-    assert g.board[(4, 1)].unit.type == 'train'
-    assert g.board[(3, 1)].unit.effects == set()
-    assert g.board[(4, 1)].unit.effects == set()
-    assert g.board[(3, 1)].effects == set()
-    assert g.board[(4, 1)].effects == set()
+    # Train no longer moves
+    #assert g.board[(1, 1)].unit == None # caboose moved from here
+    #assert g.board[(2, 1)].unit == None # train front moved from here
+    assert g.board[(1, 1)].unit.hp == 1
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(1, 1)].unit.type == 'traincaboose'
+    assert g.board[(2, 1)].unit.type == 'train'
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(2, 1)].effects == set()
     assert g.board[(5, 1)].unit.hp == 3 # vek untouched
 
 def t_WeaponChooChooIce():
@@ -9719,8 +9722,10 @@ def t_WeaponChooChooOffboard():
     assert g.board[(8, 1)].effects == set()
     try:
         g.board[(8, 1)].unit.weapon1.shoot()
-    except Exception as e:
-        assert e.args[0] == "Train's Choo Choo weapon tried to move it off the board."
+    except CantHappenInGame:
+        pass # this is expected
+    else:
+        assert False # ya fucked up
 
 def t_WeaponSatelliteLaunch():
     "Do the satellite launch from the satellite rocket."
@@ -9866,6 +9871,32 @@ def t_WeaponTerraformer2():
     assert g.board[(6, 2)].unit.type == 'mechcorpse'
     assert g.board[(6, 2)].type == "sand"
 
+def t_WeaponTerraformer3():
+    """Have the Terraformer shoot it's weapon but it's converting sand to sand.
+    When this happens in game, you see smoke arise from the sand being damaged, but then the tiles are replaced by new sand tiles without smoke."""
+    g = Game()
+    for x in range(5, 7):
+        for y in range(2, 5):
+            g.board[(x, y)].replaceTile(Tile_Sand(g))
+    g.board[(4, 3)].createUnitHere(Unit_Terraformer(g))
+    assert g.board[(4, 3)].unit.hp == 2
+    assert g.board[(4, 3)].unit.type == 'terraformer'
+    assert g.board[(5, 3)].effects == set()
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(5, 4)].type == 'sand'
+    assert g.board[(6, 2)].effects == set()
+    gs = g.board[(4, 3)].unit.weapon1.genShots()
+    for shot in range(2):
+        shot = next(gs)
+    g.board[(4, 3)].unit.weapon1.shoot(*shot)  # (RIGHT,)
+    g.flushHurt()
+    assert g.board[(5, 3)].effects == set()
+    assert g.board[(5, 3)].type == "sand"
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(5, 4)].type == 'sand'
+    assert g.board[(5, 4)].effects == set()
+    assert g.board[(6, 2)].effects == set()
+    assert g.board[(6, 2)].type == "sand"
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

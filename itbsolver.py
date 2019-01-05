@@ -95,7 +95,7 @@ assert Direction.LEFT == 4
 Effects = Constant(thegen,
     # These effects can be applied to both tiles and units:
     ('FIRE',
-    'ICE', # sometimes does nothing to tile or unit
+    'ICE', # sometimes does nothing to tile
     'ACID',
     # These effects can only be applied to tiles:
     'SMOKE',
@@ -105,7 +105,6 @@ Effects = Constant(thegen,
     'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     'SHIELD',
-    # 'WEB', # web is no longer an effect constant, it's a set of squares that it's paired with
     'EXPLOSIVE'))
 
 # These are attributes that are applied to units.
@@ -3928,34 +3927,50 @@ class Weapon_ChooChoo(Weapon_Vek_Base):
         pass
     def shoot(self):
         if self.qshot is not None:
-            try:
-                self.oldcaboosesquare = self.wieldingunit.companion
-            except AttributeError: # companion isn't set yet
-                self.wieldingunit._setCompanion()
-                self.oldcaboosesquare = self.wieldingunit.companion
-            prevsquare = self.wieldingunit.square
+            targetsquare = self.wieldingunit.square
             for r in 1, 2:
-                targetsquare = self.game.board[prevsquare].getRelSquare(Direction.RIGHT, 1)
+                targetsquare = self.game.board[targetsquare].getRelSquare(Direction.RIGHT, 1)
                 try: # try to kill the units in the way of the train
                     self.game.board[targetsquare].unit.die()
                 except AttributeError: # None.die()
-                    prevsquare = targetsquare # no unit, the train moves right one square.
+                    pass
                 except KeyError: # board[False]
-                    raise Exception("Train's Choo Choo weapon tried to move it off the board.")
+                    raise CantHappenInGame("Train's Choo Choo weapon tried to attack off the board.")
                 else: # there was a unit in the way that died.
-                    if prevsquare != targetsquare: # if the train needs to be moved
-                        self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move the front of the train
-                        self._moveCaboose()
-                    self.game.board[self.wieldingunit.square].takeDamage(1)
+                    self.game.board[self.wieldingunit.square].unit.takeDamage(1) # only damage the train itself
                     return
-            # If we made it here, that means there was no unit in the way. Move the train right 2 squares:
-            self.game.board[self.wieldingunit.square].moveUnit(targetsquare)  # move the front of the train
-            self._moveCaboose()
-    def _moveCaboose(self): # TODO: consider not actually moving the train at all. The train's NPC action is the last thing to happen in a turn besides vek spawning which can never be affected by the train's position.
-        "Move the caboose of the train and update the campion of the already moved front of the train"
-        self.wieldingunit._setCompanion()
-        self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
-        self.game.board[self.wieldingunit.companion].unit._setCompanion()
+    # These are the old train methods that I first wrote. These ones make the train move like it does in game.
+    # I realized later that this is inconsequential to a single turn, so I ripped out the movement functionality.
+    # def shoot(self):
+    #     if self.qshot is not None:
+    #         try:
+    #             self.oldcaboosesquare = self.wieldingunit.companion
+    #         except AttributeError: # companion isn't set yet
+    #             self.wieldingunit._setCompanion()
+    #             self.oldcaboosesquare = self.wieldingunit.companion
+    #         prevsquare = self.wieldingunit.square
+    #         for r in 1, 2:
+    #             targetsquare = self.game.board[prevsquare].getRelSquare(Direction.RIGHT, 1)
+    #             try: # try to kill the units in the way of the train
+    #                 self.game.board[targetsquare].unit.die()
+    #             except AttributeError: # None.die()
+    #                 prevsquare = targetsquare # no unit, the train moves right one square.
+    #             except KeyError: # board[False]
+    #                 raise Exception("Train's Choo Choo weapon tried to move it off the board.")
+    #             else: # there was a unit in the way that died.
+    #                 if prevsquare != targetsquare: # if the train needs to be moved
+    #                     self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move the front of the train
+    #                     self._moveCaboose()
+    #                 self.game.board[self.wieldingunit.square].takeDamage(1)
+    #                 return
+    #         # If we made it here, that means there was no unit in the way. Move the train right 2 squares:
+    #         self.game.board[self.wieldingunit.square].moveUnit(targetsquare)  # move the front of the train
+    #         self._moveCaboose()
+    # def _moveCaboose(self): # TODO: consider not actually moving the train at all. The train's NPC action is the last thing to happen in a turn besides vek spawning which can never be affected by the train's position.
+    #     "Move the caboose of the train and update the campion of the already moved front of the train"
+    #     self.wieldingunit._setCompanion()
+    #     self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
+    #     self.game.board[self.wieldingunit.companion].unit._setCompanion()
 
 class Weapon_SatelliteLaunch(Weapon_Vek_Base, Weapon_getRelSquare_Base):
     "Launch a satellite into space, destroying surrounding area. SatelliteRocket"
@@ -4002,10 +4017,15 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
             tile = self.game.board[sq]
         except KeyError:
             raise CantHappenInGame("The Terraformer was placed in a way that it's weapon shoots off the board. This can't happen in the game.")
-        if tile.isGrassland():
+        # if the we're killing a mountain, don't replace the tile. Mountains should always only have ground tiles under them.
+        # This is the correct behavior from the game, if you terraform a mountain it leaves a ground tile and not a sand tile
+        try:
+            if tile.unit.isMountain():
+                pass
+            else:
+                raise AttributeError
+        except AttributeError: # tile.None.isMountain()
             tile.replaceTile(Tile_Sand(self.game))
             # TODO: count the score for the objective goal here.
             # Maybe this should only be counted once per shot. We shouldn't create a scenario where terraforming more grassland tiles is more valuable than killing more vek.
-        else:
-            tile.replaceTile(Tile_Ground(self.game))
         tile.die()

@@ -202,10 +202,16 @@ class Game():
         else:
             self.vekemerge = Environ_VekEmerge()
         self.vekemerge.game = self
-        self.playerpassives = {} # a dict of passive effects being applied to the player's mechs
-        self.vekpassives = {}
+        # TODO: these never got implemented like this, remove them if they're never used
+        #self.playerpassives = {} # a dict of passive effects being applied to the player's mechs
+        #self.vekpassives = {}
+        # playerunits and nonplayerunits are used for passives that need to be applied to all vek and/or all mechs.
+        # nonplayerunits is also a list of units that take a turn doing an action, such as vek and NPC friendlies.
+        # units without weapons that don't take turns such as the rock also need to be here so they can take fire damage.
+        # There are some units that do not add their new "replacement unit" to these lists. This is because it's not necessary.
+            # These replacement units don't have a weapon and don't take a turn and can't take fire damage.
         self.playerunits = set() # All the units that the player has direct control over, including dead mech corpses
-        self.enemyunits = set() # all the enemy units
+        self.nonplayerunits = [] # all the units that the player can't control. This includes enemies and friendly NPCs such as the train.
         self.hurtplayerunits = [] # a list of the player's units hurt by a single action. All units here must be checked for death after they all take damage and then this is reset.
         self.hurtpsion = None # This is set to a single psion that was damaged since there can never be more than 1 psion on the board at at time
         self.hurtenemies = [] # a list of all enemy units that were hurt during a single action. This includes robots
@@ -368,10 +374,7 @@ class Tile_Base(TileUnit_Base):
             pass
     def createUnitHere(self, unit):
         "Run this method when putting a unit on the board for the first time. This ensures that the unit is sorted into the proper set in the game."
-        if unit.alliance == Alliance.FRIENDLY:
-            self.game.playerunits.add(unit)
-        elif unit.alliance == Alliance.ENEMY:
-            self.game.enemyunits.add(unit)
+        unit._addUnitToGame()
         self._putUnitHere(unit)
     def replaceTile(self, newtile, keepeffects=True):
         """replace this tile with newtile. If keepeffects is True, add them to newtile without calling their apply methods.
@@ -792,6 +795,7 @@ class Unit_Base(TileUnit_Base):
     def die(self):
         "Make the unit die. This method is not ok for mechs to use as they never leave acid where they die. They leave corpses which are also units."
         self.game.board[self.square].unit = None # it's dead, replace it with nothing
+        self._removeUnitFromGame()
         if Effects.ACID in self.effects: # units that have acid leave acid on the tile when they die:
             self.game.board[self.square].applyAcid()
         self._breakAllWebs()
@@ -817,6 +821,9 @@ class Unit_Base(TileUnit_Base):
             return self._mountain
         except AttributeError:  # unit was missing the attribute
             return False
+    def isMech(self):
+        "return True if unit is a mech, False if it's not."
+        return hasattr(self, 'pilot') # only mechs have pilots
     def _makeWeb(self, compsquare, prop=True):
         """Make a web binding this unit to a unit on another square.
         compsquare is a tuple of the companion square that is also webbed with this unit.
@@ -881,15 +888,40 @@ class Unit_NoDelayedDeath_Base(Unit_Base, Unit_Unwebbable_Base):
         super()._allowDeath()
         return res
 
+class Unit_PlayerControlled_Base():
+    "A base class that provides methods to add and remove units that the player controls to the game objects set. This is done on creation and death."
+    def _addUnitToGame(self):
+        self.game.playerunits.add(self)
+    def _removeUnitFromGame(self):
+        self.game.playerunits.remove(self)
+
+class Unit_NonPlayerControlled_Base():
+    "A base class that provides methods to add and remove units that the player doesn't control to the game objects set. This is done on creation and death."
+    def _addUnitToGame(self):
+        self.game.nonplayerunits.append(self)
+    def _removeUnitFromGame(self):
+        try:
+            self.game.nonplayerunits.remove(self) # try to remove this dead unit
+        except ValueError: # It's possible for an enemy to "die twice" in some circumstances, e.g. when you punch a vek and push him onto a mine.
+            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurt() yet. It lands on the mine tile first where the mine detonates and kills it,
+                    # removing it from game.nonplayerunits. If this is the case we can stop processing its death here.
+
+class Unit_NonPlayerControlledIgnore_Base():
+    "A base class that provides methods to skip the adding and removal of units that the player doesn't control. These units skip the lists and don't take turns and can't take fire damage."
+    def _addUnitToGame(self):
+        pass
+    def _removeUnitFromGame(self):
+        pass
+
 ##############################################################################
 ################################### MISC UNITS ###############################
 ##############################################################################
-class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base):
+class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlledIgnore_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
+    blocksbeamshot = True  # this unit blocks beam shots that penetrate almost all other units.
     def __init__(self, game, type, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
-        self.blocksbeamshot = True # this unit blocks beam shots that penetrate almost all other units.
     def applyFire(self):
         pass # mountains can't be set on fire, but the tile they're on can!
 
@@ -935,27 +967,28 @@ class Unit_Building_Objective(Unit_Building):
         self.alliance = Alliance.NEUTRAL
         self._building = True
 
-class Unit_Acid_Vat(Unit_NoDelayedDeath_Base):
+class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
+    alliance = Alliance.NEUTRAL
     def __init__(self, game, type='acidvat', hp=2, maxhp=2, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
-        self.alliance = Alliance.NEUTRAL
     def die(self):
         "Acid vats turn into acid water when destroyed."
-        self._breakAllWebs()
-        self.game.board[self.square]._putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die, changing the ground to water, then dying again because it drowns in water.
+        self.game.board[self.square]._putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die,
+                                                        # changing the ground to water, then dying again because it drowns in water.
+        self._removeUnitFromGame()
         self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.game.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
-class Unit_Rock(Unit_NoDelayedDeath_Base):
+class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
+    alliance = Alliance.NEUTRAL
     def __init__(self, game, type='rock', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=1, maxhp=1, attributes=attributes, effects=effects)
-        self.alliance = Alliance.NEUTRAL
 
 ############################################################################################################################
 ################################################### FRIENDLY Sub-Units #####################################################
 ############################################################################################################################
-class Sub_Unit_Base(Unit_Fighting_Base):
+class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
     "The base unit for smaller sub-units that the player controls as well as objective units that the player controls.."
     def __init__(self, game, type, hp, maxhp, moves, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
@@ -965,7 +998,6 @@ class Sub_Unit_Base(Unit_Fighting_Base):
         self.game.hurtplayerunits.append(self)
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
     def die(self):
-        self.game.playerunits.remove(self)
         super().die()
 
 class Unit_AcidTank(Sub_Unit_Base):
@@ -999,12 +1031,12 @@ class Unit_PullTank(Sub_Unit_Base):
 ##############################################################################
 ################################# OBJECTIVE UNITS ############################
 ##############################################################################
-class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base):
+class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     "This is the base class for multi-tile units such as the Dam and Train. Effects and damage to one unit also happens to the other."
+    alliance = Alliance.NEUTRAL
     def __init__(self, game, type, hp, maxhp, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE)) # these attributes are shared by the dam and train
-        self.alliance = Alliance.NEUTRAL
         self.replicate = True # When this is true, we replicate actions to the other companion unit and we don't when False to avoid an infinite loop.
         self.deadfromdamage = False # Set this true when the unit has died from damage. If we don't, takeDamage() can happen to both tiles, triggering die() which would then replicate to the other causing it to die twice.
     def _replicate(self, meth, **kwargs):
@@ -1064,7 +1096,7 @@ class Unit_Dam(Unit_MultiTile_Base):
             self.companion = (8, 4)
     def die(self):
         "Make the unit die."
-        # self._breakAllWebs() # this isn't needed, right?
+        self._removeUnitFromGame()
         self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         for x in range(7, 0, -1): # spread water from the tile closest to the dam away from it
@@ -1082,7 +1114,6 @@ class Unit_Train_Base(Unit_MultiTile_Base):
         # self._setCompanion() this can't be done on init because self.square is set after this
     def die(self):
         "Make the unit die."
-        self.game.board[self.square]._putUnitHere(Unit_Volcano(self.game)) # it's dead, replace it with a volcano since there is an unmovable invincible unit there.
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
         self._deathAction()
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
@@ -1106,6 +1137,7 @@ class Unit_Train(Unit_Train_Base):
         "Set the train's companion tile. This has to be run each time it moves forward."
         self.companion = (self.square[0]-1, self.square[1])
     def _deathAction(self):
+        self._removeUnitFromGame()
         self.game.board[self.square]._putUnitHere(Unit_TrainDamaged(self.game))
 
 class Unit_TrainCaboose(Unit_Train_Base):
@@ -1149,7 +1181,7 @@ class Unit_AcidLauncher(Sub_Unit_Base, Unit_Unwebbable_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Disintegrator(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
 
-class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base):
+class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
     # is not a beamally
     def __init__(self, game, type='satelliterocket', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -1157,7 +1189,6 @@ class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base):
         self.moves = moves
         self.attributes.add(Attributes.STABLE)
     def die(self):
-        print("satelliterocket died!")
         super().die()
         self.game.board[self.square]._putUnitHere(Unit_SatelliteRocketCorpse(self.game))
 
@@ -1173,6 +1204,7 @@ class Unit_SatelliteRocketCorpse(Unit_Fighting_Base, Unit_Unwebbable_Base):
         return # invincible
 
 class Unit_EarthMover(Sub_Unit_Base, Unit_Unwebbable_Base):
+    "This unit doesn't get a weapon because its effect doesn't matter for a single turn."
     _beamally = True
     alliance = Alliance.NEUTRAL
     def __init__(self, game, type='earthmover', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
@@ -1197,18 +1229,11 @@ class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
 ############################################################################################################################
-class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base):
+class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     "A base class for almost all enemies."
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.alliance = Alliance.ENEMY
-    def die(self):
-        try:
-            self.game.enemyunits.remove(self) # try to remove this dead unit from enemyunits
-        except KeyError: # It's possible for an enemy to "die twice" in some circumstances, e.g. when you punch a vek and push him onto a mine.
-            return  # the killing damage is dealt by the weapon, but the vek isn't killed by flushHurt() yet. It lands on the mine tile first where the mine detonates and kills it, removing it from game.enemyunits
-                    # if this is the case we can stop processing its death here.
-        super().die()
 
 class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     "This is the base unit of all enemies that are not psions. Enemies have 1 weapon."
@@ -1497,7 +1522,7 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
 ############################################################################################################################
-class Unit_Mech_Base(Unit_Repairable_Base):
+class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
     "This is the base unit of Mechs."
     def __init__(self, game, type, hp, maxhp, moves, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
@@ -1552,8 +1577,8 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self.attributes.add(Attributes.MASSIVE)
         self.suppressteleport = True # Mech corpses can never be teleported through a teleporter. They can be teleported by the teleport mech/weapon however
         self.game.hurtplayerunits.append(self) # this is done so the mech corpse can explode if needed
-        if Passives.PSIONICRECEIVER in self.game.playerpassives and Passives.EXPLOSIVEDECAY in self.game.vekpassives:
-            self.effects.add(Effects.EXPLOSIVE)
+        #if Passives.PSIONICRECEIVER in self.game.playerpassives and Passives.EXPLOSIVEDECAY in self.game.vekpassives:
+        #    self.effects.add(Effects.EXPLOSIVE)
         self.game.playerunits.add(self)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
@@ -3273,8 +3298,9 @@ class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
             self.damage += 1 # power2 ignored
     def shoot(self):
         self.usesremaining -= 1
-        for e in self.game.enemyunits:
-            self.game.board[e.square].takeDamage(self.damage)
+        for e in self.game.nonplayerunits:
+            if e.alliance == Alliance.ENEMY:
+                self.game.board[e.square].takeDamage(self.damage)
 
 class Weapon_WindTorrent(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimitedInit_Base):
     "Push all units in a single direction."
@@ -4029,3 +4055,30 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
             # TODO: count the score for the objective goal here.
             # Maybe this should only be counted once per shot. We shouldn't create a scenario where terraforming more grassland tiles is more valuable than killing more vek.
         tile.die()
+
+###############################################################################
+############################### Passive Weapons ###############################
+###############################################################################
+# class Weapon_Passive_Psions():
+#     "A special weapon to implement passive effects that Psions give to Vek and also sometimes mechs. effect is the effect to give to the vek."
+#     def __init__(self, effect):
+#         self.effect = effect
+#     def enable(self, mechs=False):
+#         """Enable the passive effect. This should only be run after all units have been placed on the board.
+#         Set mechs to True if you want this to give the effect to all the mechs instead of all the Vek from the Psionic Receiver passive.
+#         returns nothing."""
+#         if not mechs:
+#             for u in self.game.nonplayerunits:
+#                 if u.alliance == Alliance.ENEMY:
+#                     u.attributes.add(effect)
+#         else:
+#             skipunits = set() # this is a set of mech units that already have the effect.
+#             # This is done so that when the psion dies, we don't remove armored from a mech that had it regardless of the psion.
+#             for u in self.game.playerunits:
+#                 if u.isMech():
+#                     if effe
+#                     u.attributes.add(effect)
+#     def disable(self, mechs=False):
+#         """Disable the passive effect. This is done when the psion dies.
+#         Set mechs to True if you want this to remove the effect to all the mechs instead of all the Vek from the Psionic Receiver passive.
+#         returns nothing."""

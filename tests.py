@@ -9898,6 +9898,38 @@ def t_WeaponTerraformer3():
     assert g.board[(6, 2)].effects == set()
     assert g.board[(6, 2)].type == "sand"
 
+# def t_SoldierPsion():
+#     "Make sure the Soldier Psion's effects work properly."
+#     g = Game()
+#     g.board[(1, 1)].createUnitHere(Unit_SoldierPsion(g)) # the star of the show
+#     g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek to get the effects
+#     g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+#     g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+#     g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+#     g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+#     g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+#     g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+#     assert g.board[(1, 1)].unit.isPsion()
+#     assert g.board[(1, 1)].unit.effects == set()
+#     assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+#     assert g.board[(2, 1)].unit.effects == set()
+#     assert g.board[(2, 1)].unit.attributes == set()
+#     assert g.board[(3, 1)].unit.effects == set()
+#     assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+#     assert g.board[(4, 1)].unit.effects == set()
+#     assert g.board[(4, 1)].unit.attributes == set()
+#     assert g.board[(5, 1)].unit.effects == set()
+#     assert g.board[(5, 1)].unit.attributes == set()
+#     assert g.board[(6, 1)].unit.effects == set()
+#     assert g.board[(6, 1)].unit.attributes == set()
+#     assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+#     assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+#     assert g.board[(8, 1)].unit.effects == set()
+#     assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+#     g.board[(1, 1)].unit.weapon1.enable()
+
+
+
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

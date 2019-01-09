@@ -105,9 +105,14 @@ Effects = Constant(thegen,
     'SUBMERGED', # I'm twisting the rules here. In the game, submerged is an effect on the unit. Rather than apply and remove it as units move in and out of water, we'll just apply this to water tiles and check for it there.
     # These effects can only be applied to units:
     'SHIELD',
-    'EXPLOSIVE'))
+    'EXPLOSIVE',
+    'REGENERATION', # these are passive effects from psions, which also includes EXPLOSIVE above and the ARMORED attribute
+    'HPBUFFED', # (invigorating spores from Soldier Psion)
+    'HIVETARGETING'
+     ))
 
 # These are attributes that are applied to units.
+# Attributes typically don't change, the only exception being ARMORED which can be removed from a psion dying.
 Attributes = Constant(thegen, (
     'MASSIVE', # prevents drowning in water
     'STABLE', # prevents units from being pushed
@@ -824,6 +829,18 @@ class Unit_Base(TileUnit_Base):
     def isMech(self):
         "return True if unit is a mech, False if it's not."
         return hasattr(self, 'pilot') # only mechs have pilots
+    def isNormalVek(self):
+        "Return True if the unit is a vek THAT RECEIVES PSION BONUSES, false if it doesn't get buffs from a psion."
+        try:
+            return self._getspsionbonus
+        except AttributeError:
+            return False
+    def isPsion(self):
+        "return True if the unit is a psion, False if it isn't."
+        try:
+            return self._psion
+        except AttributeError:
+            return False
     def _makeWeb(self, compsquare, prop=True):
         """Make a web binding this unit to a unit on another square.
         compsquare is a tuple of the companion square that is also webbed with this unit.
@@ -1193,10 +1210,9 @@ class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base, Unit_No
         self.game.board[self.square]._putUnitHere(Unit_SatelliteRocketCorpse(self.game))
 
 class Unit_SatelliteRocketCorpse(Unit_Fighting_Base, Unit_Unwebbable_Base):
+    alliance = Alliance.NEUTRAL
     def __init__(self, game, type='satelliterocketcorpse', hp=1, maxhp=1, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
-        self.moves = moves
-        self.alliance = Alliance.NEUTRAL
         self.attributes.add(Attributes.STABLE)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         return # invincible
@@ -1210,8 +1226,15 @@ class Unit_EarthMover(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='earthmover', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
+    def die(self):
+        super().die()
+        self.game.board[self.square]._putUnitHere(Unit_EarthMoveCorpse(self.game))
 
-class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
+class Unit_EarthMoveCorpse(Unit_SatelliteRocketCorpse):
+    def __init__(self, game, type='earthmovercorpse', hp=1, maxhp=1, moves=0, attributes=None, effects=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
+
+class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlledIgnore_Base):
     alliance = Alliance.NEUTRAL
     _beamally = True
     def __init__(self, game, type='prototypebomb', hp=1, maxhp=1, attributes=None, effects=None):
@@ -1219,7 +1242,7 @@ class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
         self.effects.add(Effects.EXPLOSIVE)
         self.attributes.add(Attributes.IMMUNEFIRE)
 
-class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
+class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlledIgnore_Base):
     alliance = Alliance.NEUTRAL
     _beamally = True
     def __init__(self, game, type='renfieldbomb', hp=4, maxhp=4, attributes=None, effects=None):
@@ -1231,9 +1254,9 @@ class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base):
 ############################################################################################################################
 class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     "A base class for almost all enemies."
+    alliance = Alliance.ENEMY
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
-        self.alliance = Alliance.ENEMY
 
 class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     "This is the base unit of all enemies that are not psions. Enemies have 1 weapon."
@@ -1254,152 +1277,149 @@ class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
         # except AttributeError: # ice cancels enemy shots
         #    pass
 
-class Unit_EnemyFlying_Base(Unit_EnemyNonPsion_Base):
+class Unit_NormalVek_Base(Unit_EnemyNonPsion_Base):
+    "A base class for all vek who benefit from psions. Not bots, psions, bosses, or minions."
+    _getspsionbonus = True
+
+class Unit_NormalVekFlying_Base(Unit_EnemyNonPsion_Base):
     "A simple base unit for flying vek."
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
-class Unit_Psion_Base(Unit_EnemyFlying_Base):
+class Unit_Psion_Base(Unit_EnemyNonPsion_Base):
     "Base unit for vek psions. When psions are hurt, their deaths are resolved first before your mechs or other vek/bots."
+    _psion = True
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.FLYING)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        "Take damage like a normal unit except add it to hurtunits and don't die yet."
+        "Psions die before units so they go to a special place when damaged."
         self.game.hurtpsion = self
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+    def die(self):
+        self.weapon1.disable() # TODO: What about psion receiver?!
+        super().die()
 
-class Unit_EnemyBurrower_Base(Unit_EnemyNonPsion_Base):
+class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
     "A simple base class for the only 2 burrowers in the game."
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.update((Attributes.BURROWER, Attributes.STABLE))
 
-class Unit_EnemyLeader_Base(Unit_EnemyNonPsion_Base):
+class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
     "A simple base class for Massive bosses."
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
 
-class Unit_Blobber(Unit_EnemyNonPsion_Base):
+class Unit_Blobber(Unit_NormalVek_Base):
     "The Blobber doesn't have a direct attack."
     def __init__(self, game, type='blobber', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_UnstableGrowths(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaBlobber(Unit_EnemyNonPsion_Base):
+class Unit_AlphaBlobber(Unit_NormalVek_Base):
     "Also has no direct attack."
     def __init__(self, game, type='alphablobber', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_UnstableGuts(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Scorpion(Unit_EnemyNonPsion_Base):
+class Unit_Scorpion(Unit_NormalVek_Base):
     def __init__(self, game, type='scorpion', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
-# class Unit_AcidScorpion(Unit_EnemyNonPsion_Base): # acid units aren't really implemented in the game
-#     def __init__(self, game, type='acidscorpion', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
-#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneretAcid(), qshot=qshot, effects=effects, attributes=attributes)
-
-class Unit_AlphaScorpion(Unit_EnemyNonPsion_Base):
+class Unit_AlphaScorpion(Unit_NormalVek_Base):
     def __init__(self, game, type='alphascorpion', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_GoringSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Firefly(Unit_EnemyNonPsion_Base):
+class Unit_Firefly(Unit_NormalVek_Base):
     def __init__(self, game, type='firefly', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcceleratingThorax(), qshot=qshot, effects=effects, attributes=attributes)
 
-# class Unit_AcidFirefly(Unit_EnemyNonPsion_Base): # acid units aren't really implemented in the game
-#     def __init__(self, game, type='acidfirefly', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcceleratingThoraxAcid(), qshot=qshot, effects=effects, attributes=attributes)
-
-class Unit_AlphaFirefly(Unit_EnemyNonPsion_Base):
+class Unit_AlphaFirefly(Unit_NormalVek_Base):
     def __init__(self, game, type='alphascorpion', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_EnhancedThorax(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Leaper(Unit_EnemyNonPsion_Base):
+class Unit_Leaper(Unit_NormalVek_Base):
     def __init__(self, game, type='leaper', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Fangs(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaLeaper(Unit_EnemyNonPsion_Base):
+class Unit_AlphaLeaper(Unit_NormalVek_Base):
     def __init__(self, game, type='alphaleaper', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SharpenedFangs(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Beetle(Unit_EnemyNonPsion_Base):
+class Unit_Beetle(Unit_NormalVek_Base):
     def __init__(self, game, type='beetle', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Pincers(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaBeetle(Unit_EnemyNonPsion_Base):
+class Unit_AlphaBeetle(Unit_NormalVek_Base):
     def __init__(self, game, type='alphabeetle', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SharpenedPincers(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Scarab(Unit_EnemyNonPsion_Base):
+class Unit_Scarab(Unit_NormalVek_Base):
     def __init__(self, game, type='scarab', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SpittingGlands(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaScarab(Unit_EnemyNonPsion_Base):
+class Unit_AlphaScarab(Unit_NormalVek_Base):
     def __init__(self, game, type='alphascarab', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AlphaSpittingGlands(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Crab(Unit_EnemyNonPsion_Base):
+class Unit_Crab(Unit_NormalVek_Base):
     def __init__(self, game, type='crab', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_ExplosiveExpulsions(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaCrab(Unit_EnemyNonPsion_Base):
+class Unit_AlphaCrab(Unit_NormalVek_Base):
     def __init__(self, game, type='alphacrab', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AlphaExplosiveExpulsions(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Centipede(Unit_EnemyNonPsion_Base):
+class Unit_Centipede(Unit_NormalVek_Base):
     def __init__(self, game, type='centipede', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidicVomit(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaCentipede(Unit_EnemyNonPsion_Base):
+class Unit_AlphaCentipede(Unit_NormalVek_Base):
     def __init__(self, game, type='alphacentipede', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_CorrosiveVomit(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Digger(Unit_EnemyNonPsion_Base):
+class Unit_Digger(Unit_NormalVek_Base):
     def __init__(self, game, type='digger', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_DiggingTusks(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaDigger(Unit_EnemyNonPsion_Base):
+class Unit_AlphaDigger(Unit_NormalVek_Base):
     def __init__(self, game, type='alphadigger', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AlphaDiggingTusks(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Hornet(Unit_EnemyFlying_Base):
+class Unit_Hornet(Unit_NormalVekFlying_Base):
     def __init__(self, game, type='hornet', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Stinger(), qshot=qshot, effects=effects, attributes=attributes)
 
-# class Unit_AcidHornet(Unit_EnemyFlying_Base): # acid units aren't really implemented in the game
-#     def __init__(self, game, type='acidhornet', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
-#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_AcidStinger(), qshot=qshot, effects=effects, attributes=attributes)
-
-class Unit_AlphaHornet(Unit_EnemyFlying_Base):
+class Unit_AlphaHornet(Unit_NormalVekFlying_Base):
     def __init__(self, game, type='alphahornet', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_LaunchingStinger(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_SoldierPsion(Unit_Psion_Base):
     def __init__(self, game, type='soldierpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HPBUFFED}), effects=effects, attributes=attributes)
 
 class Unit_ShellPsion(Unit_Psion_Base):
     def __init__(self, game, type='shellpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Attributes.ARMORED}), effects=effects, attributes=attributes)
 
 class Unit_BloodPsion(Unit_Psion_Base):
     def __init__(self, game, type='bloodpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.REGENERATION}), effects=effects, attributes=attributes)
 
 class Unit_BlastPsion(Unit_Psion_Base):
     def __init__(self, game, type='blastpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.EXPLOSIVE}), effects=effects, attributes=attributes)
 
 class Unit_PsionTyrant(Unit_Psion_Base):
     def __init__(self, game, type='psiontyrant', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HIVETARGETING}), effects=effects, attributes=attributes)
 
-class Unit_Spider(Unit_EnemyNonPsion_Base):
+class Unit_Spider(Unit_NormalVek_Base):
     def __init__(self, game, type='spider', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaSpider(Unit_EnemyNonPsion_Base):
+class Unit_AlphaSpider(Unit_NormalVek_Base):
     def __init__(self, game, type='alphaspider', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_LargeOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
@@ -1434,7 +1454,7 @@ class Unit_HornetLeader(Unit_EnemyLeader_Base):
 
 class Unit_PsionAbomination(Unit_Psion_Base):
     def __init__(self, game, type='psionabomination', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HPBUFFED, Effects.REGENERATION, Effects.EXPLOSIVE}), qshot=None, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
 
 class Unit_ScorpionLeader(Unit_EnemyLeader_Base):
@@ -1444,7 +1464,6 @@ class Unit_ScorpionLeader(Unit_EnemyLeader_Base):
 class Unit_FireflyLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='fireflyleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BurningThorax(), qshot=qshot, effects=effects, attributes=attributes)
-        self.attributes.add(Attributes.FLYING)
 
 class Unit_SpiderLeader(Unit_EnemyLeader_Base):
     def __init__(self, game, type='spiderleader', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
@@ -1459,21 +1478,22 @@ class Unit_Blob(Unit_EnemyNonPsion_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_UnstableGuts(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_SpiderlingEgg(Unit_EnemyNonPsion_Base):
+    "Spiderling eggs are not considered normal vek, they don't get effects from psions"
     def __init__(self, game, type='spiderlingegg', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SpiderlingEgg(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Spiderling(Unit_EnemyNonPsion_Base):
+class Unit_Spiderling(Unit_NormalVek_Base):
+    "Spiderlings themselves do get psion passives however."
     def __init__(self, game, type='spiderling', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyMandibles(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaSpiderling(Unit_EnemyNonPsion_Base):
+class Unit_AlphaSpiderling(Unit_NormalVek_Base):
     def __init__(self, game, type='alphaspiderling', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_TinyMandiblesAlpha(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_EnemyBot_Base(Unit_EnemyNonPsion_Base):
     def __init__(self, game, type, hp=1, maxhp=1, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
-        self.robot = True # we must identify these enemy bots as separately since they don't get vek passives. TODO: This isn't used anywhere
 
 class Unit_CannonBot(Unit_EnemyBot_Base):
     def __init__(self, game, type='cannonbot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
@@ -1514,10 +1534,6 @@ class Unit_BotLeader_Attacking(Unit_EnemyBot_Base):
 class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderhealing', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SelfRepair(), qshot=qshot, effects=effects, attributes=attributes)
-
-# class Unit_BotLeaderHard(Unit_EnemyBot_Base): # doesn't exist in game
-#     def __init__(self, game, type='botleaderhard', hp=6, maxhp=6, qshot=None, effects=None, attributes=None):
-#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
 
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
@@ -3699,13 +3715,6 @@ class Weapon_StingingSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."
     damage = 1
 
-# class Weapon_StingingSpinneretAcid(Weapon_VekMelee_Base): # acid units aren't really implemented in the game
-#     "Web an adjacent target, preparing to stab it for 1 damage and apply acid. (We don't actually do any webbing here). AcidScorpion."
-#     damage = 1
-#     def shoot(self):
-#         if super().shoot():
-#             self.game.board[self.targetsquare].applyAcid()
-
 class Weapon_GoringSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 3 damage. (We don't actually do any webbing here). AlphaScorpion."
     damage = 3
@@ -3713,13 +3722,6 @@ class Weapon_GoringSpinneret(Weapon_VekMelee_Base):
 class Weapon_AcceleratingThorax(Weapon_Thorax_Base):
     "Launch a volatile mass of goo dealing 1 damage. Firefly"
     damage = 1
-
-# class Weapon_AcceleratingThoraxAcid(Weapon_Thorax_Base): # acid units aren't really implemented in the game
-#     "Launch a volatile mass of goo dealing 1 damage and applying acid. AcidFirefly"
-#     damage = 1
-#     def shoot(self):
-#         if super().shoot():
-#             self.game.board[self.targetsquare].applyAcid()
 
 class Weapon_EnhancedThorax(Weapon_Thorax_Base):
     "Launch a volatile mass of goo dealing 3 damage. AlphaFirefly"
@@ -4059,26 +4061,55 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
 ###############################################################################
 ############################### Passive Weapons ###############################
 ###############################################################################
+# All passive weapons must have an enable() method to apply the effect. enable() must only be run after all units have been placed on the board.
+# All vek passive weapons must have a disable() method to remove the effect when the psion dies.
+    # Mech passives don't have disable() because even if they die and the corpse is removed via a chasm, the passive remains in play.
+# This was the original all-encompassing psion weapon. rewrite it to be individual weapons.
 # class Weapon_Passive_Psions():
-#     "A special weapon to implement passive effects that Psions give to Vek and also sometimes mechs. effect is the effect to give to the vek."
-#     def __init__(self, effect):
-#         self.effect = effect
+#     """A special weapon to implement passive effects that Psions give to Vek and also sometimes mechs.
+#     effects is a set of effects to give to the vek. Most of the time you'll pass a set with a single effect, but the Psion abomination uses 3."""
+#     def __init__(self, effects):
+#         self.effects = effects
 #     def enable(self, mechs=False):
-#         """Enable the passive effect. This should only be run after all units have been placed on the board.
-#         Set mechs to True if you want this to give the effect to all the mechs instead of all the Vek from the Psionic Receiver passive.
+#         """Enable the passive effect(s). This should only be run after all units have been placed on the board.
+#         Set mechs to True if you want this to give the effect to all the mechs instead of all the Vek because of the Psionic Receiver passive.
 #         returns nothing."""
 #         if not mechs:
-#             for u in self.game.nonplayerunits:
-#                 if u.alliance == Alliance.ENEMY:
-#                     u.attributes.add(effect)
+#             for unit in self.game.nonplayerunits:
+#                 if unit.isNormalVek():
+#                     self._applyEffects(unit)
 #         else:
-#             skipunits = set() # this is a set of mech units that already have the effect.
+#             self.skipunits = set() # this is a set of mech units that already have the effect.
 #             # This is done so that when the psion dies, we don't remove armored from a mech that had it regardless of the psion.
-#             for u in self.game.playerunits:
-#                 if u.isMech():
-#                     if effe
-#                     u.attributes.add(effect)
+#             for unit in self.game.playerunits:
+#                 if unit.isMech():
+#                     if (Attributes.ARMORED in unit.attributes) and (Attributes.ARMORED in self.effects): # if the mech is already armored and we're applying armor to mechs...
+#                         self.skipunits.add(unit)
+#                     else:
+#                         self._applyEffects(unit)
 #     def disable(self, mechs=False):
 #         """Disable the passive effect. This is done when the psion dies.
 #         Set mechs to True if you want this to remove the effect to all the mechs instead of all the Vek from the Psionic Receiver passive.
 #         returns nothing."""
+#         if not mechs:
+#             for unit in self.game.nonplayerunits:
+#                 if unit.isNormalVek():
+#                     self._removeEffects(unit)
+#         else:
+#             for unit in self.game.playerunits:
+#                 if unit.isMech() and (unit not in self.skipunits):
+#                     self._removeEffects(unit)
+#     def _applyEffects(self, unit):
+#         "A helper method to properly add all the effects or attributes to unit. returns nothing."
+#         for effect in self.effects:
+#             if effect == Attributes.ARMORED:
+#                 unit.attributes.add(effect)
+#             else:
+#                 unit.effects.add(effect)
+#     def _removeEffects(self, unit):
+#         "A helper method to properly remove all the effects or attributes to unit. returns nothing."
+#         for effect in self.effects:
+#             if effect == Attributes.ARMORED:
+#                 unit.attributes.remove(effect)
+#             else:
+#                 unit.effects.remove(effect)

@@ -9898,68 +9898,482 @@ def t_WeaponTerraformer3():
     assert g.board[(6, 2)].effects == set()
     assert g.board[(6, 2)].type == "sand"
 
-# def t_SoldierPsion():
-#     "Make sure the Soldier Psion's effects work properly."
-#     g = Game()
-#     g.board[(1, 1)].createUnitHere(Unit_SoldierPsion(g)) # the star of the show
-#     g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek to get the effects
-#     g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
-#     g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
-#     g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
-#     g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
-#     g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
-#     g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
-#     assert g.board[(1, 1)].unit.isPsion()
-#     assert g.board[(1, 1)].unit.effects == set()
-#     assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
-#     assert g.board[(2, 1)].unit.effects == set()
-#     assert g.board[(2, 1)].unit.attributes == set()
-#     assert g.board[(3, 1)].unit.effects == set()
-#     assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
-#     assert g.board[(4, 1)].unit.effects == set()
-#     assert g.board[(4, 1)].unit.attributes == set()
-#     assert g.board[(5, 1)].unit.effects == set()
-#     assert g.board[(5, 1)].unit.attributes == set()
-#     assert g.board[(6, 1)].unit.effects == set()
-#     assert g.board[(6, 1)].unit.attributes == set()
-#     assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
-#     assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
-#     assert g.board[(8, 1)].unit.effects == set()
-#     assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
-#     g.board[(1, 1)].unit.weapon1.enable()
+def t_SoldierPsion1():
+    "Test the Soldier Psion's effects by enabling it and disabling it with a bunch of different units present."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_SoldierPsion(g)) # the star of the show
+    g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek with 1 hp to get the effects
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+    g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+    g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+    g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+    g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    g.board[(1, 1)].unit.weapon1.enable()
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 7
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    g.board[(1, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
 
+def t_SoldierPsion2():
+    "Test the Soldier Psion's effects by enabling it and disabling it after low hp units take damage. They should die when the psion dies."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_SoldierPsion(g)) # the star of the show
+    g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek with 1 hp to get the effects
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+    g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+    g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+    g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+    g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    g.board[(1, 1)].unit.weapon1.enable()
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 7
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    g.board[(2, 1)].takeDamage(1) # Leaper takes a hit so now he's 1/2 HP
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1
+    g.board[(1, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(2, 1)].unit == None # Leaper died because the psion died
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
 
+def t_SoldierPsion3():
+    "Test the Soldier Psion's effects on mechs as if you have Psion Receiver."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_SoldierPsion(g)) # the star of the show
+    g.board[(1, 1)].unit.weapon1.mechs = True # signal to the passive effect that we are now targeting mechs
+    g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek with 1 hp to get the effects
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+    g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+    g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+    g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+    g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    g.board[(1, 1)].unit.weapon1.enable()
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 7
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 4
+    g.board[(2, 1)].takeDamage(1) # Leaper takes a hit so now he's 1/2 HP
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1
+    g.board[(1, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(2, 1)].unit == None # Leaper died because the psion died
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+
+def t_ShellPsion1():
+    "Test the Shell Psion's effects by enabling it and disabling it with a bunch of different units present."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_ShellPsion(g)) # the star of the show
+    g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek with 1 hp to get the effects
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+    g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+    g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+    g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+    g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+    g.board[(1, 2)].createUnitHere(Unit_Jet_Mech(g))  # an unarmored mech
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(1, 2)].unit.hp == 2
+    g.board[(1, 1)].unit.weapon1.enable()
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == {Attributes.ARMORED}
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.ARMORED}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == {Attributes.ARMORED}
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING} # mech didn't get armor
+    assert g.board[(1, 2)].unit.hp == 2
+    g.board[(1, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(1, 2)].unit.hp == 2
+
+def t_ShellPsion2():
+    "Test the Shell Psion's effects on mechs by enabling it and disabling it with a bunch of different units present."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_ShellPsion(g)) # the star of the show
+    g.board[(1, 1)].unit.weapon1.mechs = True  # signal to the passive effect that we are now targeting mechs
+    g.board[(2, 1)].createUnitHere(Unit_Leaper(g)) # a normal vek with 1 hp to get the effects
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_Spiderling(g))  # another slightly less-normal vek to get the effects
+    g.board[(5, 1)].createUnitHere(Unit_SpiderlingEgg(g)) # a not normal vek that DOESN'T get the effects
+    g.board[(6, 1)].createUnitHere(Unit_CannonBot(g)) # a not normal enemy that DOESN'T get the effects
+    g.board[(7, 1)].createUnitHere(Unit_PrototypeRenfieldBomb(g)) # a naturally explosive Neutral unit
+    g.board[(8, 1)].createUnitHere(Unit_Hook_Mech(g)) # a naturally armored Allied unit
+    g.board[(1, 2)].createUnitHere(Unit_Jet_Mech(g))  # an unarmored mech
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(1, 2)].unit.hp == 2
+    g.board[(1, 1)].unit.weapon1.enable()
+    assert g.board[(1, 1)].unit.isPsion()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.FLYING}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == {Attributes.ARMORED}
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.ARMORED}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == {Attributes.ARMORED}
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING, Attributes.ARMORED} # mech DID get armor
+    assert g.board[(1, 2)].unit.hp == 2
+    g.board[(1, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit == None
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == set()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == set()
+    assert g.board[(4, 1)].unit.hp == 1
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 1
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == set()
+    assert g.board[(6, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.effects == {Effects.EXPLOSIVE}
+    assert g.board[(7, 1)].unit.attributes == {Attributes.IMMUNEFIRE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(8, 1)].unit.effects == set()
+    assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(8, 1)].unit.hp == 3
+    assert g.board[(1, 2)].unit.effects == set()
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(1, 2)].unit.hp == 2
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 
-########## special objective units:
-# Satellite Rocket: 2 hp, Not powered, Smoke Immune, stable, "Satellite Launch" weapon kills nearby tiles when it launches.
-# Train: 1 hp, Fire immune, smoke immune, stable, "choo choo" weapon move forward 2 spaces but will be destroyed if blocked. kills whatever unit it runs into, stops dead on the tile before that unit. It is multi-tile, shielding one tile shields both.
-    # when attacked and killed, becomes a "damaged train" that is also stable and fire immune. When that is damaged again, it becomes a damaged train corpse that can't be shielded, is no longer fire immune, and is flying like a normal corpse.
-    # units can bump into the corpse
-# ACID Launcher: 2 hp, stable. weapon is "disentegrator": hits 5 tiles killing anything present and leaves acid on them.
-# Terraformer weapon "terraformer" kills any unit in a 2x3 grid around it, converts tiles to sand tile.
-# Earth Mover expands toward 0 and 8 on X 2 squares at a time. It does this on the y row that it's on and the row right below it.
-
 ########## Weapons stuff for later
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
+# You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 
 # Satellite launches happen after enemy attacks.
-# robots do not benefit from psion vek passives such as explosive.
 # buildings do block mech movement
 # a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
-# blobbers will move out of smoke and throw out a bomb after you take your turn. This means you can't smoke them to stop them from throwing out a blob unless they can't move
 
 ########## Research these:
-# You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
-# What happens when objective units die? specifically: terraformer, disposal unit, satellite rocket (leaves a corpse that is invincible and can't be pushed. It's friendly so you can move through it), earth mover.
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
-# Timepods can only be on ground tiles, they convert sand and forest to ground upon landing.
 
 # Movement POC:
 # obstructions = ((2, 2), (-1, -1))

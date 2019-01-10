@@ -107,7 +107,6 @@ Effects = Constant(thegen,
     'SHIELD',
     'EXPLOSIVE',
     'REGENERATION', # these are passive effects from psions, which also includes EXPLOSIVE above and the ARMORED attribute
-    'HPBUFFED', # (invigorating spores from Soldier Psion)
     'HIVETARGETING'
      ))
 
@@ -1296,7 +1295,8 @@ class Unit_Psion_Base(Unit_EnemyNonPsion_Base):
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Psions die before units so they go to a special place when damaged."
         self.game.hurtpsion = self
-        return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        return Unit_Enemy_Base.takeDamage(self, damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        # we need to skip Unit_EnemyNonPsion_Base's takeDamage() because it adds hurt units to hurtenemies
     def die(self):
         self.weapon1.disable() # TODO: What about psion receiver?!
         super().die()
@@ -1397,23 +1397,23 @@ class Unit_AlphaHornet(Unit_NormalVekFlying_Base):
 
 class Unit_SoldierPsion(Unit_Psion_Base):
     def __init__(self, game, type='soldierpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HPBUFFED}), effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_InvigoratingSpores(), effects=effects, attributes=attributes)
 
 class Unit_ShellPsion(Unit_Psion_Base):
     def __init__(self, game, type='shellpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Attributes.ARMORED}), effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_HardenedCarapace(), effects=effects, attributes=attributes)
 
 class Unit_BloodPsion(Unit_Psion_Base):
     def __init__(self, game, type='bloodpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.REGENERATION}), effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Regeneration(), effects=effects, attributes=attributes)
 
 class Unit_BlastPsion(Unit_Psion_Base):
     def __init__(self, game, type='blastpsion', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.EXPLOSIVE}), effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_ExplosiveDecay(), effects=effects, attributes=attributes)
 
 class Unit_PsionTyrant(Unit_Psion_Base):
     def __init__(self, game, type='psiontyrant', hp=2, maxhp=2, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HIVETARGETING}), effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_HiveTargeting(), effects=effects, attributes=attributes)
 
 class Unit_Spider(Unit_NormalVek_Base):
     def __init__(self, game, type='spider', hp=2, maxhp=2, qshot=None, effects=None, attributes=None):
@@ -4064,6 +4064,110 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
 # All passive weapons must have an enable() method to apply the effect. enable() must only be run after all units have been placed on the board.
 # All vek passive weapons must have a disable() method to remove the effect when the psion dies.
     # Mech passives don't have disable() because even if they die and the corpse is removed via a chasm, the passive remains in play.
+# All vek passives must also support giving the passive to mechs which is what the Psion Receiver mech passive does.
+
+class Weapon_Psion_Base():
+    "A base class for passive Psion weapons. Child classes must provide _applyEffect(unit) and _removeEffect(unit)."
+    mechs = False # Psionic receiver will set this to True if we are to also have mechs benefit from psion passives
+    def enable(self):
+        """Enable the passive effect. This should only be run after all units have been placed on the board.
+        If self.mechs is True, this will also give the effect to all the mechs as well as all the Vek because of the Psionic Receiver passive.
+        returns nothing."""
+        for unit in self.game.nonplayerunits:
+            if unit.isNormalVek():
+                self._applyEffect(unit)
+        if self.mechs:
+            for unit in self.game.playerunits:
+                if unit.isMech():
+                    self._applyEffect(unit)
+    def disable(self):
+        """Disable the passive effect. This is done when the psion dies.
+        If self.mechs is True, this will also remove the effect to all the mechs as well as all the Vek because of the Psionic Receiver passive.
+        returns nothing."""
+        for unit in list(self.game.nonplayerunits):
+            if unit.isNormalVek():
+                self._removeEffect(unit)
+        if self.mechs:
+            for unit in self.game.playerunits:
+                if unit.isMech():
+                    self._removeEffect(unit)
+
+class Weapon_InvigoratingSpores(Weapon_Psion_Base):
+    "All other Vek receive +1 HP as long as the Psion is living. Soldier Psion"
+    def _applyEffect(self, unit):
+        "A helper method to properly apply the effectreturns nothing."
+        unit.maxhp += 1
+        unit.hp += 1
+    def _removeEffect(self, unit):
+        "A helper method to properly remove all the effects or attributes to unit. returns nothing."
+        if unit.hp == 1: # if this passive going away is going to kill the unit...
+            unit.die() # then just have it die. Since we're not really doing damage here, this is the way to do it.
+            return # We can't call takeDamage() because then a shield or ice would prevent the unit from dying which isn't what happens ingame.
+        else:
+            unit.maxhp -= 1
+            unit.hp -= 1
+
+class Weapon_HardenedCarapace(Weapon_Psion_Base):
+    "All other Vek have incoming weapon damage reduced by 1 (By giving them armor). Shell Psion"
+    def __init__(self):
+        self.skipmechs = set() # a set of mechs that were already armored. This is built when we enable and this is checked when removing armored so we can avoid removing armor from units that already had it before the psion.
+    def _applyEffect(self, unit):
+        if Attributes.ARMORED in unit.attributes:
+            self.skipmechs.add(unit) # unit might be a vek, but there are no naturally armored vek
+        else:
+            unit.attributes.add(Attributes.ARMORED)
+    def _removeEffect(self, unit):
+        try:
+            if unit in self.skipmechs:
+                return
+        except AttributeError: # self.skipmechs doesn't exist
+            pass
+        unit.attributes.remove(Attributes.ARMORED)
+
+class Weapon_Regeneration(Weapon_Psion_Base): # Regenerate happens after fire damage, but before enemy actions.
+    "All other Vek heal 1 at the start of their turn. Blood Psion"
+    # TODO: redo this so the main sim loop doesn't have to wastefully always check for regeneration in all units
+    def _applyEffect(self, unit):
+        unit.effects.add(Effects.REGENERATION)
+    def _removeEffect(self, unit):
+        unit.effects.remove(Effects.REGENERATION)
+
+class Weapon_ExplosiveDecay(Weapon_Psion_Base):
+    "All other Vek will explode on death, dealing 1 damage to adjacent tiles. Blast Psion"
+    def _applyEffect(self, unit):
+        unit.effects.add(Effects.EXPLOSIVE)
+    def _removeEffect(self, unit):
+        unit.effects.remove(Effects.EXPLOSIVE)
+
+# TODO: change this to not use an effect just like you did with Regeneration
+# TODO: Also this is broken, this is going to hurt vek and not players by default
+class Weapon_HiveTargeting(Weapon_Psion_Base):
+    "All player units take 1 damage at the end of every turn. Psion Tyrant."
+    def _applyEffect(self, unit):
+        unit.effects.add(Effects.HIVETARGETING)
+    def _removeEffect(self, unit):
+        unit.effects.remove(Effects.HIVETARGETING)
+
+class Weapon_Overpowered(Weapon_Psion_Base):
+    "All other Vek gain +1 HP, Regeneration, and explode on death. Psion Abomination"
+    def __init__(self, mechs=False):
+        super().__init__(mechs)
+        # Instead of copying and pasting code from the other psion weapons, let's just steal their methods instead
+        self._applyInvspores = Weapon_InvigoratingSpores._applyEffect
+        self._removeInvspores = Weapon_InvigoratingSpores._removeEffect
+        self._applyRegeneration = Weapon_Regeneration._applyEffect
+        self._removeRegeneration = Weapon_Regeneration._removeEffect
+        self._applyExplosive = Weapon_ExplosiveDecay._applyEffect
+        self._removeExplosive = Weapon_ExplosiveDecay._removeEffect
+    def _applyEffect(self, unit):
+        self._applyExplosive(unit)
+        self._applyInvspores(unit)
+        self._applyRegeneration(unit)
+    def _removeEffect(self, unit):
+        self._removeExplosive(unit)
+        self._removeRegeneration(unit)
+        self._removeInvspores(unit) # do this last since it can kill the unit
+
 # This was the original all-encompassing psion weapon. rewrite it to be individual weapons.
 # class Weapon_Passive_Psions():
 #     """A special weapon to implement passive effects that Psions give to Vek and also sometimes mechs.

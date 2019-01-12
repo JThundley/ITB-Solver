@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # This script brute forces the best possible single turn in Into The Breach
-############# NOTES ######################
-# Order of turn operations:
-#   Fire
-#   Storm Smoke
-#   Psion Tentacle
-#   Environment
-#   Enemy Actions
-#   NPC actions
-#   Enemies emerge
-
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
@@ -106,8 +96,6 @@ Effects = Constant(thegen,
     # These effects can only be applied to units:
     'SHIELD',
     'EXPLOSIVE',
-    'REGENERATION', # these are passive effects from psions, which also includes EXPLOSIVE above and the ARMORED attribute
-    'HIVETARGETING'
      ))
 
 # These are attributes that are applied to units.
@@ -142,11 +130,7 @@ Passives = Constant(thegen, (
     'FORCEAMP',
     'AMMOGENERATOR',
     'CRITICALSHIELDS',
-    'INVIGORATINGSPORES', # vek passives
-    'HARDENEDCARAPACE',
-    'REGENERATION',
-    'EXPLOSIVEDECAY',
-    'HIVETARGETING'))
+    ))
 
 # don't need these anymore
 del Constant
@@ -221,6 +205,8 @@ class Game():
         self.hurtenemies = [] # a list of all enemy units that were hurt during a single action. This includes robots
         self.postattackmoves = set() # a set of tuples of squares. This is for Goo units that need to move to their victim's squares "after" the attack.
                                 #  If we don't do this, a goo will replace the unit it killed on the board, and then that unit will erase the goo when it's deaths replaces the square with None.
+        self.psionPassiveTurn = None # This will be replaced by a method provided by the Regeneration and Hive Targeting (tentacle) psion effects that take a turn to do their effect.
+        self.stormGeneratorTurn = None # This will be replaced by a method provided by the StormGenerator passive weapon
     def flushHurt(self):
         "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -246,6 +232,25 @@ class Game():
                 self.board[srcsquare].moveUnit(destsquare)
             if not (self.hurtenemies or self.hurtplayerunits or self.hurtpsion):
                 return
+    def start(self):
+        "Initialize the simulation. Run this after all units have been placed on the board."
+        for unit in self.playerunits + self.nonplayerunits:
+            for weap in 'weapon1', 'weapon2':
+                try:
+                    getattr(unit, weap).enable()
+                except AttributeError: # unit.None.enable(), or enable() doesn't exist
+                    pass
+    def endPlayerTurn(self):
+        "Simulate the outcome of this single turn, as if the player clicked the 'end turn' button in the game. Let the vek take their turn now."
+        # Order of turn operations:
+        #   Fire
+        #   Storm Smoke
+        #   Regeneration / Psion Tentacle (Psion passive turn)
+        #   Environment
+        #   Enemy Actions
+        #   NPC actions
+        #   Enemies emerge
+        # for unit in self.play # fire damage seems to happen in the order of the vek's appearance.
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -840,6 +845,12 @@ class Unit_Base(TileUnit_Base):
             return self._psion
         except AttributeError:
             return False
+    def isRenfieldBomb(self):
+        "return True if the unit is a renfield bomb (not prototype), False if it isn't."
+        try:
+            return self._renfieldbomb
+        except AttributeError:
+            pass
     def _makeWeb(self, compsquare, prop=True):
         """Make a web binding this unit to a unit on another square.
         compsquare is a tuple of the companion square that is also webbed with this unit.
@@ -1244,6 +1255,7 @@ class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayer
 class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlledIgnore_Base):
     alliance = Alliance.NEUTRAL
     _beamally = True
+    _renfieldbomb = True
     def __init__(self, game, type='renfieldbomb', hp=4, maxhp=4, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.IMMUNEFIRE)
@@ -1298,7 +1310,7 @@ class Unit_Psion_Base(Unit_EnemyNonPsion_Base):
         return Unit_Enemy_Base.takeDamage(self, damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
         # we need to skip Unit_EnemyNonPsion_Base's takeDamage() because it adds hurt units to hurtenemies
     def die(self):
-        self.weapon1.disable() # TODO: What about psion receiver?!
+        self.weapon1.disable() # TODO: What about Psionic Receiver?!
         super().die()
 
 class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
@@ -1454,7 +1466,7 @@ class Unit_HornetLeader(Unit_EnemyLeader_Base):
 
 class Unit_PsionAbomination(Unit_Psion_Base):
     def __init__(self, game, type='psionabomination', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Passive_Psions(effects={Effects.HPBUFFED, Effects.REGENERATION, Effects.EXPLOSIVE}), qshot=None, effects=effects, attributes=attributes)
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Overpowered(), effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
 
 class Unit_ScorpionLeader(Unit_EnemyLeader_Base):
@@ -4064,11 +4076,11 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
 # All passive weapons must have an enable() method to apply the effect. enable() must only be run after all units have been placed on the board.
 # All vek passive weapons must have a disable() method to remove the effect when the psion dies.
     # Mech passives don't have disable() because even if they die and the corpse is removed via a chasm, the passive remains in play.
-# All vek passives must also support giving the passive to mechs which is what the Psion Receiver mech passive does.
+# All vek passives must also support giving the passive to mechs which is what the Psionic Receiver mech passive does.
 
-class Weapon_Psion_Base():
-    "A base class for passive Psion weapons. Child classes must provide _applyEffect(unit) and _removeEffect(unit)."
-    mechs = False # Psionic receiver will set this to True if we are to also have mechs benefit from psion passives
+class Weapon_PsionPassive_Base():
+    "A base class for passive Psion weapons that don't need a turn. Child classes must provide _applyEffect(unit) and _removeEffect(unit)."
+    _mechs = False # Psionic receiver will set this to True via self._enableMechs() if we are to also have mechs benefit from psion passives
     def enable(self):
         """Enable the passive effect. This should only be run after all units have been placed on the board.
         If self.mechs is True, this will also give the effect to all the mechs as well as all the Vek because of the Psionic Receiver passive.
@@ -4076,7 +4088,7 @@ class Weapon_Psion_Base():
         for unit in self.game.nonplayerunits:
             if unit.isNormalVek():
                 self._applyEffect(unit)
-        if self.mechs:
+        if self._mechs:
             for unit in self.game.playerunits:
                 if unit.isMech():
                     self._applyEffect(unit)
@@ -4087,12 +4099,15 @@ class Weapon_Psion_Base():
         for unit in list(self.game.nonplayerunits):
             if unit.isNormalVek():
                 self._removeEffect(unit)
-        if self.mechs:
+        if self._mechs:
             for unit in self.game.playerunits:
                 if unit.isMech():
                     self._removeEffect(unit)
+    def _enableMechs(self):
+        "Tell this psion weapon to also effect mechs because of Psionic Receiver"
+        self._mechs = True
 
-class Weapon_InvigoratingSpores(Weapon_Psion_Base):
+class Weapon_InvigoratingSpores(Weapon_PsionPassive_Base):
     "All other Vek receive +1 HP as long as the Psion is living. Soldier Psion"
     def _applyEffect(self, unit):
         "A helper method to properly apply the effectreturns nothing."
@@ -4107,7 +4122,7 @@ class Weapon_InvigoratingSpores(Weapon_Psion_Base):
             unit.maxhp -= 1
             unit.hp -= 1
 
-class Weapon_HardenedCarapace(Weapon_Psion_Base):
+class Weapon_HardenedCarapace(Weapon_PsionPassive_Base):
     "All other Vek have incoming weapon damage reduced by 1 (By giving them armor). Shell Psion"
     def __init__(self):
         self.skipmechs = set() # a set of mechs that were already armored. This is built when we enable and this is checked when removing armored so we can avoid removing armor from units that already had it before the psion.
@@ -4124,96 +4139,110 @@ class Weapon_HardenedCarapace(Weapon_Psion_Base):
             pass
         unit.attributes.remove(Attributes.ARMORED)
 
-class Weapon_Regeneration(Weapon_Psion_Base): # Regenerate happens after fire damage, but before enemy actions.
-    "All other Vek heal 1 at the start of their turn. Blood Psion"
-    # TODO: redo this so the main sim loop doesn't have to wastefully always check for regeneration in all units
-    def _applyEffect(self, unit):
-        unit.effects.add(Effects.REGENERATION)
-    def _removeEffect(self, unit):
-        unit.effects.remove(Effects.REGENERATION)
-
-class Weapon_ExplosiveDecay(Weapon_Psion_Base):
+class Weapon_ExplosiveDecay(Weapon_PsionPassive_Base):
     "All other Vek will explode on death, dealing 1 damage to adjacent tiles. Blast Psion"
     def _applyEffect(self, unit):
         unit.effects.add(Effects.EXPLOSIVE)
     def _removeEffect(self, unit):
         unit.effects.remove(Effects.EXPLOSIVE)
 
-# TODO: change this to not use an effect just like you did with Regeneration
-# TODO: Also this is broken, this is going to hurt vek and not players by default
-class Weapon_HiveTargeting(Weapon_Psion_Base):
+class Weapon_PsionSemiPassive_Base(Weapon_PsionPassive_Base):
+    "A base class for passive Psion weapons that DO need a turn to apply their effect. Childs of this one don't need _applyEffect or _removeEffect, but they do need _turnAction()."
+    def enable(self):
+        self.game.psionPassiveTurn = self._turnAction
+    def disable(self):
+        self.game.psionPassiveTurn = None
+
+class Weapon_Regeneration(Weapon_PsionSemiPassive_Base): # Regenerate happens after fire damage, but before enemy actions.
+    "All other Vek heal 1 at the start of their turn. Blood Psion"
+    def _turnAction(self):
+        "This is the action to run when it's actually time to regenerate health."
+        for unit in self.game.nonplayerunits:
+            if unit.isNormalVek():
+                unit.repairHP(1)
+        if self._mechs:
+            for unit in self.game.playerunits:
+                if unit.isMech():
+                    unit.repairHP(1)
+
+class Weapon_HiveTargeting(Weapon_PsionSemiPassive_Base):
     "All player units take 1 damage at the end of every turn. Psion Tyrant."
-    def _applyEffect(self, unit):
-        unit.effects.add(Effects.HIVETARGETING)
-    def _removeEffect(self, unit):
-        unit.effects.remove(Effects.HIVETARGETING)
+    def _turnAction(self):
+        "This is the action to run when it's time to actually slip 'em the tentacle."
+        for unit in self.game.playerunits: # No need to check if it's a mech here, psion tentacle hurts your subunits too
+            self._unitTakeDamage(unit)
+        for unit in self.game.nonplayerunits: # we also need to make the renfield bomb take damage
+            if unit.isRenfieldBomb():
+                self._unitTakeDamage(unit)
+                break
+        if self._mechs:
+            for unit in self.game.nonplayerunits: # No need to check if it's a normal vek here, Hive Targetting hurts all vek, even the psion itself!
+                if unit.alliance == Alliance.ENEMY: # but don't let the renfield bomb take 2 damage and don't kill rocks
+                    self._unitTakeDamage(unit)
+        self.game.flushHurt()
+    def _unitTakeDamage(self, unit):
+        "helper method to have the unit take damage."
+        unit.takeDamage(1) # It's just a regular attack, I've seen armor block it.
 
-class Weapon_Overpowered(Weapon_Psion_Base):
+class Weapon_Overpowered(Weapon_PsionSemiPassive_Base):
     "All other Vek gain +1 HP, Regeneration, and explode on death. Psion Abomination"
-    def __init__(self, mechs=False):
-        super().__init__(mechs)
-        # Instead of copying and pasting code from the other psion weapons, let's just steal their methods instead
-        self._applyInvspores = Weapon_InvigoratingSpores._applyEffect
-        self._removeInvspores = Weapon_InvigoratingSpores._removeEffect
-        self._applyRegeneration = Weapon_Regeneration._applyEffect
-        self._removeRegeneration = Weapon_Regeneration._removeEffect
-        self._applyExplosive = Weapon_ExplosiveDecay._applyEffect
-        self._removeExplosive = Weapon_ExplosiveDecay._removeEffect
+    def enable(self):
+        "a hybrid enable that does both of the full passive and semi passive type of enabling."
+        Weapon_PsionPassive_Base.enable(self)
+        Weapon_PsionSemiPassive_Base.enable(self)
+    def disable(self):
+        "a hybrid disable that does both of the full passive and semi passive type of disabling."
+        Weapon_PsionPassive_Base.disable(self)
+        Weapon_PsionSemiPassive_Base.disable(self)
     def _applyEffect(self, unit):
-        self._applyExplosive(unit)
-        self._applyInvspores(unit)
-        self._applyRegeneration(unit)
+        Weapon_ExplosiveDecay._applyEffect(self, unit)
+        Weapon_InvigoratingSpores._applyEffect(self, unit)
     def _removeEffect(self, unit):
-        self._removeExplosive(unit)
-        self._removeRegeneration(unit)
-        self._removeInvspores(unit) # do this last since it can kill the unit
+        Weapon_ExplosiveDecay._removeEffect(self, unit)
+        Weapon_InvigoratingSpores._removeEffect(self, unit) # do this last since it can kill the unit
+    def _turnAction(self):
+        Weapon_Regeneration._turnAction(self)
 
-# This was the original all-encompassing psion weapon. rewrite it to be individual weapons.
-# class Weapon_Passive_Psions():
-#     """A special weapon to implement passive effects that Psions give to Vek and also sometimes mechs.
-#     effects is a set of effects to give to the vek. Most of the time you'll pass a set with a single effect, but the Psion abomination uses 3."""
-#     def __init__(self, effects):
-#         self.effects = effects
-#     def enable(self, mechs=False):
-#         """Enable the passive effect(s). This should only be run after all units have been placed on the board.
-#         Set mechs to True if you want this to give the effect to all the mechs instead of all the Vek because of the Psionic Receiver passive.
-#         returns nothing."""
-#         if not mechs:
-#             for unit in self.game.nonplayerunits:
-#                 if unit.isNormalVek():
-#                     self._applyEffects(unit)
-#         else:
-#             self.skipunits = set() # this is a set of mech units that already have the effect.
-#             # This is done so that when the psion dies, we don't remove armored from a mech that had it regardless of the psion.
-#             for unit in self.game.playerunits:
-#                 if unit.isMech():
-#                     if (Attributes.ARMORED in unit.attributes) and (Attributes.ARMORED in self.effects): # if the mech is already armored and we're applying armor to mechs...
-#                         self.skipunits.add(unit)
-#                     else:
-#                         self._applyEffects(unit)
-#     def disable(self, mechs=False):
-#         """Disable the passive effect. This is done when the psion dies.
-#         Set mechs to True if you want this to remove the effect to all the mechs instead of all the Vek from the Psionic Receiver passive.
-#         returns nothing."""
-#         if not mechs:
-#             for unit in self.game.nonplayerunits:
-#                 if unit.isNormalVek():
-#                     self._removeEffects(unit)
-#         else:
-#             for unit in self.game.playerunits:
-#                 if unit.isMech() and (unit not in self.skipunits):
-#                     self._removeEffects(unit)
-#     def _applyEffects(self, unit):
-#         "A helper method to properly add all the effects or attributes to unit. returns nothing."
-#         for effect in self.effects:
-#             if effect == Attributes.ARMORED:
-#                 unit.attributes.add(effect)
-#             else:
-#                 unit.effects.add(effect)
-#     def _removeEffects(self, unit):
-#         "A helper method to properly remove all the effects or attributes to unit. returns nothing."
-#         for effect in self.effects:
-#             if effect == Attributes.ARMORED:
-#                 unit.attributes.remove(effect)
-#             else:
-#                 unit.effects.remove(effect)
+################################# Mech Passive Weapons #############################
+# All mech passives must support power1 and 2 like regular mech weapons.
+# Mech weapons must have an enable() method, but do not need a disable() as the passives are never disabled.
+
+class Weapon_FlameShielding(Weapon_NoUpgradesInit_Base):
+    "All Mechs are immune to Fire."
+    def enable(self):
+        for unit in self.game.playerunits:
+            if unit.isMech():
+                unit.attributes.add(Attributes.IMMUNEFIRE)
+
+class Weapon_StormGenerator():
+    "All Smoke deals damage to enemy units every turn."
+    damage = 1
+    def __init__(self, power1=False, power2=False):
+        if power1:
+            self.damage += 1
+    def enable(self):
+        self.game.stormGeneratorTurn = self._turnAction
+    def _turnAction(self):
+        "Damage all enemy units in a tile with smoke."
+        # TODO: You can make this effecient by making a method to add and remove smoked tiles from a set so we can iterate through it only when this passive is active.
+        # The idea is to make a method hook that is None or pass whenever we're simulating without this storm generator in play, that way we're not constantly building and unbuiding the set of smoke when it doesn't matter
+        for t in self.game.board.values(): # for now, iterate through all 64 tiles looking for smoke
+            try:
+                if t.unit.alliance == Alliance.ENEMY:
+                    print("Found an enemy:", t.unit.type)
+                    pass
+                else:
+                    continue
+            except AttributeError: # t.None.alliance, no unit
+                continue
+            if Effects.SMOKE in t.effects:
+                t.unit.takeDamage(self.damage, ignoreacid=True, ignorearmor=True) # the tile doesn't take damage
+        self.game.flushHurt()
+
+class Weapon_VisceraNanobots():
+    "Mechs heal 1 damage when they deal a killing blow."
+    heal = 1
+    def __init__(self, power1=False, power2=False):
+        "power2 is ignored."
+        if power1:
+            self.heal += 1

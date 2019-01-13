@@ -11729,6 +11729,126 @@ def t_PassivePsionicReceiver():
     assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
     assert g.board[(1, 2)].unit.hp == 2
 
+def t_PassiveVekHormonesNoPower():
+    "Test Vek Hormones with no power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_VekHormones()))
+    g.board[(2, 1)].createUnitHere(Unit_Firefly(g)) # a normal vek to deal the damage
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_CannonBot(g)) # an enemy bot to also do damage.
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the flame mech
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2 # mech took 1 damage
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the leader
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.RIGHT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 4 # took 2 damage because of hormones
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the bot attack the leader
+    g.board[(4, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(4, 1)].unit.weapon1.validate()
+    g.board[(4, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 3  # took 1 damage despite hormones
+    assert g.board[(4, 1)].unit.hp == 1
+
+def t_PassiveVekHormonesPower1():
+    "Test Vek Hormones with 1 power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_VekHormones(power1=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Firefly(g)) # a normal vek to deal the damage
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_CannonBot(g)) # an enemy bot to also do damage.
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the flame mech
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2 # mech took 1 damage
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the leader
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.RIGHT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 3 # took 3 damage because of hormones
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the bot attack the leader
+    g.board[(4, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(4, 1)].unit.weapon1.validate()
+    g.board[(4, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 2  # took 1 damage despite hormones
+    assert g.board[(4, 1)].unit.hp == 1
+
+def t_PassiveVekHormonesPower2():
+    "Test Vek Hormones with 2 power."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_VekHormones(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Firefly(g)) # a normal vek to deal the damage
+    g.board[(3, 1)].createUnitHere(Unit_FireflyLeader(g)) # a slightly less-normal vek to get the effects
+    g.board[(4, 1)].createUnitHere(Unit_CannonBot(g)) # an enemy bot to also do damage.
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the flame mech
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2 # mech took 1 damage
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 6
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the firefly attack the leader
+    g.board[(2, 1)].unit.weapon1.qshot = (Direction.RIGHT,)
+    g.board[(2, 1)].unit.weapon1.validate()
+    g.board[(2, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 2 # took 4 damage because of hormones
+    assert g.board[(4, 1)].unit.hp == 1
+    # Have the bot attack the leader
+    g.board[(4, 1)].unit.weapon1.qshot = (Direction.LEFT,)
+    g.board[(4, 1)].unit.weapon1.validate()
+    g.board[(4, 1)].unit.weapon1.shoot()
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 1  # took 1 damage despite hormones
+    assert g.board[(4, 1)].unit.hp == 1
+
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

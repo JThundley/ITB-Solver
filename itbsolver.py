@@ -120,7 +120,6 @@ Passives = Constant(thegen, ( # This isn't all passives, just ones that need to 
     'AUTOSHIELDS',
     'STABILIZERS',
     'KICKOFFBOOSTERS',
-    'VEKHORMONES',
     'FORCEAMP',
     'AMMOGENERATOR',
     'CRITICALSHIELDS',
@@ -3568,10 +3567,38 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
 # Vek weapons will never raise NullWeaponShot
 
 # Vek weapon low-level base objects:
-class Weapon_Vek_Base():
-    "Base class for all vek weapons."
+class Weapon_NPC_Base():
+    "Base class for all nonplayer weapons."
     def __init__(self, qshot=None):
         self.qshot = qshot
+
+class Weapon_Vek_Base(Weapon_NPC_Base):
+    "Base class for all vek weapons."
+    def __init__(self, qshot=None):
+        super().__init__(qshot)
+        self.dealDamage = self._dealDamageDefault
+    def _dealDamageDefault(self, square):
+        """A helper method for vek to use when dealing damage with their weapon. The amount of damage dealt is self.damage.
+        This was implemented because VekHormones needs to deal extra damage when a vek hurts another.
+        This method does NOT take VekHormones into account. This is the default that vek weapons use.
+        square is a tuple of the square to damage.
+        returns nothing."""
+        self.game.board[square].takeDamage(self.damage)
+    def _dealDamageVekHormones(self, square):
+        """A helper method for vek to use when dealing damage with their weapon. The amount of damage dealt is self.damage.
+        This was implemented because VekHormones needs to deal extra damage when a vek hurts another.
+        This method actually takes vek hormones into account.
+        square is a tuple of the square to damage.
+        damage is the amount of damage to deal.
+        returns nothing."""
+        self.game.board[square].takeDamage(self.damage)
+        try:
+            if self.game.board[square].unit.alliance == Alliance.ENEMY:
+                raise FakeException
+        except AttributeError:
+            return
+        except FakeException:
+            self.game.board[square].takeDamage(self.game.vekhormones)
 
 class Weapon_Validate_Base():
     "This is the base validate class for all others."
@@ -3614,7 +3641,7 @@ class Weapon_SurroundingShoot_Base(Weapon_Vek_Base):
         if self.qshot is not None:
             for d in Direction.gen():
                 try:
-                    self.game.board[self.game.board[self.wieldingunit.square].getRelSquare(d, 1)].takeDamage(self.damage)
+                    self._dealDamage(self.game.board[self.wieldingunit.square].getRelSquare(d, 1))
                 except KeyError: # game.board[False]
                     pass
             return True
@@ -3630,7 +3657,7 @@ class Weapon_VekMelee_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Wea
     "Shared shoot method for melee attacks used by Scorpions, Leapers, and hornets."
     def shoot(self):
         if self.qshot is not None:
-            self.game.board[self.targetsquare].takeDamage(self.damage)
+            self._dealDamage(self.targetsquare)
             return True
         return False
 
@@ -3639,7 +3666,7 @@ class Weapon_VekProjectileShoot_Base(Weapon_getSquareOfUnitInDirection_Base):
     def shoot(self):
         if self.qshot is not None:
             self.targetsquare = self._getSquareOfUnitInDirection(*self.qshot, edgeok=True)
-            self.game.board[self.targetsquare].takeDamage(self.damage)
+            self._dealDamage(self.targetsquare)
             return True
         return False
 
@@ -3667,7 +3694,7 @@ class Weapon_VekCharge_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, We
                         self.game.board[self.wieldingunit.square].moveUnit(prevsquare) # move to that edge tile
                         return
 
-class Weapon_VekArtillery_Base(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_getRelSquare_Base):
+class Weapon_NPCArtillery_Base(Weapon_NPC_Base, Weapon_Validate_Base, Weapon_getRelSquare_Base):
     "Base object for vek artillery weapons for Scarabs and Crabs and the bots."
     def validate(self):
         "qshot is stored as (Direction, RelDistance)"
@@ -3685,19 +3712,22 @@ class Weapon_VekArtillery_Base(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_get
     def shoot(self):
         "Launch the artillery."
         if self.qshot is not None:
-            self.game.board[self.targetsquare].takeDamage(self.damage)
+            self._dealDamage(self.targetsquare)
             return True
+
+class Weapon_VekArtillery_Base(Weapon_Vek_Base, Weapon_NPCArtillery_Base):
+    "Base object for vek artillery weapons for Scarabs and Crabs and the bots."
 
 class Weapon_ExplosiveExpulsions_Base(Weapon_VekArtillery_Base):
     "Base class for Crab weapons"
     def shoot(self):
         if super().shoot():
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(self.qshot[0], 1)].takeDamage(self.damage)
+                self._dealDamage(self.game.board[self.targetsquare].getRelSquare(self.qshot[0], 1))
             except KeyError:  # board[False]
                 pass  # the secondary target can be offboard
 
-class Weapon_Vomit_Base(Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+class Weapon_Vomit_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
     "Base class for Centipede weapons"
     def shoot(self):
         if super().shoot():
@@ -3705,7 +3735,7 @@ class Weapon_Vomit_Base(Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_
             for d in Direction.genPerp(*self.qshot):
                 secondarysquare = self.game.board[self.targetsquare].getRelSquare(d, 1)
                 try:
-                    self.game.board[secondarysquare].takeDamage(self.damage)
+                    self._dealDamage(secondarysquare)
                 except KeyError: # board[False]
                     continue # secondary square was offboard
                 self.game.board[secondarysquare].applyAcid() # give it acid after attacking it
@@ -3714,10 +3744,10 @@ class Weapon_Carapace_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Wea
     "Base class for Burrower Carapace weapons"
     def shoot(self):
         if self.qshot is not None:
-            self.game.board[self.targetsquare].takeDamage(self.damage) # hit the main target square
+            self._dealDamage(self.targetsquare)# hit the main target square
             for d in Direction.genPerp(*self.qshot):
                 try:
-                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].takeDamage(self.damage)
+                    self._dealDamage(self.game.board[self.targetsquare].getRelSquare(d, 1))
                 except KeyError: # board[False]
                     continue # secondary square was offboard
 
@@ -3729,14 +3759,16 @@ class Weapon_GreaterHornet_Base(Weapon_VekMelee_Base):
             for r in range(self.extrarange):
                 self.targetsquare = self.game.board[self.targetsquare].getRelSquare(*self.qshot, 1)
                 try:
-                    self.game.board[self.targetsquare].takeDamage(self.damage)
+                    self._dealDamage(self.targetsquare)
                 except KeyError: # board[False], secondary tile was offboard
                     return # don't process further shots
 
-class Weapon_Cannon8R_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_VekProjectileShoot_Base):
+class Weapon_Cannon8R_Base(Weapon_NPC_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_getSquareOfUnitInDirection_Base):
     "Base class for the weapons used by Cannon-Bot and Cannon-Mech."
     def shoot(self):
-        if super().shoot():
+        if self.qshot is not None: # copypasta from Weapon_VekArtillery_Base.
+            self.targetsquare = self._getSquareOfUnitInDirection(*self.qshot, edgeok=True)
+            self.game.board[self.targetsquare].takeDamage(self.damage)
             self.game.board[self.targetsquare].applyFire()
 
 class Weapon_Vk8Rockets_Base(Weapon_VekArtillery_Base):
@@ -3749,7 +3781,7 @@ class Weapon_Vk8Rockets_Base(Weapon_VekArtillery_Base):
                 except KeyError: # board[False]
                     pass # secondary hit was off the board
 
-class Weapon_BKRBeam_Base(Weapon_Vek_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_BlocksBeamShot_Base):
+class Weapon_BKRBeam_Base(Weapon_NPC_Base, Weapon_DirectionalValidate_Base, Weapon_DirectionalFlip_Base, Weapon_BlocksBeamShot_Base):
     "Base class for laser bot/mech weapons"
     def shoot(self):
         if self.qshot is not None:
@@ -3956,11 +3988,12 @@ class Weapon_BurningThorax(Weapon_Vek_Base, Weapon_Validate_Base, Weapon_getSqua
     # its attack canceled, sometimes it wouldn't. The UI gives no indication of which way the firefly was actually targeting and it doesn't even choose which direction to target
     # consistently. This leads me to the conclusion that it's random and the player can never tell which way the firefly targeted. That means moving it to the edge of the map is
     # a total gamble. I think the only sensible thing for me to do in this program is to treat this weapon as impossible to positionally invalidate.
+    damage = 4
     def shoot(self):
         if self.qshot is not None:
             for d in self.qshot[0], Direction.opposite(*self.qshot):
                 try:
-                    self.game.board[self._getSquareOfUnitInDirection(d, edgeok=True)].takeDamage(4)
+                    self._dealDamage(self._getSquareOfUnitInDirection(d, edgeok=True))
                 except NullWeaponShot: # caused by the wielder being up against the wall, the other shot is so valid so we ignore this
                     pass
 
@@ -4303,7 +4336,6 @@ class Weapon_StormGenerator():
         for t in self.game.board.values(): # for now, iterate through all 64 tiles looking for smoke
             try:
                 if t.unit.alliance == Alliance.ENEMY:
-                    print("Found an enemy:", t.unit.type)
                     pass
                 else:
                     continue
@@ -4360,3 +4392,12 @@ class Weapon_KickoffBoosters():
 class Weapon_VekHormones(Weapon_IncreaseDamageWithPowerInit_Base):
     "Enemies do +1 Damage against other enemies."
     damage = 1
+    def enable(self):
+        self.game.vekhormones = self.damage
+        Weapon_Vek_Base._dealDamage = Weapon_Vek_Base._dealDamageVekHormones
+    def __del__(self): # TODO: consider deleting this for release, this was a hack to make tests pass :D
+        "A destructor class to fix my tests. This was enabling vek hormones across all tests"
+        Weapon_Vek_Base._dealDamage = Weapon_Vek_Base._dealDamageDefault
+
+class Weapon_ForceAmp():
+    "All Vek take +1 damage from Bumps and blocking emerging Vek."

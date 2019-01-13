@@ -28,6 +28,10 @@ Not all pilots are present in this program, only the ones that can make a differ
 The following pilot abilities are missing: Gain +2 XP per kill, Mech starts every mission with a shield (just give your mech a shield if it has one), deploy anywhere on the map,
 gain +3 move on first turn of every mission (just give your mech +3 move if this applies to your scenario), Gain 1 extra reset turn,
 
+==Missing Passive Weapons==
+The Networked Armor weapon is missing because it doesn't make a difference in a single turn. You should be placing your mechs onto the board in their current state, including their hp and maximum hp.
+Medical Supplies is missing because if you really think this changes things, you should just lessen the impact of a mech dying via scoring.
+
 ==Firefly Leader's shot invalidation==
 Like all vek with an attack that fires in a certain direction, the Firefly Leader's shot can also be invalidated. The thing about this particular unit/weapon is that you can't tell which direction
 it actually targeted. I've seen it target an empty tile away from my mech so that the mirror projectile that fires out its ass will hit me. Moving the Firefly Leader to the edge so that its targeted

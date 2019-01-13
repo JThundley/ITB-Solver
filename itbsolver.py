@@ -115,17 +115,11 @@ Alliance = Constant(thegen, (
     'ENEMY', # but not these
     'NEUTRAL')) # not these either
 
-Passives = Constant(thegen, (
-    'FLAMESHIELDING', # mech passives (from weapons)
-    'STORMGENERATOR',
-    'VISCERANANOBOTS',
-    'NETWORKEDARMOR',
-    'REPAIRFIELD',
-    'AUTO-SHIELDS',
+Passives = Constant(thegen, ( # This isn't all passives, just ones that need to be checked for presence only at certain times.
+    'REPAIRFIELD', # mech passives (from weapons)
+    'AUTOSHIELDS',
     'STABILIZERS',
-    'PSIONICRECEIVER',
     'KICKOFFBOOSTERS',
-    'MEDICALSUPPLIES',
     'VEKHORMONES',
     'FORCEAMP',
     'AMMOGENERATOR',
@@ -163,6 +157,7 @@ class CantHappenInGame(Exception):
 
 class FakeException(Exception):
     "This is raised to do some more effecient try/except if/else statements"
+
 ############# THE MAIN GAME BOARD!
 class Game():
     "This represents the a single instance of a game. This is the highest level of the game."
@@ -180,19 +175,17 @@ class Game():
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
         self.powergrid_hp = powergrid_hp # max is 7
-        self.environeffect = environeffect
         try:
-            self.environeffect.game = self
+            environeffect.game = self
         except AttributeError:
             pass # no environmental effect being used
+        else:
+            self.environeffect = environeffect
         if vekemerge:
             self.vekemerge = vekemerge
         else:
             self.vekemerge = Environ_VekEmerge()
         self.vekemerge.game = self
-        # TODO: these never got implemented like this, remove them if they're never used
-        #self.playerpassives = {} # a dict of passive effects being applied to the player's mechs
-        #self.vekpassives = {}
         # playerunits and nonplayerunits are used for passives that need to be applied to all vek and/or all mechs.
         # nonplayerunits is also a list of units that take a turn doing an action, such as vek and NPC friendlies.
         # units without weapons that don't take turns such as the rock also need to be here so they can take fire damage.
@@ -207,6 +200,8 @@ class Game():
                                 #  If we don't do this, a goo will replace the unit it killed on the board, and then that unit will erase the goo when it's deaths replaces the square with None.
         self.psionPassiveTurn = None # This will be replaced by a method provided by the Regeneration and Hive Targeting (tentacle) psion effects that take a turn to do their effect.
         self.stormGeneratorTurn = None # This will be replaced by a method provided by the StormGenerator passive weapon
+        self.visceraheal = 0 # The amount to heal a mech that killed a vek. Each vek that is killed grants this amount of hp healing
+        self.otherpassives = set() # misc passives that only need to be checked for presence and nothing else.
     def flushHurt(self):
         "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -234,23 +229,73 @@ class Game():
                 return
     def start(self):
         "Initialize the simulation. Run this after all units have been placed on the board."
-        for unit in self.playerunits + self.nonplayerunits:
+        psionicreceiver = False
+        for unit in self.playerunits:
             for weap in 'weapon1', 'weapon2':
                 try:
                     getattr(unit, weap).enable()
                 except AttributeError: # unit.None.enable(), or enable() doesn't exist
                     pass
+                except FakeException: # This is raised by the psionic receiver
+                    psionicreceiver = True
+        for unit in self.nonplayerunits:
+            if psionicreceiver:
+                try:
+                    unit.weapon1._enableMechs()
+                except AttributeError:
+                    continue
+            try:
+                unit.weapon1.enable()
+            except AttributeError:
+                pass
+            try: # validate all enemy qshots
+                unit.weapon1.validate()
+            except AttributeError:
+                pass
     def endPlayerTurn(self):
-        "Simulate the outcome of this single turn, as if the player clicked the 'end turn' button in the game. Let the vek take their turn now."
-        # Order of turn operations:
-        #   Fire
-        #   Storm Smoke
-        #   Regeneration / Psion Tentacle (Psion passive turn)
-        #   Environment
-        #   Enemy Actions
-        #   NPC actions
-        #   Enemies emerge
-        # for unit in self.play # fire damage seems to happen in the order of the vek's appearance.
+        """Simulate the outcome of this single turn, as if the player clicked the 'end turn' button in the game. Let the vek take their turn now.
+        Order of turn operations:
+           Fire
+           Storm Smoke
+           Regeneration / Psion Tentacle (Psion passive turn)
+           Environment
+           Enemy Actions
+           NPC actions
+           Enemies emerge
+        """
+        # Do the fire turn:
+        for unit in self.playerunits + self.nonplayerunits: # fire damage seems to happen to vek in the order of their turn
+            if Effects.FIRE in unit.effects:
+                unit.takeDamage(1, ignorearmor=True, ignoreacid=True)
+        self.flushHurt()
+        try: # Do the storm generator turn:
+            self.stormGeneratorTurn()
+        except TypeError: # self.None()
+            pass
+        try: # Do the psion healing / regeneration turn
+            self.psionPassiveTurn()
+        except TypeError: # self.None()
+            pass
+        try: # run the environmental turn
+            self.environeffect.run()
+        except AttributeError: # self.None.run()
+            pass
+        # Now run the enemy's turn:
+        for unit in self.nonplayerunits:
+            if unit.alliance == Alliance.ENEMY:
+                try:
+                    unit.weapon1.shoot()
+                except AttributeError: # unit.None.shoot()
+                    pass
+        # Now do NPC actions:
+        for unit in self.nonplayerunits:
+            if unit.alliance != Alliance.ENEMY:
+                try:
+                    unit.weapon1.shoot()
+                except AttributeError: # unit.None.shoot()
+                    pass
+        self.vekemerge.run()
+
 ##############################################################################
 ######################################## TILES ###############################
 ##############################################################################
@@ -795,7 +840,10 @@ class Unit_Base(TileUnit_Base):
         return True
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
-        self.takeDamage(1, ignorearmor=True, ignoreacid=True) # this is overridden by enemies that take increased bump damage by that one global powerup that increases bump damage to enemies only
+        self.takeDamage(1, ignorearmor=True, ignoreacid=True)
+    def takeEmergeDamage(self):
+        "Take damage from vek emerging below. Most of the time this is just normal bump damage, but mechs override this to take no damage with a certain passive."
+        self.takeBumpDamage()
     def _allowDeath(self):
         "Check if this unit was killed but had it's death supressed. Kill it now if it has 0 or less hp."
         if self.hp <= 0:  # if the unit has no more HP and is allowed to die
@@ -987,6 +1035,15 @@ class Unit_Building(Unit_Mountain_Building_Base):
         self._building = True # a flag to indicate this is a building rather than do string comparisons
     def applyAcid(self):
         raise AttributeError # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        if Passives.AUTOSHIELDS in self.game.otherpassives:
+            orighp = self.hp
+            super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+            # The only situation that should actually hit this is 0 < 1 < 2, meaning that the building had 2 hp and took 1 damage surviving the attack.
+            if 0 < self.hp < orighp:
+                self.applyShield() # the passive gives it a shield
+        else:
+            super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) # just run the parent's takeDamage
 
 class Unit_Building_Objective(Unit_Building):
     def __init__(self, game, type='buildingobjective', hp=1, maxhp=1, effects=None):
@@ -1581,15 +1638,31 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
         else: # make a mech corpse
             self.game.board[self.square]._putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
         self.game.playerunits.discard(self)
-    def repair(self, hp):
-        "Repair the unit healing HP and removing bad effects."
-        self.repairHP(hp)
-        for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
-            self.removeEffect(e)
+    def repair(self, hp, ignorerepairfield=False):
+        "Repair the unit healing hp and removing bad effects. ignorerepairfield is set to True by _repairField() to make sure we don't get stuck in a loop."
+        if ignorerepairfield or not self._repairField():
+            self.repairHP(hp)
+            for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
+                self.removeEffect(e)
+    def _repairField(self):
+        "Repair all your mechs if the repairfield passive is in play. Returns True if it was and the healing was done, False if the passive wasn't active."
+        if Passives.REPAIRFIELD in self.game.otherpassives:
+            for u in self.game.playerunits.copy():
+                try:
+                    u.repair(1, ignorerepairfield=True)
+                except AttributeError:
+                    pass # subunits don't have a repair method, so just try to repair every player controlled unit
+            return True
+        return False
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         res = super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
         self._allowDeath()  # mechs die right away, but explosions are delayed so the corpse actually explodes
         return res
+    def takeEmergeDamage(self):
+        "A special method that only mechs have for taking damage from emerging vek. This is done so we can take the passive Stabilizers into effect."
+        if Passives.STABILIZERS in self.game.otherpassives:
+            return
+        self.takeBumpDamage()
 
 class Unit_MechFlying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
@@ -1617,8 +1690,8 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         "Mech corpses cannot be frozen."
     def die(self):
         "Nothing happens when a mech corpse is killed again."
-    def repair(self, hp):
-        "repair the mech corpse back to unit it was."
+    def repair(self, hp, ignorerepairfield=True):
+        "repair the mech corpse back to unit it was. ignorerepairfield is ironically ignored itself."
         self.oldunit.repairHP(hp)
         self.oldunit.removeEffect(Effects.FIRE) # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
         self.game.board[self.square].createUnitHere(self.oldunit)
@@ -1853,11 +1926,11 @@ class Environ_VekEmerge():
     def run(self):
         for square in self.squares:
             try:
-                self.game.board[square].unit.takeBumpDamage()
+                self.game.board[square].unit.takeEmergeDamage()
             except AttributeError: # there was no unit
                 pass # TODO: the vek emerges
             else:
-                self.game.flushHurt() # let units that took this bump damage die
+                self.game.flushHurt() # let the unit that took this bump damage die
     def remove(self, square):
         "remove square from self.squares, ignoring if it wasn't there in the first place. returns nothing."
         try:
@@ -4110,9 +4183,10 @@ class Weapon_PsionPassive_Base():
 class Weapon_InvigoratingSpores(Weapon_PsionPassive_Base):
     "All other Vek receive +1 HP as long as the Psion is living. Soldier Psion"
     def _applyEffect(self, unit):
-        "A helper method to properly apply the effectreturns nothing."
-        unit.maxhp += 1
-        unit.hp += 1
+        "Don't give units more hp here, since they were already added to the board in their current state of hp. This is a dummy method."
+        #unit.maxhp += 1
+        #unit.hp += 1
+        pass
     def _removeEffect(self, unit):
         "A helper method to properly remove all the effects or attributes to unit. returns nothing."
         if unit.hp == 1: # if this passive going away is going to kill the unit...
@@ -4246,3 +4320,43 @@ class Weapon_VisceraNanobots():
         "power2 is ignored."
         if power1:
             self.heal += 1
+    def enable(self): # TODO: finish implementing this into the player's attack turn
+        self.game.visceraheal = self.heal
+
+# class Weapon_NetworkedArmor(): # This weapon scrapped because it doesn't make a difference for a single turn. Just tell the sim how much hp your mech has.
+#     "All Mechs gain +1 HP."
+
+class Weapon_RepairField(Weapon_NoUpgradesInit_Base):
+    "Repairing one Mech will affect all Mechs."
+    def enable(self):
+        self.game.otherpassives.add(Passives.REPAIRFIELD)
+
+class Weapon_AutoShields(Weapon_NoUpgradesInit_Base):
+    "Buildings gain a Shield after taking damage."
+    def enable(self):
+        self.game.otherpassives.add(Passives.AUTOSHIELDS)
+
+class Weapon_Stabilizers(Weapon_NoUpgradesInit_Base):
+    "Mechs no longer take damage when blocking emerging Vek."
+    def enable(self):
+        self.game.otherpassives.add(Passives.STABILIZERS)
+
+class Weapon_PsionicReceiver(Weapon_NoUpgradesInit_Base):
+    "Mechs use bonuses from Vek Psion."
+    def enable(self):
+        raise FakeException
+
+class Weapon_KickoffBoosters():
+    "Mechs gain +1 move if they start their turn adjacent to each other."
+    move = 1
+    def __init__(self, power1=False, power2=False):
+        if power1:
+            self.move += 1
+    def enable(self):
+        self.game.otherpassives.add(Passives.KICKOFFBOOSTERS) # TODO: Implement this. Only effects mechs, not subunits. Both units get the buff even after you move one away.
+
+# class Weapon_MedicalSupplies(Weapon_NoUpgradesInit_Base): # Not implementing this one either.
+
+class Weapon_VekHormones(Weapon_IncreaseDamageWithPowerInit_Base):
+    "Enemies do +1 Damage against other enemies."
+    damage = 1

@@ -11849,6 +11849,32 @@ def t_PassiveVekHormonesPower2():
     assert g.board[(3, 1)].unit.hp == 1  # took 1 damage despite hormones
     assert g.board[(4, 1)].unit.hp == 1
 
+def t_ForceAmp():
+    "Test the ForceAmp passive"
+    g = Game(vekemerge=Environ_VekEmerge([(1, 1), (2, 1), (3, 1), (4, 1)]))
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_ForceAmp(power1=True, power2=True))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_PullTank(g, hp=3, maxhp=3))
+    g.board[(3, 1)].createUnitHere(Unit_PsionAbomination(g))
+    g.board[(3, 2)].createUnitHere(Unit_Rock(g))
+    g.board[(4, 1)].createUnitHere(Unit_BotLeader_Attacking(g))
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(3, 1)].unit.hp == 5
+    assert g.board[(4, 1)].unit.hp == 5
+    g.vekemerge.run()
+    assert g.board[(1, 1)].unit.hp == 2 # took 1 bump damage
+    assert g.board[(2, 1)].unit.hp == 2 # took 1 damage
+    assert g.board[(3, 1)].unit.hp == 3 # vek took 2 damage because of passive
+    assert g.board[(4, 1)].unit.hp == 4 # bot leader isn't considered a vek, unaffected by this.
+    g.board[(3, 1)].push(Direction.UP) # push the psion into the rock
+    assert g.board[(1, 1)].unit.hp == 2  # no change
+    assert g.board[(2, 1)].unit.hp == 2  # ^^
+    assert g.board[(3, 1)].unit.hp == 1  # vek took another 2 damage because of passive
+    assert g.board[(4, 1)].unit.hp == 4  # no change
+
+
+
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

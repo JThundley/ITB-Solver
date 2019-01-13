@@ -121,7 +121,6 @@ Passives = Constant(thegen, ( # This isn't all passives, just ones that need to 
     'STABILIZERS',
     'KICKOFFBOOSTERS',
     'FORCEAMP',
-    'AMMOGENERATOR',
     'CRITICALSHIELDS',
     ))
 
@@ -156,6 +155,51 @@ class CantHappenInGame(Exception):
 
 class FakeException(Exception):
     "This is raised to do some more effecient try/except if/else statements"
+
+class GameOver(Exception):
+    "This is raised when your powergrid health is depleted, causing the end of the current simulation."
+
+class Powergrid():
+    "This represents your powergrid hp. When this hits 0, it's game over!"
+    def __init__(self, game, hp=7):
+        self.hp = hp
+        self.game = game
+    def takeDamage(self, damage):
+        self.hp -= damage
+        if self.hp < 1:
+            raise GameOver
+
+class Powergrid_CriticalShields(Powergrid):
+    "This is your powergrid hp when you have the CriticalShields passive in play."
+    def __init__(self, game, hp=7):
+        super().__init__(game, hp)
+        self.hurtbuildings = set() # we have to queue up damage for buildings when this passive is in play.
+    def takeDamage(self, damage):
+        super().takeDamage(damage)
+        if self.hp == 1:
+            self._shieldBuildings()
+    def _findBuildings(self):
+        "This is run when the CriticalShields passive is in play. It goes through the board and builds a set of every building."
+        self.buildings = set()
+        for sq in self.game.board:
+            try:
+                if self.game.board[sq].unit.isBuilding():
+                    self.buildings.add(sq)
+            except AttributeError: # None.isbuilding()
+                pass
+    def _shieldBuildings(self):
+        "Shield all your buildings, return nothing."
+        for sq in self.buildings:
+            try:
+                if self.game.board[sq].unit.isBuilding(): # we have to check again because it's possible a building was destroyed and now another unit is standing in it's place.
+                    self.game.board[sq].unit.applyShield()
+            except AttributeError:
+                continue
+    def flushHurt(self):
+        """Call this to damage buildings at once.
+        If we don't do this it'll be possible in the sim to shoot something that hits 2 buildings, and damaging the first one
+        causes the 2nd one to shield before it takes damage, which isn't what happens in the game."""
+
 
 ############# THE MAIN GAME BOARD!
 class Game():
@@ -841,7 +885,7 @@ class Unit_Base(TileUnit_Base):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
         self.takeDamage(1, ignorearmor=True, ignoreacid=True)
     def takeEmergeDamage(self):
-        "Take damage from vek emerging below. Most of the time this is just normal bump damage, but mechs override this to take no damage with a certain passive."
+        """Take damage from vek emerging below. Most of the time this is just normal bump damage, but mechs override this to take no damage with a certain passive."""
         self.takeBumpDamage()
     def _allowDeath(self):
         "Check if this unit was killed but had it's death supressed. Kill it now if it has 0 or less hp."
@@ -1325,6 +1369,15 @@ class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayer
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
 
+class Unit_Vek_Base():
+    "A base class for all vek, including psions but excluding bots and minions."
+    def takeBumpDamage(self):
+        "Veks take extra bump damage when ForceAmp is in play."
+        if Passives.FORCEAMP in self.game.otherpassives:
+            self.takeDamage(2, ignorearmor=True, ignoreacid=True)
+        else:
+            self.takeDamage(1, ignorearmor=True, ignoreacid=True)
+
 class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
     "This is the base unit of all enemies that are not psions. Enemies have 1 weapon."
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
@@ -1337,14 +1390,8 @@ class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
         self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
-    def applyIce(self):
-        super().applyIce()
-        # try: # TODO: Can we get rid of this try once every vek has a weapon?
-        #    self.weapon1.qshot = None
-        # except AttributeError: # ice cancels enemy shots
-        #    pass
 
-class Unit_NormalVek_Base(Unit_EnemyNonPsion_Base):
+class Unit_NormalVek_Base(Unit_Vek_Base, Unit_EnemyNonPsion_Base):
     "A base class for all vek who benefit from psions. Not bots, psions, bosses, or minions."
     _getspsionbonus = True
 
@@ -1354,7 +1401,7 @@ class Unit_NormalVekFlying_Base(Unit_EnemyNonPsion_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.FLYING)
 
-class Unit_Psion_Base(Unit_EnemyNonPsion_Base):
+class Unit_Psion_Base(Unit_Vek_Base, Unit_EnemyNonPsion_Base):
     "Base unit for vek psions. When psions are hurt, their deaths are resolved first before your mechs or other vek/bots."
     _psion = True
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
@@ -4399,5 +4446,14 @@ class Weapon_VekHormones(Weapon_IncreaseDamageWithPowerInit_Base):
         "A destructor class to fix my tests. This was enabling vek hormones across all tests"
         Weapon_Vek_Base._dealDamage = Weapon_Vek_Base._dealDamageDefault
 
-class Weapon_ForceAmp():
+class Weapon_ForceAmp(Weapon_NoUpgradesInit_Base):
     "All Vek take +1 damage from Bumps and blocking emerging Vek."
+    def enable(self):
+        self.game.otherpassives.add(Passives.FORCEAMP)
+
+# class Weapon_AmmoGenerator(): # not implementing this one. Just tell the sim how much ammo you have.
+
+class Weapon_CriticalShields():
+    "If Power Grid is reduced to 1, all buildings gain a Shield."
+    def enable(self):
+        self.game.otherpassives.add(Passives.CRITICALSHIELDS)

@@ -11768,6 +11768,7 @@ def t_PassiveVekHormonesNoPower():
     assert g.board[(2, 1)].unit.hp == 3
     assert g.board[(3, 1)].unit.hp == 3  # took 1 damage despite hormones
     assert g.board[(4, 1)].unit.hp == 1
+    g.board[(1, 1)].unit.weapon1.disable() # fix my tests lol
 
 def t_PassiveVekHormonesPower1():
     "Test Vek Hormones with 1 power."
@@ -11808,6 +11809,7 @@ def t_PassiveVekHormonesPower1():
     assert g.board[(2, 1)].unit.hp == 3
     assert g.board[(3, 1)].unit.hp == 2  # took 1 damage despite hormones
     assert g.board[(4, 1)].unit.hp == 1
+    g.board[(1, 1)].unit.weapon1.disable()  # fix my tests lol
 
 def t_PassiveVekHormonesPower2():
     "Test Vek Hormones with 2 power."
@@ -11848,6 +11850,7 @@ def t_PassiveVekHormonesPower2():
     assert g.board[(2, 1)].unit.hp == 3
     assert g.board[(3, 1)].unit.hp == 1  # took 1 damage despite hormones
     assert g.board[(4, 1)].unit.hp == 1
+    g.board[(1, 1)].unit.weapon1.disable()  # fix my tests lol
 
 def t_ForceAmp():
     "Test the ForceAmp passive"
@@ -11868,12 +11871,50 @@ def t_ForceAmp():
     assert g.board[(3, 1)].unit.hp == 3 # vek took 2 damage because of passive
     assert g.board[(4, 1)].unit.hp == 4 # bot leader isn't considered a vek, unaffected by this.
     g.board[(3, 1)].push(Direction.UP) # push the psion into the rock
+    g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # no change
     assert g.board[(2, 1)].unit.hp == 2  # ^^
     assert g.board[(3, 1)].unit.hp == 1  # vek took another 2 damage because of passive
     assert g.board[(4, 1)].unit.hp == 4  # no change
 
+def t_Weapon_CriticalShields():
+    "Test the CriticalShields passive"
+    g = Game(powergrid_hp=2)
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_CriticalShields(power1=True, power2=True))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Building(g, hp=2, maxhp=2))
+    g.board[(3, 1)].createUnitHere(Unit_Leaper(g))
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.hp == 1
+    g.board[(3, 1)].push(Direction.LEFT) # push the Leaper into the building
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # no change
+    assert g.board[(2, 1)].unit.hp == 1  # Building took 1 damage
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # and now has shield
+    assert g.board[(3, 1)].unit == None  # Leaper died
 
+def t_Weapon_CriticalShieldsBumpExplode():
+    """Test the following CriticalShields passive edge case: if you have 2 powergrid hp and a 1 hp explosive vek next to a building and then you push the vek into the building, you take 1 damage from the bump
+        and then the critical shields fire, protecting the building from the explosion damage."""
+    g = Game(powergrid_hp=2)
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_CriticalShields(power1=True, power2=True))) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_Building(g, hp=2, maxhp=2))
+    g.board[(3, 1)].createUnitHere(Unit_Leaper(g))
+    g.board[(4, 1)].createUnitHere(Unit_BlastPsion(g))
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.hp == 1
+    assert g.board[(3, 1)].unit.effects == {Effects.EXPLOSIVE}
+    g.board[(3, 1)].push(Direction.LEFT) # push the Leaper into the building
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # no change
+    assert g.board[(2, 1)].unit.hp == 1  # Building took 1 bump damage
+    assert g.board[(2, 1)].unit.effects == set() # shield took the explosion damage
+    assert g.board[(3, 1)].unit == None  # Leaper died
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

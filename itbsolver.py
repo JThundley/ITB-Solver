@@ -121,7 +121,6 @@ Passives = Constant(thegen, ( # This isn't all passives, just ones that need to 
     'STABILIZERS',
     'KICKOFFBOOSTERS',
     'FORCEAMP',
-    'CRITICALSHIELDS',
     ))
 
 # don't need these anymore
@@ -173,11 +172,11 @@ class Powergrid_CriticalShields(Powergrid):
     "This is your powergrid hp when you have the CriticalShields passive in play."
     def __init__(self, game, hp=7):
         super().__init__(game, hp)
-        self.hurtbuildings = set() # we have to queue up damage for buildings when this passive is in play.
+        self.qdamage = 0 # damaged queued to take place when flushHurt tells us to
+        self._findBuildings()
+        self.shields_popped = False
     def takeDamage(self, damage):
-        super().takeDamage(damage)
-        if self.hp == 1:
-            self._shieldBuildings()
+        self.qdamage += damage
     def _findBuildings(self):
         "This is run when the CriticalShields passive is in play. It goes through the board and builds a set of every building."
         self.buildings = set()
@@ -189,16 +188,24 @@ class Powergrid_CriticalShields(Powergrid):
                 pass
     def _shieldBuildings(self):
         "Shield all your buildings, return nothing."
-        for sq in self.buildings:
-            try:
-                if self.game.board[sq].unit.isBuilding(): # we have to check again because it's possible a building was destroyed and now another unit is standing in it's place.
-                    self.game.board[sq].unit.applyShield()
-            except AttributeError:
-                continue
+        if not self.shields_popped:
+            for sq in self.buildings:
+                try:
+                    if self.game.board[sq].unit.isBuilding(): # we have to check again because it's possible a building was destroyed and now another unit is standing in it's place.
+                        self.game.board[sq].unit.applyShield()
+                except AttributeError:
+                    continue
+            self.shields_popped = True
     def flushHurt(self):
-        """Call this to damage buildings at once.
+        """Call this to signal that buildings are done taking damage.
         If we don't do this it'll be possible in the sim to shoot something that hits 2 buildings, and damaging the first one
-        causes the 2nd one to shield before it takes damage, which isn't what happens in the game."""
+        causes the 2nd one to shield before it takes damage, which isn't what happens in the game.
+        However, if you have 2 powergrid hp and a 1 hp explosive vek next to a building and then you push the vek into the building, you take 1 damage from the bump
+        and then the critical shields fire, protecting the building from the explosion damage."""
+        super().takeDamage(self.qdamage)
+        if self.hp == 1:
+            self._shieldBuildings()
+        self.qdamage = 0
 
 
 ############# THE MAIN GAME BOARD!
@@ -217,7 +224,7 @@ class Game():
             for letter in range(1, 9):
                 for num in range(1, 9):
                     self.board[(letter, num)] = Tile_Ground(self, square=(letter, num))
-        self.powergrid_hp = powergrid_hp # max is 7
+        self.powergrid = Powergrid(self, powergrid_hp)
         try:
             environeffect.game = self
         except AttributeError:
@@ -253,10 +260,15 @@ class Game():
         postattackmoves = self.postattackmoves
         self.postattackmoves = set()
         while True:
+            # First, copy our collections of hurt units, as these units dying could explode and then hurt more, hence the while loop.
             hurtplayerunits = self.hurtplayerunits
             hurtenemies = self.hurtenemies
             self.hurtplayerunits = []
             self.hurtenemies = []
+            try:  # signal to the powergrid to damage multiple buildings at once if we're using Powergrid_CriticalShields
+                self.powergrid.flushHurt()
+            except AttributeError:
+                pass
             try:
                 self.hurtpsion._allowDeath()
                 self.hurtpsion = None
@@ -269,7 +281,7 @@ class Game():
             for srcsquare, destsquare in postattackmoves:
                 self.board[srcsquare].moveUnit(destsquare)
             if not (self.hurtenemies or self.hurtplayerunits or self.hurtpsion):
-                return
+                break
     def start(self):
         "Initialize the simulation. Run this after all units have been placed on the board."
         psionicreceiver = False
@@ -1086,7 +1098,8 @@ class Unit_Building(Unit_Mountain_Building_Base):
             if 0 < self.hp < orighp:
                 self.applyShield() # the passive gives it a shield
         else:
-            super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid) # just run the parent's takeDamage
+            if super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid): # just run the parent's takeDamage
+                self.game.powergrid.takeDamage(damage)
 
 class Unit_Building_Objective(Unit_Building):
     def __init__(self, game, type='buildingobjective', hp=1, maxhp=1, effects=None):
@@ -4442,7 +4455,7 @@ class Weapon_VekHormones(Weapon_IncreaseDamageWithPowerInit_Base):
     def enable(self):
         self.game.vekhormones = self.damage
         Weapon_Vek_Base._dealDamage = Weapon_Vek_Base._dealDamageVekHormones
-    def __del__(self): # TODO: consider deleting this for release, this was a hack to make tests pass :D
+    def disable(self):
         "A destructor class to fix my tests. This was enabling vek hormones across all tests"
         Weapon_Vek_Base._dealDamage = Weapon_Vek_Base._dealDamageDefault
 
@@ -4453,7 +4466,8 @@ class Weapon_ForceAmp(Weapon_NoUpgradesInit_Base):
 
 # class Weapon_AmmoGenerator(): # not implementing this one. Just tell the sim how much ammo you have.
 
-class Weapon_CriticalShields():
+class Weapon_CriticalShields(Weapon_NoUpgradesInit_Base):
     "If Power Grid is reduced to 1, all buildings gain a Shield."
     def enable(self):
-        self.game.otherpassives.add(Passives.CRITICALSHIELDS)
+        "Replace your old and busted powergrid object with the special powergrid for dealing with critical shields."
+        self.game.powergrid = Powergrid_CriticalShields(self.game, self.game.powergrid.hp)

@@ -531,7 +531,7 @@ def t_MountainCantBeSetOnFire():
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == set()
 
-def t_SmokePutsOutFire():
+def t_SmokePutsOutFireTile():
     "Attacking a forest tile with something that leaves behind smoke doesn't light it on fire! Does smoke put out fire? Yes, smoke reverts it back to a forest tile. When the jet mech attacks and smokes a forest, it is only smoked. the forest remains, there's no fire, but there is smoke."
     g = Game()
     g.board[(1, 1)].replaceTile(Tile_Forest(g))
@@ -543,6 +543,19 @@ def t_SmokePutsOutFire():
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.SMOKE}
     assert g.board[(1, 1)].type == 'forest'
+
+def t_SmokePutsOutFireUnit():
+    "If a unit is on fire and their tile gets smoked, they lose fire."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Leaper(g))
+    assert g.board[(1, 1)].unit.effects == set()
+    g.board[(1, 1)].applyFire() # set the tile and unit on fire
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == {Effects.FIRE}
+    g.board[(1, 1)].applySmoke()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.SMOKE}
+    assert g.board[(1, 1)].unit.effects == set() # unit no longer on fire
 
 def t_AttackingSmokedForestRemovesSmokeAndCatchesFire():
     "Attacking a forest that is smoked will remove the smoke and set the tile on fire."
@@ -11726,7 +11739,7 @@ def t_PassivePsionicReceiver():
     assert g.board[(8, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
     assert g.board[(8, 1)].unit.hp == 3
     assert g.board[(1, 2)].unit.effects == set()
-    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(1, 2)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING} # mech lost armor when the psion died
     assert g.board[(1, 2)].unit.hp == 2
 
 def t_PassiveVekHormonesNoPower():
@@ -11877,7 +11890,7 @@ def t_ForceAmp():
     assert g.board[(3, 1)].unit.hp == 1  # vek took another 2 damage because of passive
     assert g.board[(4, 1)].unit.hp == 4  # no change
 
-def t_Weapon_CriticalShields():
+def t_WeaponCriticalShields():
     "Test the CriticalShields passive"
     g = Game(powergrid_hp=2)
     g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_CriticalShields(power1=True, power2=True))) # power is ignored
@@ -11895,7 +11908,7 @@ def t_Weapon_CriticalShields():
     assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # and now has shield
     assert g.board[(3, 1)].unit == None  # Leaper died
 
-def t_Weapon_CriticalShieldsBumpExplode():
+def t_WeaponCriticalShieldsBumpExplode():
     """Test the following CriticalShields passive edge case: if you have 2 powergrid hp and a 1 hp explosive vek next to a building and then you push the vek into the building, you take 1 damage from the bump
         and then the critical shields fire, protecting the building from the explosion damage."""
     g = Game(powergrid_hp=2)
@@ -11915,6 +11928,26 @@ def t_Weapon_CriticalShieldsBumpExplode():
     assert g.board[(2, 1)].unit.hp == 1  # Building took 1 bump damage
     assert g.board[(2, 1)].unit.effects == set() # shield took the explosion damage
     assert g.board[(3, 1)].unit == None  # Leaper died
+
+def t_UnitBurrowerFlameEndTurn():
+    "A burrower catches on fire, the player's turn ends, it takes 1 fire damage, burrows and survives and loses fire."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_FlameThrower(power1=True, power2=True)))
+    g.board[(2, 1)].createUnitHere(Unit_Burrower(g))
+    g.start()
+    assert g.board[(1, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.hp == 3
+    assert g.board[(2, 1)].unit.effects == set()
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT, 3) # have the flamethrower light him up
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.hp == 3  # no change
+    assert g.board[(2, 1)].unit.hp == 3  # burrower didn't take damage yet
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # burrower is now on fire
+    g.endPlayerTurn()
+    assert g.board[(1, 1)].unit.hp == 3  # no change
+    assert g.board[(2, 1)].unit == None  # burrower burrowed and is no longer on this square
+    assert g.nonplayerunits[0].effects == set() # the burrower is still in nonplayer units, the only unit there. and it doesn't have fire
+
 
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.

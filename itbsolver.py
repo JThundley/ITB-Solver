@@ -174,7 +174,6 @@ class Powergrid_CriticalShields(Powergrid):
         super().__init__(game, hp)
         self.qdamage = 0 # damaged queued to take place when flushHurt tells us to
         self._findBuildings()
-        self.shields_popped = False
     def takeDamage(self, damage):
         self.qdamage += damage
     def _findBuildings(self):
@@ -188,24 +187,23 @@ class Powergrid_CriticalShields(Powergrid):
                 pass
     def _shieldBuildings(self):
         "Shield all your buildings, return nothing."
-        if not self.shields_popped:
-            for sq in self.buildings:
-                try:
-                    if self.game.board[sq].unit.isBuilding(): # we have to check again because it's possible a building was destroyed and now another unit is standing in it's place.
-                        self.game.board[sq].unit.applyShield()
-                except AttributeError:
-                    continue
-            self.shields_popped = True
+        for sq in self.buildings:
+            try:
+                if self.game.board[sq].unit.isBuilding(): # we have to check again because it's possible a building was destroyed and now another unit is standing in it's place.
+                    self.game.board[sq].unit.applyShield()
+            except AttributeError:
+                continue
     def flushHurt(self):
         """Call this to signal that buildings are done taking damage.
         If we don't do this it'll be possible in the sim to shoot something that hits 2 buildings, and damaging the first one
         causes the 2nd one to shield before it takes damage, which isn't what happens in the game.
         However, if you have 2 powergrid hp and a 1 hp explosive vek next to a building and then you push the vek into the building, you take 1 damage from the bump
         and then the critical shields fire, protecting the building from the explosion damage."""
-        super().takeDamage(self.qdamage)
-        if self.hp == 1:
-            self._shieldBuildings()
-        self.qdamage = 0
+        if self.qdamage:
+            super().takeDamage(self.qdamage)
+            if self.hp == 1:
+                self._shieldBuildings()
+            self.qdamage = 0
 
 
 ############# THE MAIN GAME BOARD!
@@ -319,7 +317,10 @@ class Game():
            Enemies emerge
         """
         # Do the fire turn:
-        for unit in self.playerunits + self.nonplayerunits: # fire damage seems to happen to vek in the order of their turn
+        for unit in self.playerunits: # copypasta instead of converting playerunits to a list
+            if Effects.FIRE in unit.effects:
+                unit.takeDamage(1, ignorearmor=True, ignoreacid=True)
+        for unit in self.nonplayerunits: # fire damage seems to happen to vek in the order of their turn
             if Effects.FIRE in unit.effects:
                 unit.takeDamage(1, ignorearmor=True, ignoreacid=True)
         self.flushHurt()
@@ -424,6 +425,10 @@ class Tile_Base(TileUnit_Base):
             else:
                 if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
                     self.unit._breakAllWebs()
+        try:
+            self.unit.removeEffect(Effect.FIRE) # a unit moving into smoke removes fire.
+        except AttributeError: # self.None.removeEffect
+            pass
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -1426,7 +1431,7 @@ class Unit_Psion_Base(Unit_Vek_Base, Unit_EnemyNonPsion_Base):
         return Unit_Enemy_Base.takeDamage(self, damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
         # we need to skip Unit_EnemyNonPsion_Base's takeDamage() because it adds hurt units to hurtenemies
     def die(self):
-        self.weapon1.disable() # TODO: What about Psionic Receiver?!
+        self.weapon1.disable()
         super().die()
 
 class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
@@ -1434,6 +1439,15 @@ class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.update((Attributes.BURROWER, Attributes.STABLE))
+    def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+        if self.hp > 0: # if burrower didn't die...
+            self._burrow()
+    def _burrow(self):
+        "Burrow the unit underground, removing fire if present."
+        self.game.board[self.square].unit = None # The unit is gone from the board, but still present otherwise.
+        self.weapon1.qshot = None # cancel the unit's attack.
+        self.removeEffect(Effects.FIRE) # they lose fire after going underground.
 
 class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
     "A simple base class for Massive bosses."
@@ -1551,11 +1565,11 @@ class Unit_AlphaSpider(Unit_NormalVek_Base):
     def __init__(self, game, type='alphaspider', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_LargeOffspring(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_Burrower(Unit_EnemyBurrower_Base): # TODO: implement a special takeDamage() that causes the unit to burrow after taking damage
+class Unit_Burrower(Unit_EnemyBurrower_Base):
     def __init__(self, game, type='burrower', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SpikedCarapace(), qshot=qshot, effects=effects, attributes=attributes)
 
-class Unit_AlphaBurrower(Unit_EnemyBurrower_Base): # TODO: implement a special takeDamage() that causes the unit to burrow after taking damage
+class Unit_AlphaBurrower(Unit_EnemyBurrower_Base):
     def __init__(self, game, type='alphaburrower', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BladedCarapace(), qshot=qshot, effects=effects, attributes=attributes)
 
@@ -1650,10 +1664,6 @@ class Unit_LaserMech(Unit_EnemyBot_Base):
 class Unit_MineBot(Unit_EnemyBot_Base):
     def __init__(self, game, type='minebot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None): # this unit doesn't get a weapon.
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=None, qshot=qshot, effects=effects, attributes=attributes)
-
-# class Unit_MineMech(Unit_EnemyBot_Base): # this unit isn't actually used in the game
-#     def __init__(self, game, type='minemech', hp=1, maxhp=1, qshot=None, effects=None, attributes=None):
-#         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1="TODO", qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_BotLeader_Attacking(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderattacking', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
@@ -1987,7 +1997,7 @@ class Environ_VekEmerge():
             try:
                 self.game.board[square].unit.takeEmergeDamage()
             except AttributeError: # there was no unit
-                pass # TODO: the vek emerges
+                pass # TODO: score: the vek emerges
             else:
                 self.game.flushHurt() # let the unit that took this bump damage die
     def remove(self, square):
@@ -1997,7 +2007,7 @@ class Environ_VekEmerge():
         except ValueError:
             pass
         else:
-            pass # TODO: Vek emerging cancelled!
+            pass # TODO: score: Vek emerging cancelled!
 
 ##############################################################################
 ################################## WEAPONS ###################################
@@ -2557,8 +2567,6 @@ class Weapon_GravWell(Weapon_Artillery_Base):
         pass # grav well can't be upgraded at all
     def shoot(self, direction, distance):
         self.game.board[self.targetsquare].push(Direction.opposite(direction))
-
-# TODO Weapon_VekHormones()
 
 class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base):
     "Default weapon of the Aegis Mech"
@@ -3446,8 +3454,12 @@ class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base
 
 class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Base):
     "Heal all player units (including disabled Mechs)."
+    # it repairs the train, but it has no effect since the 2 different stages only have 1 hp.
+    # it repairs the earth mover which does matter because it has 2 hp!
+    # it removes fire from your mech, but does not repair the tile. If you're on a fire tile and you repairdrop, you're instantly on fire again.
+    # Sub units are repaired and fire is removed from them.
+    # acid is NOT removed from units.
     #def shoot(self): # TODO: THIS!
-    # repairdrop does remove bad effects from your mech like fire
 
 class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
     "Fires a missile barrage that hits every enemy on the map."

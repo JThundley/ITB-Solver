@@ -11948,7 +11948,63 @@ def t_UnitBurrowerFlameEndTurn():
     assert g.board[(2, 1)].unit == None  # burrower burrowed and is no longer on this square
     assert g.nonplayerunits[0].effects == set() # the burrower is still in nonplayer units, the only unit there. and it doesn't have fire
 
+def t_WeaponRepairDrop1():
+    "Do the repair drop with a hurt vek"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_Burrower(g, hp=1, maxhp=3))
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 1 # no change because this doesn't heal vek
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
 
+def t_WeaponRepairDrop2():
+    "Do the repair drop with a hurt mech"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_Pulse_Mech(g, hp=1, maxhp=3))
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
+
+def t_WeaponRepairDrop3():
+    "Do the repair drop with a hurt subunit"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_AcidTank(g, hp=1, maxhp=3))
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
+
+def t_WeaponRepairDrop4():
+    "Do the repair drop with a dead mech"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_Pulse_Mech(g, hp=1, maxhp=3))
+    g.start()
+    g.board[(2, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1 # now a corpse
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
 ########### write tests for these:
 # mech corpses that fall into chasms cannot be revived.
 

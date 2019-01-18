@@ -426,7 +426,7 @@ class Tile_Base(TileUnit_Base):
                 if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
                     self.unit._breakAllWebs()
         try:
-            self.unit.removeEffect(Effect.FIRE) # a unit moving into smoke removes fire.
+            self.unit.removeEffect(Effects.FIRE) # a unit moving into smoke removes fire.
         except AttributeError: # self.None.removeEffect
             pass
     def applyIce(self):
@@ -1135,6 +1135,7 @@ class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
 ############################################################################################################################
 class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
     "The base unit for smaller sub-units that the player controls as well as objective units that the player controls.."
+    _repairdrop = True # indicates that this unit is healed by repairdrop
     def __init__(self, game, type, hp, maxhp, moves, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves
@@ -1229,7 +1230,7 @@ class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControl
         return True
 
 class Unit_Dam(Unit_MultiTile_Base):
-    "When the Dam dies, it floods the middle of the map."
+    "When the Dam dies, it floods the middle of the map. Dam is not effected by RepairDrop."
     def __init__(self, game, type='dam', hp=2, maxhp=2, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.MASSIVE)
@@ -1762,8 +1763,12 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
     def repair(self, hp, ignorerepairfield=True):
         "repair the mech corpse back to unit it was. ignorerepairfield is ironically ignored itself."
         self.oldunit.repairHP(hp)
-        self.oldunit.removeEffect(Effects.FIRE) # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
+        self._revive()
+    def _revive(self):
+        "Revive the corpse into a mech. returns nothing"
+        self.oldunit.removeEffect(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
         self.game.board[self.square].createUnitHere(self.oldunit)
+
 
 class Unit_Combat_Mech(Unit_Mech_Base):
     def __init__(self, game, type='combat', hp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
@@ -3454,12 +3459,36 @@ class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base
 
 class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Base):
     "Heal all player units (including disabled Mechs)."
-    # it repairs the train, but it has no effect since the 2 different stages only have 1 hp.
-    # it repairs the earth mover which does matter because it has 2 hp!
-    # it removes fire from your mech, but does not repair the tile. If you're on a fire tile and you repairdrop, you're instantly on fire again.
+    # it repairs the train, but it has no effect since the 2 different stages only have 1 hp. Any of the 3 stages being repaired is inconsequential.
+    # it repairs the earth mover which does matter because it has 2 hp! Same with acid launcher. And Satellite Rocket. And Terraformer.
+        # These can all be repaired, but not from death.
+    # it removes fire from your mech and subunits, but does not repair the tile. If you're on a fire tile and you repairdrop, you're instantly on fire again.
     # Sub units are repaired and fire is removed from them.
-    # acid is NOT removed from units.
-    #def shoot(self): # TODO: THIS!
+    # acid is NOT removed from units. If a mech has acid, dies and becomes a corpse, the corpse still has acid and the revived mech has acid.
+        # You can't give acid to a mech corpse however. If you hit a mech corpse with acid, it doesn't get it. Then you revive it and it still doesn't have it.
+    def shoot(self):
+        self.usesremaining -= 1
+        for unit in self.game.playerunits.copy():
+            self._healunit(unit)
+        for unit in self.game.nonplayerunits:
+            if self.isHealNPC(unit):
+                self._healunit(unit)
+    def _healunit(self, unit):
+        try:
+            unit._revive()
+        except AttributeError:
+            pass # unit was not a corpse
+        else: # unit was revived, we need to now change unit to the revived unit
+            unit = self.game.board[unit.square].unit
+        unit.hp = unit.maxhp # restore all health
+        unit.removeEffect(Effects.FIRE) # put out fire on the unit
+        self.game.board[unit.square]._spreadEffects() # possibly spread fire back to the unit
+    def isHealNPC(self, unit):
+        "Returns true if this NPC is healed by RepairDrop, False if it's not."
+        try:
+            return unit._repairdrop
+        except AttributeError:
+            return False
 
 class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
     "Fires a missile barrage that hits every enemy on the map."

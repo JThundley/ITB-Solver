@@ -12005,8 +12005,122 @@ def t_WeaponRepairDrop4():
     assert g.board[(2, 1)].unit.hp == 3 # healed
     assert g.board[(2, 1)].effects == set()  # no tile effects
     assert g.board[(2, 1)].unit.effects == set()  # no unit effects
+
+def t_WeaponRepairDrop5():
+    "Do the repair drop with an Earth Mover"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3))
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
+
+def t_WeaponRepairDrop6():
+    "Do the repair drop with a unit on fire, not the tile"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3, effects={Effects.FIRE}))
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE}
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set()  # no tile effects
+    assert g.board[(2, 1)].unit.effects == set()  # no unit effects
+
+def t_WeaponRepairDrop7():
+    "Do the repair drop with a unit and the tile on fire."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3))
+    g.board[(2, 1)].applyFire()
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile on fire
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # unit on fire
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile still on fire
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE} # unit on fire because tile fire spread back after it was removed.
+
+def t_WeaponRepairDrop8():
+    "Do the repair drop with a unit and the tile on fire, but the unit is also shielded."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3))
+    g.board[(2, 1)].applyFire()
+    g.board[(2, 1)].applyShield()
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile on fire
+    assert g.board[(2, 1)].unit.effects == {Effects.FIRE, Effects.SHIELD} # unit on fire and shielded
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == {Effects.FIRE} # tile still on fire
+    assert g.board[(2, 1)].unit.effects == {Effects.SHIELD} # fire removed from unit, shield prevented fire from spreading from tile back to unit
+
+def t_WeaponRepairDrop9():
+    "Do the repair drop with a unit that has acid"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3))
+    g.board[(2, 1)].applyAcid()
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == {Effects.ACID}
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set() # still no tile effects
+    assert g.board[(2, 1)].unit.effects == {Effects.ACID} # This doesn't remove acid
+
+def t_WeaponRepairDrop10():
+    "Do the repair drop with a unit that has ice"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_EarthMover(g, hp=1, maxhp=3))
+    g.board[(2, 1)].applyIce()
+    g.start()
+    assert g.board[(2, 1)].unit.hp == 1
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == {Effects.ICE}
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert g.board[(2, 1)].unit.hp == 3 # healed
+    assert g.board[(2, 1)].effects == set() # still no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # this does remove ice!
+
+def t_WeaponRepairDrop11():
+    "Do the repair drop with a mech that has fallen into a chasm."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairDrop(power1=True, power2=True))) # power is ignored. This unit is only shooting the weapon
+    g.board[(2, 1)].createUnitHere(Unit_Pulse_Mech(g, hp=1, maxhp=3))
+    g.board[(3, 1)].replaceTile(Tile_Chasm(g))
+    g.start()
+    g.board[(2, 1)].takeDamage(5)
+    g.flushHurt()
+    assert g.board[(2, 1)].unit.hp == 1 # now a corpse
+    assert g.board[(2, 1)].effects == set() # no tile effects
+    assert g.board[(2, 1)].unit.effects == set() # no unit effects
+    assert len(g.playerunits) == 2 # we have 2 units
+    g.board[(2, 1)].push(Direction.RIGHT) # push the corpse into the chasm
+    g.flushHurt()
+    assert g.board[(2, 1)].unit == None # no unit there
+    assert g.board[(3, 1)].unit == None  # no unit here
+    assert len(g.playerunits) == 1  # now we just have 1
+    g.board[(1, 1)].unit.weapon1.shoot() # heal up
+    assert len(g.playerunits) == 1  # the unit didn't come back
+    assert g.board[(2, 1)].unit == None # still no unit here
+    assert g.board[(3, 1)].unit == None # no unit here
+
+
+
 ########### write tests for these:
-# mech corpses that fall into chasms cannot be revived.
 
 ########## Weapons stuff for later
 # if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
@@ -12015,7 +12129,6 @@ def t_WeaponRepairDrop4():
 
 # Satellite launches happen after enemy attacks.
 # buildings do block mech movement
-# a burrower taking damage from fire cancels its attack and makes it burrow, but again it does lose fire when it re-emerges.
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
 
 ########## Research these:

@@ -153,7 +153,7 @@ class CantHappenInGame(Exception):
     For example, if the Terraformer's shot goes off the board. The in-game Terraformer will never be placed to allow this."""
 
 class FakeException(Exception):
-    "This is raised to do some more effecient try/except if/else statements"
+    "This is raised to do some more efficient try/except if/else statements"
 
 class GameOver(Exception):
     "This is raised when your powergrid health is depleted, causing the end of the current simulation."
@@ -753,6 +753,10 @@ class Tile_Chasm(Tile_Base):
             pass # congratulations, you live!
         else:
             self.unit.die()
+            try:
+                self.unit._realDeath() # try permanently killing a mech corpse
+            except AttributeError:
+                pass
             self.unit = None # set the unit to None even though most units do this. Mech corpses are invincible units that can only be killed by being pushed into a chasm.
         # no need to super()._spreadEffects() here since the only effects a chasm tile can have is smoke and that never spreads to the unit itself.
     def repair(self, hp):
@@ -1448,6 +1452,7 @@ class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
         "Burrow the unit underground, removing fire if present."
         self.game.board[self.square].unit = None # The unit is gone from the board, but still present otherwise.
         self.weapon1.qshot = None # cancel the unit's attack.
+        # TODO: score: fire removed from an enemy.
         self.removeEffect(Effects.FIRE) # they lose fire after going underground.
 
 class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
@@ -1768,6 +1773,10 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         "Revive the corpse into a mech. returns nothing"
         self.oldunit.removeEffect(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
         self.game.board[self.square].createUnitHere(self.oldunit)
+    def _realDeath(self):
+        "This method removes the mech corpse from the game. This kind of death can only be achieved by pushing a mech corpse into a chasm tile (or a flying mech dying over a chasm). returns nothing"
+        super()._removeUnitFromGame()
+
 
 
 class Unit_Combat_Mech(Unit_Mech_Base):
@@ -3463,6 +3472,7 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
     # it repairs the earth mover which does matter because it has 2 hp! Same with acid launcher. And Satellite Rocket. And Terraformer.
         # These can all be repaired, but not from death.
     # it removes fire from your mech and subunits, but does not repair the tile. If you're on a fire tile and you repairdrop, you're instantly on fire again.
+    # it breaks you out of ice
     # Sub units are repaired and fire is removed from them.
     # acid is NOT removed from units. If a mech has acid, dies and becomes a corpse, the corpse still has acid and the revived mech has acid.
         # You can't give acid to a mech corpse however. If you hit a mech corpse with acid, it doesn't get it. Then you revive it and it still doesn't have it.
@@ -3482,6 +3492,7 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
             unit = self.game.board[unit.square].unit
         unit.hp = unit.maxhp # restore all health
         unit.removeEffect(Effects.FIRE) # put out fire on the unit
+        unit.removeEffect(Effects.ICE) # break the unit out of ice
         self.game.board[unit.square]._spreadEffects() # possibly spread fire back to the unit
     def isHealNPC(self, unit):
         "Returns true if this NPC is healed by RepairDrop, False if it's not."
@@ -3632,8 +3643,6 @@ class Weapon_AcidShot(Weapon_AcidGun_Base):
         super().shoot(direction, True)  # yes push
 
 Weapon_PullShot = Weapon_AttractionPulse # PullShot is literally the same weapon as AttractionPulse lol
-########################### Passives #########################
-# TODO :(
 ########################### Special Mech Weapons (repair) #########################
 class Weapon_Repair(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base):
     "The default repair action/weapon that every mech starts with."
@@ -3908,7 +3917,7 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 3 damage. Kill it first to stop it. Alpha Blob"
     damage = 3
 
-# TODO: We can't predict the shooting of these 4 weapons, but they need to be counted towards spawning new enemies
+# TODO: score We can't predict the shooting of these 4 weapons, but they need to be counted towards spawning new enemies
 class Weapon_UnstableGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
@@ -4060,10 +4069,6 @@ class Weapon_SuperStinger(Weapon_GreaterHornet_Base):
     "Stab three tiles in a row for 2 damage each. HornetLeader"
     extrarange = 2
 
-# class Weapon_Overpowered():
-#     "All other Vek gain +1 HP, Regeneration, and explode on death. Psion Abomination"
-#     # TODO!
-
 class Weapon_MassiveSpinneret(Weapon_Vek_Base, Weapon_hurtAndPushEnemy_Base, Weapon_Validate_Base):
     "Web all targets, preparing to deal 2 damage to adjacent tiles (This attack also pushes targets). ScorpionLeader"
     damage = 2
@@ -4103,14 +4108,14 @@ class Weapon_PlentifulOffspring(Weapon_Vek_Base, Weapon_Validate_Base):
     def shoot(self):
         if self.qshot is not None:
             pass # This weapon, just like the blobber, creates new units in unpredictable locations. The creation of these new units needs to be counted against your score.
-            # TODO!
+            # TODO: score this.
 
 class Weapon_SpiderlingEgg(Weapon_Vek_Base):
     "Hatch into Spiderling. SpiderlingEgg. The unit name and weapon name are the same."
     def validate(self):
         pass
     def shoot(self): # A spiderling egg will always hatch unless it is killed first, so we ignore qshot.
-        pass # TODO: count the creation of a new spiderling toward the simulation's score
+        pass # TODO: score: count the creation of a new spiderling toward the simulation's score
 
 class Weapon_TinyMandibles(Weapon_VekMelee_Base):
     "Weak 1 damage attack against a single adjacent target. Spiderling"
@@ -4213,7 +4218,7 @@ class Weapon_ChooChoo(Weapon_Vek_Base):
     #         # If we made it here, that means there was no unit in the way. Move the train right 2 squares:
     #         self.game.board[self.wieldingunit.square].moveUnit(targetsquare)  # move the front of the train
     #         self._moveCaboose()
-    # def _moveCaboose(self): # TODO: consider not actually moving the train at all. The train's NPC action is the last thing to happen in a turn besides vek spawning which can never be affected by the train's position.
+    # def _moveCaboose(self): # consider not actually moving the train at all. The train's NPC action is the last thing to happen in a turn besides vek spawning which can never be affected by the train's position.
     #     "Move the caboose of the train and update the campion of the already moved front of the train"
     #     self.wieldingunit._setCompanion()
     #     self.game.board[self.oldcaboosesquare].moveUnit(self.wieldingunit.companion)
@@ -4273,7 +4278,7 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
                 raise AttributeError
         except AttributeError: # tile.None.isMountain()
             tile.replaceTile(Tile_Sand(self.game))
-            # TODO: count the score for the objective goal here.
+            # TODO: score count the score for the objective goal here.
             # Maybe this should only be counted once per shot. We shouldn't create a scenario where terraforming more grassland tiles is more valuable than killing more vek.
         tile.die()
 
@@ -4432,7 +4437,7 @@ class Weapon_StormGenerator():
         self.game.stormGeneratorTurn = self._turnAction
     def _turnAction(self):
         "Damage all enemy units in a tile with smoke."
-        # TODO: You can make this effecient by making a method to add and remove smoked tiles from a set so we can iterate through it only when this passive is active.
+        # TODO: You can make this efficient by making a method to add and remove smoked tiles from a set so we can iterate through it only when this passive is active.
         # The idea is to make a method hook that is None or pass whenever we're simulating without this storm generator in play, that way we're not constantly building and unbuiding the set of smoke when it doesn't matter
         for t in self.game.board.values(): # for now, iterate through all 64 tiles looking for smoke
             try:

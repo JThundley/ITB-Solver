@@ -2582,26 +2582,27 @@ def t_WeaponBurstBeamFullPower():
     assert g.board[(4, 1)].unit.hp == 2 # friendly took NO damage
     assert g.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
 
-# def t_WeaponBurstBeamOrder1(): # TODO: Finish this after the blast psion removes explosive from units upon death and Psion receiver is implemented.
-#     "Test the order of vek and mechs dying from BurstBeam. Refer to 'explosive burst beam order 1.flv"
-#     g = Game()
-#     g.board[(3, 2)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=False, power2=False)))
-#     g.board[(4, 2)].createUnitHere(Unit_Firefly(g))
-#     g.board[(5, 2)].createUnitHere(Unit_Defense_Mech(g))
-#     g.board[(5, 2)].createUnitHere(Unit_BlastPsion(g))
-#     assert g.board[(1, 1)].unit.hp == 3
-#     assert g.board[(2, 1)].unit == None
-#     assert g.board[(3, 1)].unit.hp == 5
-#     assert g.board[(4, 1)].unit.hp == 2
-#     assert g.board[(5, 1)].unit.type == 'mountain'
-#     g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
-#     g.flushHurt()
-#     assert g.board[(1, 1)].unit.hp == 3 # wielder untouched
-#     assert g.board[(2, 1)].unit == None # still nothing here
-#     assert g.board[(2, 1)].effects == set()
-#     assert g.board[(3, 1)].unit.hp == 2 # vek took 3 damage
-#     assert g.board[(4, 1)].unit.hp == 2 # friendly took NO damage
-#     assert g.board[(5, 1)].unit.type == 'mountaindamaged' # mountain was damaged
+def t_WeaponBurstBeamOrder1PsionicReceiver():
+    "Test the order of vek and mechs dying from BurstBeam with PsionicReceiver. Refer to 'explosive burst beam order 1.flv"
+    g = Game()
+    g.board[(3, 2)].createUnitHere(Unit_Laser_Mech(g, weapon1=Weapon_BurstBeam(power1=False, power2=False), weapon2=Weapon_PsionicReceiver()))
+    g.board[(4, 2)].createUnitHere(Unit_Firefly(g))
+    g.board[(5, 2)].createUnitHere(Unit_Defense_Mech(g))
+    g.board[(6, 2)].createUnitHere(Unit_BlastPsion(g))
+    g.board[(7, 2)].createUnitHere(Unit_Scarab(g))
+    g.start()
+    assert g.board[(3, 2)].unit.hp == 3
+    assert g.board[(4, 2)].unit.hp == 3
+    assert g.board[(5, 2)].unit.hp == 2
+    assert g.board[(6, 2)].unit.hp == 2
+    assert g.board[(7, 2)].unit.hp == 2
+    g.board[(3, 2)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(3, 2)].unit.hp == 2 # wielder took 1 explosion damage
+    assert g.board[(4, 2)].unit == None # firefly died
+    assert g.board[(5, 2)].unit._revive # defense mech is a corpse
+    assert g.board[(6, 2)].unit == None # Blast Psion died
+    assert g.board[(7, 2)].unit.hp == 1 # scrab took 1 damage from beam
 
 def t_ExplosiveUnitDies():
     "Test a unit with the explosive effect dying"
@@ -12137,13 +12138,10 @@ def t_WeaponRepairDrop11():
     assert g.board[(3, 1)].unit == None # no unit here
 
 
-
 ########### write tests for these:
 
 ########## Weapons stuff for later
-# if you use the burst beam (laser mech) and kill an armor psion and hit another unit behind it, the armor is removed from the other unit after it takes damage from the laser.
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
-# You can heal allies with the Repair Field passive - when you tell a mech to heal, your other mechs are also healed for 1 hp, even if they're currently disabled.
 
 # Satellite launches happen after enemy attacks.
 # buildings do block mech movement

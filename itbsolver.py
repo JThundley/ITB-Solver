@@ -3,7 +3,6 @@
 ############ IMPORTS ######################
 
 ############### GLOBALS ###################
-DEBUG=True
 
 # this generator and class are out of place and separate from the others, sue me
 def numGen():
@@ -613,9 +612,9 @@ class Tile_Forest_Sand_Base(Tile_Base):
     def applyAcid(self):
         try:
             self.unit.applyAcid() # give the unit acid if present
-        except AttributeError: # TODO: too many lookups below
-            self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects=(Effects.ACID,)), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
-            self.game.board[self.square].effects.discard(Effects.FIRE) # fire is put out by acid.
+        except AttributeError: # no unit present, so the tile gets acid
+            self.effects.discard(Effects.FIRE) # fire is put out by acid.
+            self.replaceTile(Tile_Ground(self.game, effects=(Effects.ACID,)), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
         # The tile doesn't get acid effects if the unit takes it instead.
 
 class Tile_Forest(Tile_Forest_Sand_Base):
@@ -639,7 +638,7 @@ class Tile_Sand(Tile_Forest_Sand_Base):
         super().__init__(game, square, type, effects=effects)
     def applyFire(self):
         "Fire converts the sand tile to a ground tile"
-        self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects=(Effects.FIRE,)), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
+        self.replaceTile(Tile_Ground(self.game, effects=(Effects.FIRE,)), keepeffects=True)  # Acid removes the forest/sand and makes it no longer flammable/smokable
         super().applyFire()
     def _tileTakeDamage(self):
         self.applySmoke()
@@ -650,9 +649,9 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         super().__init__(game, square, type, effects=effects)
     def applyIce(self):
         "replace the tile with ice and give ice to the unit if present."
-        if not self.hasShieldedUnit(): # TODO: too many lookups below
-            self.game.board[self.square].replaceTile(Tile_Ice(self.game))
-            self.game.board[self.square].effects.discard(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
+        if not self.hasShieldedUnit():
+            self.effects.discard(Effects.SUBMERGED)  # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
+            self.replaceTile(Tile_Ice(self.game))
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -666,7 +665,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
             self.unit.applyFire()
         except AttributeError:
             pass
-        self.game.board[self.square].replaceTile(Tile_Water(self.game))
+        self.replaceTile(Tile_Water(self.game))
     def _spreadEffects(self):
         "there are no effects to spread from ice or damaged ice to a unit. These tiles can't be on fire and any acid on these tiles is frozen and inert, even if added after freezing."
         pass
@@ -722,13 +721,13 @@ class Tile_Ice(Tile_Water_Ice_Damaged_Base):
         except AttributeError:
             return
     def _tileTakeDamage(self):
-        self.game.board[self.square].replaceTile(Tile_Ice_Damaged(self.game))
+        self.replaceTile(Tile_Ice_Damaged(self.game))
 
 class Tile_Ice_Damaged(Tile_Water_Ice_Damaged_Base):
     def __init__(self, game, square=None, type='ice_damaged', effects=None):
         super().__init__(game, square, type, effects=effects)
     def _tileTakeDamage(self):
-        self.game.board[self.square].replaceTile(Tile_Water(self.game))
+        self.replaceTile(Tile_Water(self.game))
 
 class Tile_Chasm(Tile_Base):
     "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
@@ -1414,7 +1413,8 @@ class Unit_EnemyNonPsion_Base(Unit_Enemy_Base):
             pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Take damage like a normal unit except add it to hurtunits and don't die yet."
-        self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
+        if self.hp > 0: # Only add hurt enemies to the list if they're still alive. Before doing this, a vek could be killed, explode, take more damage and explode again.
+            self.game.hurtenemies.append(self)  # add it to the queue of units to be killed at the same time
         return super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
 
 class Unit_NormalVek_Base(Unit_Vek_Base, Unit_EnemyNonPsion_Base):
@@ -1715,6 +1715,8 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
             pass # the unit is really dead, don't bother creating a mech corpse since it too will die
         else: # make a mech corpse
             self.game.board[self.square]._putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
+            if Effects.EXPLOSIVE in self.effects: # if the mech that died was explosive, the corpse needs to be explosive and explode
+                self.game.board[self.square].unit.effects.add(Effects.EXPLOSIVE)
         self.game.playerunits.discard(self)
     def repair(self, hp, ignorerepairfield=False):
         "Repair the unit healing hp and removing bad effects. ignorerepairfield is set to True by _repairField() to make sure we don't get stuck in a loop."
@@ -1756,8 +1758,6 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self.attributes.add(Attributes.MASSIVE)
         self.suppressteleport = True # Mech corpses can never be teleported through a teleporter. They can be teleported by the teleport mech/weapon however
         self.game.hurtplayerunits.append(self) # this is done so the mech corpse can explode if needed
-        #if Passives.PSIONICRECEIVER in self.game.playerpassives and Passives.EXPLOSIVEDECAY in self.game.vekpassives:
-        #    self.effects.add(Effects.EXPLOSIVE)
         self.game.playerunits.add(self)
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "invulnerable to damage"
@@ -2695,7 +2695,6 @@ class Weapon_ElectricWhip(Weapon_DirectionalGen_Base):
     It does not go through mountains or supervolcano either. It does go through rocks.
     Cannot attack mines on the ground.
     Reddit said you can attack a building if it's webbed, this is not true. Even if you attack the scorpion webbing the building, the building won't pass the attack through or take damage.
-    When you chain through units that are explosive, they explode in the reverse order in which they were shocked. # TODO: this is true and not implemented!
     You can never chain through yourself when you shoot!"""
     def __init__(self, power1=False, power2=False):
         if power1:

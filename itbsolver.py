@@ -365,12 +365,6 @@ class TileUnit_Base():
             self.effects = set()
         else:
             self.effects = set(effects) # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
-    def removeEffect(self, effect):
-        "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
-        try:
-            self.effects.remove(effect) # TODO: use the discard() method instead
-        except KeyError:
-            pass
 
 class Tile_Base(TileUnit_Base):
     """The base class for all Tiles, all other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
@@ -404,19 +398,19 @@ class Tile_Base(TileUnit_Base):
         self.effects.add(Effects.FIRE)
         self._removeSmokeStormGen()
         for e in Effects.SMOKE, Effects.ACID:
-            self.removeEffect(e) # Fire removes smoke and acid
+            self.effects.discard(e) # Fire removes smoke and acid
         try:
             self.unit.applyFire()
         except AttributeError:
             return
     def applySmoke(self):
         "make a smoke cloud on the current tile"
-        self.removeEffect(Effects.FIRE) # smoke removes fire
+        self.effects.discard(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
         self._addSmokeStormGen()
         try:
-            self.unit.removeEffect(Effects.FIRE) # a unit moving into smoke removes fire.
-        except AttributeError: # self.None.removeEffect
+            self.unit.effects.discard(Effects.FIRE) # a unit moving into smoke removes fire.
+        except AttributeError: # self.None.effects.discard
             pass # no unit which is fine
         else:
             if Attributes.IMMUNESMOKE not in self.unit.attributes:
@@ -430,7 +424,7 @@ class Tile_Base(TileUnit_Base):
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
-            self.removeEffect(Effects.FIRE) # remove fire from the tile
+            self.effects.discard(Effects.FIRE) # remove fire from the tile
             try:
                 self.unit.applyIce() # give the unit ice
             except AttributeError: # None.applyIce()
@@ -440,7 +434,7 @@ class Tile_Base(TileUnit_Base):
             self.unit.applyAcid()
         except AttributeError: # the tile doesn't get acid if a unit is present to take it instead
             self.effects.add(Effects.ACID)
-            self.removeEffect(Effects.FIRE)
+            self.effects.discard(Effects.FIRE)
     def applyShield(self):
         "Try to give a shield to a unit present. return True if a unit was shielded, False if there was no unit."
         try: # Tiles can't be shielded, only units
@@ -450,7 +444,7 @@ class Tile_Base(TileUnit_Base):
             return False
     def repair(self, hp):
         "Repair this tile and any mech on it. hp is the amount of hp to repair on the present unit. This method should only be used for mechs and not vek as they can be healed but they never repair the tile."
-        self.removeEffect(Effects.FIRE)
+        self.effects.discard(Effects.FIRE)
         try:
             self.unit.repair(hp)
         except AttributeError:
@@ -467,7 +461,7 @@ class Tile_Base(TileUnit_Base):
                 self.unit.applyFire() # spread fire to it.
             if Effects.ACID in self.effects: # same with acid, but also remove it from the tile.
                 self.unit.applyAcid()
-                self.removeEffect(Effects.ACID)
+                self.effects.discard(Effects.ACID)
     def _tileTakeDamage(self):
         "Process the effects of the tile taking damage. returns nothing."
         pass
@@ -495,8 +489,8 @@ class Tile_Base(TileUnit_Base):
         unit = self.unit
         if keepeffects:
             newtile.effects.update(self.effects)
+        newtile.square = self.square
         self.game.board[self.square] = newtile
-        self.game.board[self.square].square = self.square
         self.game.board[self.square]._putUnitHere(unit)
     def moveUnit(self, destsquare):
         "Move a unit from this square to destsquare, keeping the effects. This overwrites whatever is on destsquare! returns nothing."
@@ -595,7 +589,7 @@ class Tile_Ground(Tile_Base):
         super().applyAcid()
         if not self.unit:
             for e in Effects.TIMEPOD, Effects.MINE, Effects.FREEZEMINE:
-                self.removeEffect(e)
+                self.effects.discard(e)
     def applyFire(self):
         self._tileTakeDamage() # fire removes timepods and mines just like damage does
         super().applyFire()
@@ -604,13 +598,13 @@ class Tile_Ground(Tile_Base):
         super()._spreadEffects()
         if Effects.MINE in self.effects:
             self.unit.die()
-            self.removeEffect(Effects.MINE)
+            self.effects.discard(Effects.MINE)
         elif Effects.FREEZEMINE in self.effects:
-            self.removeEffect(Effects.FREEZEMINE)
+            self.effects.discard(Effects.FREEZEMINE)
             self.unit.applyIce()
     def _tileTakeDamage(self):
         for effect in Effects.TIMEPOD, Effects.FREEZEMINE, Effects.MINE:
-            self.removeEffect(effect)
+            self.effects.discard(effect)
 
 class Tile_Forest_Sand_Base(Tile_Base):
     "This is the base class for both Forest and Sand Tiles since they both share the same applyAcid mechanics."
@@ -619,9 +613,9 @@ class Tile_Forest_Sand_Base(Tile_Base):
     def applyAcid(self):
         try:
             self.unit.applyAcid() # give the unit acid if present
-        except AttributeError:
+        except AttributeError: # TODO: too many lookups below
             self.game.board[self.square].replaceTile(Tile_Ground(self.game, effects=(Effects.ACID,)), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
-            self.game.board[self.square].removeEffect(Effects.FIRE) # fire is put out by acid.
+            self.game.board[self.square].effects.discard(Effects.FIRE) # fire is put out by acid.
         # The tile doesn't get acid effects if the unit takes it instead.
 
 class Tile_Forest(Tile_Forest_Sand_Base):
@@ -656,9 +650,9 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         super().__init__(game, square, type, effects=effects)
     def applyIce(self):
         "replace the tile with ice and give ice to the unit if present."
-        if not self.hasShieldedUnit():
+        if not self.hasShieldedUnit(): # TODO: too many lookups below
             self.game.board[self.square].replaceTile(Tile_Ice(self.game))
-            self.game.board[self.square].removeEffect(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
+            self.game.board[self.square].effects.discard(Effects.SUBMERGED) # Remove the submerged effect from the newly spawned ice tile in case we just froze water.
         try:
             self.unit.applyIce()
         except AttributeError:
@@ -666,7 +660,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
     def applyFire(self):
         "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
-            self.removeEffect(e)
+            self.effects.discard(e)
         self._removeSmokeStormGen()
         try: # it's important that we set the unit on fire first. Otherwise the tile will be changed to water, then the unit will be set on fire in water. whoops.
             self.unit.applyFire()
@@ -706,7 +700,7 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
             self.unit.die()
         else: # the unit lived
             if Attributes.FLYING not in self.unit.attributes:
-                self.unit.removeEffect(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
+                self.unit.effects.discard(Effects.FIRE) # water puts out the fire, but if you're flying you remain on fire
                 if Effects.ACID in self.effects: # spread acid from tile to unit but don't remove it from the tile
                     self.unit.applyAcid()
                 if Effects.ACID in self.unit.effects: # if the unit has acid and is massive but not flying, spread acid from unit to tile
@@ -715,7 +709,7 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
                     self.unit.weapon1.qshot = None # invalidate his shot
                 except AttributeError: # this has the side effect of giving mechs a qshot, but that shouldn't effect anything
                     pass
-            self.unit.removeEffect(Effects.ICE) # water breaks you out of the ice no matter what
+            self.unit.effects.discard(Effects.ICE) # water breaks you out of the ice no matter what
 
 class Tile_Ice(Tile_Water_Ice_Damaged_Base):
     "Turns into Water when destroyed. Must be hit twice. (Turns into Ice_Damaged.)"
@@ -806,7 +800,7 @@ class Tile_Lava(Tile_Water):
         else: # the unit lived
             if Attributes.FLYING not in self.unit.attributes:
                 self.unit.applyFire() # lava is always on fire, now you are too!
-            self.unit.removeEffect(Effects.ICE) # water and lava breaks you out of the ice no matter what
+            self.unit.effects.discard(Effects.ICE) # water and lava breaks you out of the ice no matter what
 
 class Tile_Grassland(Tile_Base):
     "Your bonus objective is to terraform Grassland tiles into Sand. This is mostly just a regular ground tile."
@@ -873,12 +867,12 @@ class Unit_Base(TileUnit_Base):
             return True
         return False
     def applyFire(self):
-        self.removeEffect(Effects.ICE)
+        self.effects.discard(Effects.ICE)
         if not Attributes.IMMUNEFIRE in self.attributes:
             self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
     def applyIce(self):
         if self.applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-            self.removeEffect(Effects.FIRE)
+            self.effects.discard(Effects.FIRE)
         try:
             self.weapon1.qshot = None
         except AttributeError:  # self.None.qshot
@@ -1136,7 +1130,7 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlay
         self._removeUnitFromGame()
         self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
-        self.game.board[self.square].removeEffect(Effects.FIRE) # don't keep fire, this tile can't be on fire.
+        self.game.board[self.square].effects.discard(Effects.FIRE) # don't keep fire, this tile can't be on fire.
 
 class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1462,7 +1456,7 @@ class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
         self.game.board[self.square].unit = None # The unit is gone from the board, but still present otherwise.
         self.weapon1.qshot = None # cancel the unit's attack.
         # TODO: score: fire removed from an enemy.
-        self.removeEffect(Effects.FIRE) # they lose fire after going underground.
+        self.effects.discard(Effects.FIRE) # they lose fire after going underground.
 
 class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
     "A simple base class for Massive bosses."
@@ -1727,7 +1721,7 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
         if ignorerepairfield or not self._repairField():
             self.repairHP(hp)
             for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
-                self.removeEffect(e)
+                self.effects.discard(e)
     def _repairField(self):
         "Repair all your mechs if the repairfield passive is in play. Returns True if it was and the healing was done, False if the passive wasn't active."
         if Passives.REPAIRFIELD in self.game.otherpassives:
@@ -1780,7 +1774,7 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self._revive()
     def _revive(self):
         "Revive the corpse into a mech. returns nothing"
-        self.oldunit.removeEffect(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
+        self.oldunit.effects.discard(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
         self.game.board[self.square].createUnitHere(self.oldunit)
     def _realDeath(self):
         "This method removes the mech corpse from the game. This kind of death can only be achieved by pushing a mech corpse into a chasm tile (or a flying mech dying over a chasm). returns nothing"
@@ -1955,7 +1949,7 @@ class Environ_Cataclysm(Environ_Base):
         super().run()
         for square in self.squares:
             for e in Effects.FIRE, Effects.ACID: # remove fire and acid from the newly created chasm tiles as they can't have these effects.
-                self.game.board[square].removeEffect(e)
+                self.game.board[square].effects.discard(e)
 
 class Environ_FallingRock(Environ_Base):
     def __init__(self, squares):
@@ -3500,8 +3494,8 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
         else: # unit was revived, we need to now change unit to the revived unit
             unit = self.game.board[unit.square].unit
         unit.hp = unit.maxhp # restore all health
-        unit.removeEffect(Effects.FIRE) # put out fire on the unit
-        unit.removeEffect(Effects.ICE) # break the unit out of ice
+        unit.effects.discard(Effects.FIRE) # put out fire on the unit
+        unit.effects.discard(Effects.ICE) # break the unit out of ice
         self.game.board[unit.square]._spreadEffects() # possibly spread fire back to the unit
     def isHealNPC(self, unit):
         "Returns true if this NPC is healed by RepairDrop, False if it's not."
@@ -3670,7 +3664,7 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
         self.damage = 2
     def shoot(self, direction):
         super().shoot_punch(direction)
-        self.wieldingunit.removeEffect(Effects.ICE)
+        self.wieldingunit.effects.discard(Effects.ICE)
 
 ################################ Vek Weapons #################################
 # All weapons have their ingame description in the docstring followed by the type/name of the enemy that wields this weapon.
@@ -4173,7 +4167,7 @@ class Weapon_SelfRepair(Weapon_Vek_Base, Weapon_Validate_Base):
         if self.qshot is not None:
             self.wieldingunit.hp = self.wieldingunit.maxhp
             if Effects.FIRE not in self.game.board[self.wieldingunit.square].effects: # these repairs do not remove bad effects from the tile. If you trap him on a fire tile and he repairs there, he keeps fire.
-                self.wieldingunit.removeEffect(Effects.FIRE) # repair doesn't remove acid from the unit, but it does remove fire.
+                self.wieldingunit.effects.discard(Effects.FIRE) # repair doesn't remove acid from the unit, but it does remove fire.
             # Ice cancels the attack like a regular weapon, he can't repair out of ice.
 
 ############################## Objective Weapons ###########################################

@@ -368,7 +368,7 @@ class TileUnit_Base():
     def removeEffect(self, effect):
         "This is just a little helper method to remove effects and ignore errors if the effect wasn't present."
         try:
-            self.effects.remove(effect)
+            self.effects.remove(effect) # TODO: use the discard() method instead
         except KeyError:
             pass
 
@@ -402,6 +402,7 @@ class Tile_Base(TileUnit_Base):
     def applyFire(self):
         "set the current tile on fire"
         self.effects.add(Effects.FIRE)
+        self._removeSmokeStormGen()
         for e in Effects.SMOKE, Effects.ACID:
             self.removeEffect(e) # Fire removes smoke and acid
         try:
@@ -412,23 +413,20 @@ class Tile_Base(TileUnit_Base):
         "make a smoke cloud on the current tile"
         self.removeEffect(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
-        try:
-            if Attributes.IMMUNESMOKE not in self.unit.attributes:
-                raise FakeException
-        except AttributeError: # x not in self.None.attributes
-            pass # no unit which is fine
-        except FakeException:
-            try: # invalidate qshots of enemies that get smoked
-                self.unit.weapon1.qshot = None
-            except AttributeError: # either there was no unit or the unit had no weapon
-                pass
-            else:
-                if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
-                    self.unit._breakAllWebs()
+        self._addSmokeStormGen()
         try:
             self.unit.removeEffect(Effects.FIRE) # a unit moving into smoke removes fire.
         except AttributeError: # self.None.removeEffect
-            pass
+            pass # no unit which is fine
+        else:
+            if Attributes.IMMUNESMOKE not in self.unit.attributes:
+                try: # invalidate qshots of enemies that get smoked
+                    self.unit.weapon1.qshot = None
+                except AttributeError: # either there was no unit or the unit had no weapon
+                    pass
+                else:
+                    if self.unit.alliance == Alliance.ENEMY: # if this was an enemy that was smoked, let's also break all its webs:
+                        self.unit._breakAllWebs()
     def applyIce(self):
         "apply ice to the tile and unit."
         if not self.hasShieldedUnit():
@@ -577,6 +575,15 @@ class Tile_Base(TileUnit_Base):
             return self._grassland
         except AttributeError:
             return False
+    def _addSmokeStormGen(self):
+        "This method is replaced by Weapon_StormGenerator when it is in play."
+        pass
+    def _removeSmokeStormGen(self):
+        "This method is replaced by Weapon_StormGenerator when it is in play."
+        pass
+    def _pass(self):
+        "This is only here to replace the above 2 stormgem methods when destructing it."
+        pass
     def __str__(self):
         return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
@@ -660,6 +667,7 @@ class Tile_Water_Ice_Damaged_Base(Tile_Base):
         "Fire always removes smoke except over water and it removes acid from frozen acid tiles"
         for e in Effects.SMOKE, Effects.ACID:
             self.removeEffect(e)
+        self._removeSmokeStormGen()
         try: # it's important that we set the unit on fire first. Otherwise the tile will be changed to water, then the unit will be set on fire in water. whoops.
             self.unit.applyFire()
         except AttributeError:
@@ -791,6 +799,7 @@ class Tile_Lava(Tile_Water):
     def applySmoke(self):
         "Smoke doesn't remove fire from the lava."
         self.effects.add(Effects.SMOKE) # we don't break webs here since only flying units can be on lava and no flying units can web
+        self._addSmokeStormGen()
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -4434,12 +4443,20 @@ class Weapon_StormGenerator():
         if power1:
             self.damage += 1
     def enable(self):
+        self.game.stormtiles = set()
+        # replace the game instance's stormGeneratorTurn with a real method
         self.game.stormGeneratorTurn = self._turnAction
+        # Build a set of all tiles on the board that have smoke.
+        for t in self.game.board.values():  # for now, iterate through all 64 tiles looking for smoke
+            if Effects.SMOKE in t.effects:
+                self.game.stormtiles.add(t.square)
+        # replace the dummy stormgen methods on the Tile object:
+        Tile_Base._addSmokeStormGen = self._addSmokeStormGen
+        Tile_Base._removeSmokeStormGen = self._removeSmokeStormGen
     def _turnAction(self):
         "Damage all enemy units in a tile with smoke."
-        # TODO: You can make this efficient by making a method to add and remove smoked tiles from a set so we can iterate through it only when this passive is active.
-        # The idea is to make a method hook that is None or pass whenever we're simulating without this storm generator in play, that way we're not constantly building and unbuiding the set of smoke when it doesn't matter
-        for t in self.game.board.values(): # for now, iterate through all 64 tiles looking for smoke
+        for sq in self.game.stormtiles:
+            t = self.game.board[sq]
             try:
                 if t.unit.alliance == Alliance.ENEMY:
                     pass
@@ -4450,6 +4467,17 @@ class Weapon_StormGenerator():
             if Effects.SMOKE in t.effects:
                 t.unit.takeDamage(self.damage, ignoreacid=True, ignorearmor=True) # the tile doesn't take damage
         self.game.flushHurt()
+    def _addSmokeStormGen(self):
+        self.game.stormtiles.add(self.square)
+    def _removeSmokeStormGen(self):
+        self.game.stormtiles.discard(self.square)
+    def disable(self):
+        "Undo the big mess we made. This is only to make tests pass ;)"
+        # put the dummy stormgen methods back onto the Tile object:
+        Tile_Base._addSmokeStormGen = Tile_Base._pass
+        Tile_Base._removeSmokeStormGen = Tile_Base._pass
+
+
 
 class Weapon_VisceraNanobots():
     "Mechs heal 1 damage when they deal a killing blow."

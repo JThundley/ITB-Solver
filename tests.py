@@ -586,6 +586,22 @@ def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFire():
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
 
+def t_SettingFireToSmokedTileRemovesSmokeAndCatchesFireShield():
+    "Setting fire to a normal tile that is smoked will remove the smoke and set the tile on fire, even with a shielded unit present."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Ground(g))
+    assert g.board[(1, 1)].effects == set()
+    g.board[(1, 1)].applyFire()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    g.board[(1, 1)].applySmoke()
+    assert g.board[(1, 1)].effects == {Effects.SMOKE}
+    assert g.board[(1, 1)].type == 'ground'
+    g.board[(1, 1)].createUnitHere(Unit_Ice_Mech(g, effects={Effects.SHIELD}))
+    assert g.board[(1, 1)].unit.effects == {Effects.SHIELD}
+    g.board[(1, 1)].applyFire()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+
 def t_SettingFireToSmokedWaterTileDoesNothing():
     "Setting fire to a water tile that is smoked will leave the smoke."
     g = Game()
@@ -11387,6 +11403,7 @@ def t_PassiveStormGeneratorNoPower():
     assert g.board[(5, 1)].unit.effects == set()
     assert g.board[(5, 1)].unit.attributes == set()
     assert g.board[(5, 1)].unit.hp == 1
+    g.board[(1, 1)].unit.weapon1.disable()
 
 def t_PassiveStormGenerator1Power():
     "Make sure StormGenerator works on enemies and not your units with 1 power"
@@ -11448,6 +11465,7 @@ def t_PassiveStormGenerator1Power():
     assert g.board[(5, 1)].unit.effects == set()
     assert g.board[(5, 1)].unit.attributes == set()
     assert g.board[(5, 1)].unit.hp == 1
+    g.board[(1, 1)].unit.weapon1.disable()
 
 def t_PassiveRepairField():
     "Test out the repair field passive."

@@ -4883,7 +4883,7 @@ def t_WeaponExplosiveGooPower2():
         assert g.board[u].unit.hp == 5 # no hp change to all other vek
 
 def t_WeaponExplosiveGooPower1():
-    "Fire the NeedleShot weapon with extra tile powered."
+    "Fire the Explosive Goo weapon with extra tile powered."
     g = Game()
     for x in range(1, 9): # fuckit, put vek on every tile
         for y in range(1, 9):
@@ -12137,6 +12137,32 @@ def t_WeaponRepairDrop11():
     assert g.board[(2, 1)].unit == None # still no unit here
     assert g.board[(3, 1)].unit == None # no unit here
 
+def t_WeaponOldEarthArtillery():
+    "Fire the OldArtillery's weapon."
+    g = Game()
+    for x in range(1, 9): # fuckit, put vek on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_AlphaScorpion(g))
+    # replace one with our boi
+    g.board[(1, 3)].createUnitHere(Unit_OldArtillery(g))
+    gs = g.board[(1, 3)].unit.weapon1.genShots()
+    for r in range(6):
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # RIGHT, 3
+    g.flushHurt()
+    allunits = {} # build a dict of all units
+    for x in range(1, 9):
+        for y in range(1, 9):
+            allunits[(x, y)] = g.board[(x, y)].unit
+    assert g.board[(1, 3)].unit.hp == 2  # wielder took no damage
+    assert g.board[(1, 3)].unit.effects == set() # no unit effects
+    del allunits[(1, 3)]  # delete the wielder from allunits
+    assert g.board[(4, 3)].unit.hp == 3  # target took 2 damage
+    del allunits[(4, 3)]  # delete the target unit from all
+    assert g.board[(5, 3)].unit.hp == 3  # 2nd target took 2 normal damage
+    del allunits[(5, 3)]  # delete the target unit from all
+    for u in allunits:
+        assert g.board[u].unit.hp == 5 # no hp change to all other vek
 
 ########### write tests for these:
 
@@ -12152,7 +12178,37 @@ def t_WeaponRepairDrop11():
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
 
-# Movement POC:
+############### Movement:
+# Things that DO block movement:
+# Enemies
+#   Blob
+#   Bots
+#   Volatile Vek
+# Buildings
+# Mountains
+# Chasm Tiles
+# Boulder/Rock
+# AcidVat
+#
+# Things that DONT block movement:
+# Mechs
+#   Frozen Mechs
+#   Mech Corpses
+# Objective units
+#   Satellite Rocket (and corpse)
+#   Archive Tank
+#   Old Artillery
+#   Terraformer
+#   Earth Mover
+#   Train
+#   Acid Launcher
+#   Prototype Renfield Bomb
+# Light Tank (deployable)
+# Mine Bot (Technically an enemy)
+
+# Flying lets you pass through enemies.
+
+# POC:
 # obstructions = ((2, 2), (-1, -1))
 #
 # moves = ((0, 1), (1, 0), (-1, 0), (0, -1))

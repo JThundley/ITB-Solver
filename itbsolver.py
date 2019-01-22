@@ -1165,8 +1165,8 @@ class Unit_ArchiveTank(Sub_Unit_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
 class Unit_OldArtillery(Sub_Unit_Base):
-    def __init__(self, game, type='oldartillery', hp=1, maxhp=1, weapon1=None, moves=1, effects=None, attributes=None):
-        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
+    def __init__(self, game, type='oldartillery', hp=2, maxhp=2, moves=1, effects=None, attributes=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_OldEarthArtillery(), moves=moves, effects=effects, attributes=attributes)
 
 class Unit_ShieldTank(Sub_Unit_Base):
     def __init__(self, game, type='shieldtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
@@ -1682,6 +1682,7 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderhealing', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SelfRepair(), qshot=qshot, effects=effects, attributes=attributes)
 
+# TODO: Make a volatile vek!
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
 ############################################################################################################################
@@ -1779,8 +1780,6 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
     def _realDeath(self):
         "This method removes the mech corpse from the game. This kind of death can only be achieved by pushing a mech corpse into a chasm tile (or a flying mech dying over a chasm). returns nothing"
         super()._removeUnitFromGame()
-
-
 
 class Unit_Combat_Mech(Unit_Mech_Base):
     def __init__(self, game, type='combat', hp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):
@@ -3645,6 +3644,18 @@ class Weapon_AcidShot(Weapon_AcidGun_Base):
         super().shoot(direction, True)  # yes push
 
 Weapon_PullShot = Weapon_AttractionPulse # PullShot is literally the same weapon as AttractionPulse lol
+
+class Weapon_OldEarthArtillery(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base):
+    "Underpowered compared to modern artillery, but still useful. OldArtillery"
+    damage = 2
+    def shoot(self, direction, distance):
+        self.game.board[self.targetsquare].takeDamage(self.damage) # copypasta from Weapon_ExplosiveGoo
+        extrasquare = self.game.board[self.targetsquare].getRelSquare(direction, 1) # set the 2nd square
+        try: # try to damage one tile past the target
+            self.game.board[extrasquare].takeDamage(self.damage)
+        except KeyError: # board[False]; the extra shot was wasted which is fine
+            pass
+
 ########################### Special Mech Weapons (repair) #########################
 class Weapon_Repair(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base):
     "The default repair action/weapon that every mech starts with."

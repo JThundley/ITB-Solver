@@ -12174,6 +12174,7 @@ def t_WeaponOldEarthArtillery():
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
 
 ########## Research these:
+# There are 2 TODO's above
 
 ########## Do these ones even matter?
 # Spiderling eggs with acid hatch into spiders with acid.
@@ -12206,7 +12207,7 @@ def t_WeaponOldEarthArtillery():
 # Light Tank (deployable)
 # Mine Bot (Technically an enemy)
 
-# Flying lets you pass through enemies.
+# Flying lets you pass through anything.
 
 # POC:
 # obstructions = ((2, 2), (-1, -1))
@@ -12222,7 +12223,7 @@ def t_WeaponOldEarthArtillery():
 #     positions[(x, y)] = n
 #
 #     for mx, my in moves:
-#         if (x + mx, y + my) not in obstructions and positions.get((x + mx, y + my)) < n:
+#         if (x + mx, y + my) not in obstructions and positions.get((x + mx, y + my), 0) < n:
 #             branch(x + mx, y + my, n - 1)
 #
 # branch(0, 0, 5)

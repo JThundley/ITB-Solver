@@ -364,6 +364,12 @@ class TileUnit_Base():
             self.effects = set()
         else:
             self.effects = set(effects) # Current effect(s) on the tile. Effects are on top of the tile. Some can be removed by having your mech repair while on the tile.
+    def isMoveBlocker(self):
+        "return True if the unit blocks mech movement, False if it doesn't. Chasm tiles block movement, as well as all enemies and some other units."
+        try:
+            return self._blocksmove
+        except AttributeError:
+            return False
 
 class Tile_Base(TileUnit_Base):
     """The base class for all Tiles, all other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
@@ -731,6 +737,7 @@ class Tile_Ice_Damaged(Tile_Water_Ice_Damaged_Base):
 
 class Tile_Chasm(Tile_Base):
     "Non-flying units die when pushed into a chasm. Chasm tiles cannot have acid or fire, but can have smoke."
+    _blocksmove = True
     def __init__(self, game, square=None, type='chasm', effects=None):
         super().__init__(game, square, type, effects=effects)
         self._swallow = True
@@ -964,7 +971,7 @@ class Unit_Base(TileUnit_Base):
         try:
             return self._renfieldbomb
         except AttributeError:
-            pass
+            return False
     def _makeWeb(self, compsquare, prop=True):
         """Make a web binding this unit to a unit on another square.
         compsquare is a tuple of the companion square that is also webbed with this unit.
@@ -1030,11 +1037,35 @@ class Unit_NoDelayedDeath_Base(Unit_Base, Unit_Unwebbable_Base):
         return res
 
 class Unit_PlayerControlled_Base():
-    "A base class that provides methods to add and remove units that the player controls to the game objects set. This is done on creation and death."
+    "A base class that provides methods to add and remove units that the player controls to the game objects set. This is done on creation and death. Also allows movement."
     def _addUnitToGame(self):
         self.game.playerunits.add(self)
     def _removeUnitFromGame(self):
         self.game.playerunits.remove(self)
+    # def getMoves(self): XXX CONTINUE
+    #     "Find out where this unit can move to in the current state of the gameboard and return it as a set of coordinate tuples."
+    #     positions = {self.square} # start out with the default position aka 0 moves
+    # def _getMovesBranch(self, position, moves, positions):
+    #     "recursive method used by getMoves() to "
+    #
+    #
+    #     # obstructions = ((2, 2), (-1, -1))
+    #     #
+    #     # moves = ((0, 1), (1, 0), (-1, 0), (0, -1))
+    #     #
+    #     # positions = {}
+    #     #
+    #     # def branch(x, y, n):
+    #     #     if n == 0:
+    #     #         return
+    #     #
+    #     #     positions[(x, y)] = n
+    #     #
+    #     #     for mx, my in moves:
+    #     #         if (x + mx, y + my) not in obstructions and positions.get((x + mx, y + my)) < n:
+    #     #             branch(x + mx, y + my, n - 1)
+    #     #
+    #     # branch(0, 0, 5)
 
 class Unit_NonPlayerControlled_Base():
     "A base class that provides methods to add and remove units that the player doesn't control to the game objects set. This is done on creation and death."
@@ -1060,6 +1091,7 @@ class Unit_NonPlayerControlledIgnore_Base():
 class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlledIgnore_Base):
     "The base class for mountains and buildings. They have special properties when it comes to fire and acid."
     blocksbeamshot = True  # this unit blocks beam shots that penetrate almost all other units.
+    _blocksmove = True # Buildings and mountains block movement
     def __init__(self, game, type, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
@@ -1120,6 +1152,7 @@ class Unit_Building_Objective(Unit_Building):
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
+    _blocksmove = True
     def __init__(self, game, type='acidvat', hp=2, maxhp=2, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
     def die(self):
@@ -1133,6 +1166,7 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlay
 
 class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
+    _blocksmove = True
     def __init__(self, game, type='rock', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=1, maxhp=1, attributes=attributes, effects=effects)
 
@@ -1391,6 +1425,7 @@ class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlle
 class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     "A base class for almost all enemies."
     alliance = Alliance.ENEMY
+    _blocksmove = True
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
 
@@ -1477,6 +1512,11 @@ class Unit_AlphaBlobber(Unit_NormalVek_Base):
 class Unit_Scorpion(Unit_NormalVek_Base):
     def __init__(self, game, type='scorpion', hp=3, maxhp=3, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
+
+class Unit_VolatileVek(Unit_NormalVek_Base):
+    def __init__(self, game, type='volatilevek', hp=4, maxhp=4, qshot=None, effects=None, attributes=None):
+        super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_StingingSpinneret(), qshot=qshot, effects=effects, attributes=attributes)
+        self.effects.add(Effects.EXPLOSIVE)
 
 class Unit_AlphaScorpion(Unit_NormalVek_Base):
     def __init__(self, game, type='alphascorpion', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
@@ -1671,6 +1711,7 @@ class Unit_LaserMech(Unit_EnemyBot_Base):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_BKRBeamMarkII(), qshot=qshot, effects=effects, attributes=attributes)
 
 class Unit_MineBot(Unit_EnemyBot_Base):
+    _blocksmove = False # the minebot actually does not block movement even though it's an enemy. I guess because it's an enemy you need to protect.
     def __init__(self, game, type='minebot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None): # this unit doesn't get a weapon.
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=None, qshot=qshot, effects=effects, attributes=attributes)
 
@@ -1682,7 +1723,6 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderhealing', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SelfRepair(), qshot=qshot, effects=effects, attributes=attributes)
 
-# TODO: Make a volatile vek!
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
 ############################################################################################################################
@@ -2814,7 +2854,7 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
             self.game.board[targetsquare].applyFire() # light it up
         self.game.board[targetsquare].push(direction) # and finally push the last tile
 
-#class Weapon_FlameShielding(): # passive for later
+#class Weapon_FlameShielding() is in the passives section
 
 class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base, Weapon_getRelSquare_Base):
     "Default Weapon for Meteor Mech"
@@ -3934,22 +3974,22 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
 class Weapon_UnstableGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
-        print("TODO!")
+        print("TODO score!")
 
 class Weapon_VolatileGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
-        print("TODO!")
+        print("TODO score!")
 
 class Weapon_TinyOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into a Spiderling. Spider"
     def shoot(self):
-        print("TODO!")
+        print("TODO score!")
 
 class Weapon_LargeOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into an Alpha Spiderling. AlphaSpider"
     def shoot(self):
-        print("TODO!")
+        print("TODO score!")
 
 class Weapon_StingingSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."

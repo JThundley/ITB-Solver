@@ -12164,6 +12164,73 @@ def t_WeaponOldEarthArtillery():
     for u in allunits:
         assert g.board[u].unit.hp == 5 # no hp change to all other vek
 
+def t_Movement1():
+    "Test movement with a very basic test."
+    g = Game()
+    for x in range(1, 9): # put a mountain on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
+    g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
+    g.board[(3, 1)].unit = None
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == {(1, 1), (2, 1), (3, 1)}
+
+def t_MovementMountain():
+    "Test movement with a very basic test where a mountain blocks movement."
+    g = Game()
+    for x in range(1, 9): # put a mountain on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
+    #g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
+    g.board[(3, 1)].unit = None
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == {(1, 1)}
+
+def t_MovementMech():
+    "Test movement with a very basic test where a mech doesn't block movement, but does prevent movement to the occupied square."
+    g = Game()
+    for x in range(1, 9): # put a mountain on every tile
+        for y in range(1, 9):
+            g.board[(x, y)].createUnitHere(Unit_Mountain(g))
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
+    g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g)) # put a mech next to him
+    g.board[(3, 1)].unit = None # remove mountains from 2 squares next to it
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == {(1, 1), (2, 1), (3, 1)}
+
+def t_MovementLarge4():
+    "Test movement with a basic test where there are some mountains that block movement. The mech has 4 moves."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, moves=4)) # replace one with a mech
+    g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
+    g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == {(1, 1), (2, 1), (2, 2), (3, 2), (3, 3), (4, 2)}
+
+def t_MovementLarge5():
+    "Test movement with a basic test where there are some mountains that block movement. The mech has 5 moves."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, moves=5))
+    g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
+    g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == {(1, 1), (2, 1), (2, 2), (3, 2), (3, 3), (4, 2), (3, 4), (4, 1), (4, 3), (5, 2)}
+
+def t_MovementLarge4Flying():
+    "Test movement with a basic test where there are some mountains that block movement. The mech has 4 moves and can fly."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, moves=4, attributes={Attributes.FLYING}))
+    g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
+    g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
+    g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
+    moves = g.board[(1, 1)].unit.getMoves()
+    #print(moves)
+    assert set(moves) == {(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
+
 ########### write tests for these:
 
 ########## Weapons stuff for later

@@ -1042,30 +1042,34 @@ class Unit_PlayerControlled_Base():
         self.game.playerunits.add(self)
     def _removeUnitFromGame(self):
         self.game.playerunits.remove(self)
-    # def getMoves(self): XXX CONTINUE
-    #     "Find out where this unit can move to in the current state of the gameboard and return it as a set of coordinate tuples."
-    #     positions = {self.square} # start out with the default position aka 0 moves
-    # def _getMovesBranch(self, position, moves, positions):
-    #     "recursive method used by getMoves() to "
-    #
-    #
-    #     # obstructions = ((2, 2), (-1, -1))
-    #     #
-    #     # moves = ((0, 1), (1, 0), (-1, 0), (0, -1))
-    #     #
-    #     # positions = {}
-    #     #
-    #     # def branch(x, y, n):
-    #     #     if n == 0:
-    #     #         return
-    #     #
-    #     #     positions[(x, y)] = n
-    #     #
-    #     #     for mx, my in moves:
-    #     #         if (x + mx, y + my) not in obstructions and positions.get((x + mx, y + my)) < n:
-    #     #             branch(x + mx, y + my, n - 1)
-    #     #
-    #     # branch(0, 0, 5)
+    def getMoves(self):
+        """Find out where this unit can move to in the current state of the gameboard and return it as a set of coordinate tuples.
+        returns a set-like dict_keys of squares of where this unit can travel to.
+        It's important to note that that this list includes squares that are occupied by other units that you can pass through! Another part of the code must check if the square is occupied before actually moving you there."""
+        self.positions = {}
+        self._getMovesBranch(self.square, self.moves+1)
+        return self.positions.keys()
+    def _getMovesBranch(self, position, moves):
+        "recursive method used by getMoves() to build self.positions. returns nothing."
+        if moves == 0:
+            return
+        self.positions[position] = moves
+        for direction in Direction.gen():
+            newsquare = self.game.board[position].getRelSquare(direction, 1)
+            if not newsquare: # if the new square is off the board, move on
+                continue
+            if not self._isMoveObstruction(newsquare) and self.positions.get(newsquare, 0) < moves:
+                self._getMovesBranch(newsquare, moves-1)
+    def _isMoveObstruction(self, square):
+        "pass in a square tuple and return True if the tile/unit obstructs movement, False if it doesn't."
+        if Attributes.FLYING in self.attributes: # flying units can pass through anything
+            return False
+        try:
+            if self.game.board[square].unit.isMoveBlocker(): # if the unit blocks movement:
+                return True
+        except AttributeError: # no unit on tile
+            pass
+        return self.game.board[square].isMoveBlocker() # if the tile blocks movement
 
 class Unit_NonPlayerControlled_Base():
     "A base class that provides methods to add and remove units that the player doesn't control to the game objects set. This is done on creation and death."

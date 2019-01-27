@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # This script brute forces the best possible single turn in Into The Breach
 ############ IMPORTS ######################
+import score_default
 
 ############### GLOBALS ###################
 
@@ -128,6 +129,23 @@ del numGen
 del thegen
 del DirectionConst
 
+############################# SCORING ##################################
+# This is the default scoring template.
+# Scoring is done on a scale of -100 to 100, but arbitrary numbers are allowed. Negative numbers are for when bad things happen, positive numbers are good things.
+
+SCORE = {
+    'powergrid_hurt': -30,
+    'timepod_die': -20,
+    'mine_killed': -5,
+    'freezemine_die': -4,
+    'timepod_pickup': 20,
+    'mountain_hurt': 0,
+    'mountain_die': 0,
+    'objectivebuilding_die': -25,
+    'acidvat_die': 15,
+    'deployable_die': -10,
+    'deployable_hurt': -5,
+}
 ############### FUNCTIONS #################
 
 ############### CLASSES #################
@@ -166,6 +184,7 @@ class Powergrid():
         self.hp -= damage
         if self.hp < 1:
             raise GameOver
+        self.game.score.submit('powergrid_hurt', damage)
 
 class Powergrid_CriticalShields(Powergrid):
     "This is your powergrid hp when you have the CriticalShields passive in play."
@@ -249,6 +268,7 @@ class Game():
         self.stormGeneratorTurn = None # This will be replaced by a method provided by the StormGenerator passive weapon
         self.visceraheal = 0 # The amount to heal a mech that killed a vek. Each vek that is killed grants this amount of hp healing
         self.otherpassives = set() # misc passives that only need to be checked for presence and nothing else.
+        self.score = MasterScoreKeeper()
     def flushHurt(self):
         "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -593,8 +613,7 @@ class Tile_Ground(Tile_Base):
     def applyAcid(self):
         super().applyAcid()
         if not self.unit:
-            for e in Effects.TIMEPOD, Effects.MINE, Effects.FREEZEMINE:
-                self.effects.discard(e)
+            self._tileTakeDamage()
     def applyFire(self):
         self._tileTakeDamage() # fire removes timepods and mines just like damage does
         super().applyFire()
@@ -604,12 +623,24 @@ class Tile_Ground(Tile_Base):
         if Effects.MINE in self.effects:
             self.unit.die()
             self.effects.discard(Effects.MINE)
+            self.game.score.submit('mine_killed')
         elif Effects.FREEZEMINE in self.effects:
             self.effects.discard(Effects.FREEZEMINE)
             self.unit.applyIce()
+            self.game.score.submit('freezemine_die')
+        elif Effects.TIMEPOD in self.effects:
+            if self.unit.alliance == Alliance.FRIENDLY:
+                self.game.score.submit('timepod_pickup')
+            else:
+                self.game.score.submit('timepod_die')
     def _tileTakeDamage(self):
-        for effect in Effects.TIMEPOD, Effects.FREEZEMINE, Effects.MINE:
-            self.effects.discard(effect)
+        for (effect, event) in (Effects.TIMEPOD, 'timepod_die'), (Effects.MINE, 'mine_killed'), (Effects.FREEZEMINE, 'freezemine_die'):
+            try:
+                self.effects.remove(effect)
+            except KeyError:  # there was no effect on the tile
+                pass
+            else:
+                self.game.score.submit(event)
 
 class Tile_Forest_Sand_Base(Tile_Base):
     "This is the base class for both Forest and Sand Tiles since they both share the same applyAcid mechanics."
@@ -1111,6 +1142,11 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         self.game.board[self.square]._putUnitHere(Unit_Mountain_Damaged(self.game))
+    def _takeDamageScore(self, damage):
+        "Score the mountain taking damage and becoming a damaged mountain"
+        self.game.score.submit('mountain_hurt')
+    def _dieScore(self):
+        self.game.score.submit('mountain_die')
 
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, game, type='mountaindamaged', effects=None):
@@ -1149,10 +1185,12 @@ class Unit_Building(Unit_Mountain_Building_Base):
                 self.game.powergrid.takeDamage(damage)
 
 class Unit_Building_Objective(Unit_Building):
+    alliance = Alliance.NEUTRAL
+    _building = True
     def __init__(self, game, type='buildingobjective', hp=1, maxhp=1, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
-        self.alliance = Alliance.NEUTRAL
-        self._building = True
+    def _dieScore(self):
+        self.game.score.submit('objectivebuilding_die')
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1167,6 +1205,7 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlay
         self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.game.board[self.square].effects.discard(Effects.FIRE) # don't keep fire, this tile can't be on fire.
+        self.game.score.submit('acidvat_die')
 
 class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1190,11 +1229,18 @@ class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
     def die(self):
         super().die()
 
-class Unit_AcidTank(Sub_Unit_Base):
+class Deployable_Unit_Base():
+    "A base unit for deployable tanks to handle their scoring."
+    def _takeDamageScore(self, damage):
+        self.game.score.submit('deployable_hurt', damage)
+    def _dieScore(self):
+        self.game.score.submit('deployable_die')
+
+class Unit_AcidTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='acidtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_FreezeTank(Sub_Unit_Base):
+class Unit_FreezeTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='freezetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
@@ -1202,19 +1248,19 @@ class Unit_ArchiveTank(Sub_Unit_Base):
     def __init__(self, game, type='archivetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_OldArtillery(Sub_Unit_Base):
+class Unit_OldArtillery(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='oldartillery', hp=2, maxhp=2, moves=1, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_OldEarthArtillery(), moves=moves, effects=effects, attributes=attributes)
 
-class Unit_ShieldTank(Sub_Unit_Base):
+class Unit_ShieldTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='shieldtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_LightTank(Sub_Unit_Base):
+class Unit_LightTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='lighttank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_PullTank(Sub_Unit_Base):
+class Unit_PullTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='pulltank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
@@ -4593,3 +4639,44 @@ class Weapon_CriticalShields(Weapon_NoUpgradesInit_Base):
     def enable(self):
         "Replace your old and busted powergrid object with the special powergrid for dealing with critical shields."
         self.game.powergrid = Powergrid_CriticalShields(self.game, self.game.powergrid.hp)
+
+############################# SCORING #######################
+class MasterScoreKeeper():
+    "This object keeps track of the score of a single simulation. It feeds the score to the contained ScoreKeeper objects."
+    def __init__(self):
+        self.keepers = {"best": ScoreKeeper(),}
+    def submit(self, event, amount=1):
+        "Submit a single event to be scored. event is a score constant. amount is the number of times to score it. returns nothing."
+        for v in self.keepers.values():
+            v.submit(event, amount)
+    def undo(self, event, amount=1):
+        "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
+        for v in self.keepers.values():
+            v.undo(event, amount)
+
+class ScoreKeeper():
+    "This object keeps track of the score of a single simulation with certain criteria. The MasterScoreKeeper feeds it "
+    score = 0
+    invalid = False # this is set to true when
+    def __init__(self, exceptions=None):
+        """exceptions is a set of score event strings which invalidate this scorekeeping session.
+        This is so you can concurrently run multiple of these ScoreKeepers and have one of them give you the best score without taking grid damage for example."""
+        if exceptions:
+            self.exceptions = exceptions
+        else:
+            self.exceptions = ()
+        self.log = [] # a tally of which events this scorekeeper saw in reverse order. The newest event will always be log[0]
+    def submit(self, event, amount):
+        "Submit a single event to be scored. event is the string of a score key. amount is the number of times to score it. returns nothing."
+        if not self.invalid:
+            if event in self.exceptions: # make sure this event isn't banned from othis ScoreKeeper
+                self.invalid = True
+                return
+            for r in range(amount): # now we know we're good
+                self.log.insert(0, event)
+                self.score += SCORE[event]
+    def undo(self, event, amount):
+        "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
+        for r in range(amount):
+            self.log.remove(event)
+            self.score -= SCORE[event]

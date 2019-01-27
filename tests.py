@@ -12231,13 +12231,49 @@ def t_MovementLarge4Flying():
     #print(moves)
     assert set(moves) == {(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
 
+def t_ScoreBuildingDamage():
+    "Test out the scoring system on a damaged building."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Building(g))
+    assert g.score.keepers['best'].score == 0
+    g.board[(1, 1)].takeDamage(1)
+    assert g.score.keepers['best'].score == SCORE['powergrid_hurt']
+    assert g.score.keepers['best'].log == ['powergrid_hurt']
+
+def t_ScoreTimepodPickup():
+    "Test out the scoring system on a timepod picked up by a friendly."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Ground(g, effects={Effects.TIMEPOD}))
+    g.board[(1, 2)].createUnitHere(Unit_Combat_Mech(g))
+    assert g.score.keepers['best'].score == 0
+    g.board[(1, 2)].moveUnit((1, 1))
+    assert g.score.keepers['best'].score == SCORE['timepod_pickup']
+    assert g.score.keepers['best'].log == ['timepod_pickup']
+
+def t_ScoreTimepodKilled():
+    "Test out the scoring system on a timepod destroyed up by a vek."
+    g = Game()
+    g.board[(1, 1)].replaceTile(Tile_Ground(g, effects={Effects.TIMEPOD}))
+    g.board[(1, 2)].createUnitHere(Unit_Firefly(g))
+    assert g.score.keepers['best'].score == 0
+    g.board[(1, 2)].moveUnit((1, 1))
+    assert g.score.keepers['best'].score == SCORE['timepod_die']
+    assert g.score.keepers['best'].log == ['timepod_die']
+
+def t_MountainDeath():
+    "A mountain gets hit by an instakill weapon, removing it instantly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.board[(1, 1)].unit.type == 'mountain'
+    g.board[(1, 1)].die()
+    assert g.board[(1, 1)].unit is None
+
 ########### write tests for these:
 
 ########## Weapons stuff for later
 # viscera nanobots do not repair tiles or remove bad effects, it only heals HP.
 
 # Satellite launches happen after enemy attacks.
-# buildings do block mech movement
 # the little bombs that the blobber throws out are not considered enemies when your objective is to kill 7 enemies.
 
 ########## Research these:
@@ -12275,28 +12311,6 @@ def t_MovementLarge4Flying():
 # Mine Bot (Technically an enemy)
 
 # Flying lets you pass through anything.
-
-# POC:
-# obstructions = ((2, 2), (-1, -1))
-#
-# moves = ((0, 1), (1, 0), (-1, 0), (0, -1))
-#
-# positions = {}
-#
-# def branch(x, y, n):
-#     if n == 0:
-#         return
-#
-#     positions[(x, y)] = n
-#
-#     for mx, my in moves:
-#         if (x + mx, y + my) not in obstructions and positions.get((x + mx, y + my), 0) < n:
-#             branch(x + mx, y + my, n - 1)
-#
-# branch(0, 0, 5)
-#
-# print
-# positions
 if __name__ == '__main__':
     g = sorted(globals())
     testsrun = 0

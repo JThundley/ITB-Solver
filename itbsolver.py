@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # This script brute forces the best possible single turn in Into The Breach
 ############ IMPORTS ######################
-import score_default
 
 ############### GLOBALS ###################
 
@@ -132,19 +131,1107 @@ del DirectionConst
 ############################# SCORING ##################################
 # This is the default scoring template.
 # Scoring is done on a scale of -100 to 100, but arbitrary numbers are allowed. Negative numbers are for when bad things happen, positive numbers are good things.
-
+# hurt is for when something takes a single damage
+# die is for when something dies
+# fire_on is for when something is set on fire
+# fire_off is for when the fire is put out
+# etc.
 SCORE = {
     'powergrid_hurt': -30,
-    'timepod_die': -20,
-    'mine_killed': -5,
-    'freezemine_die': -4,
     'timepod_pickup': 20,
-    'mountain_hurt': 0,
-    'mountain_die': 0,
-    'objectivebuilding_die': -25,
-    'acidvat_die': 15,
-    'deployable_die': -10,
-    'deployable_hurt': -5,
+    'timepod_die': -20,
+    'mine_die': -5,
+    'freezemine_die': -4,
+    'mountain_hurt': 0, #TODO: score
+    'mountain_die': 0, #TODO: score
+    'mountain_fire_on': 0, #TODO: score
+    'mountain_fire_off': 0, #TODO: score
+    'mountain_ice_on': 0, #TODO: score
+    'mountain_ice_off': 0, #TODO: score
+    'mountain_acid_on': 0, #TODO: score
+    'mountain_acid_off': 0, #TODO: score
+    'mountain_shield_on': 0, #TODO: score
+    'mountain_shield_off': 0, #TODO: score
+    'mountaindamaged_hurt': 0, #TODO: score
+    'mountaindamaged_die': 0, #TODO: score
+    'mountaindamaged_fire_on': 0, #TODO: score
+    'mountaindamaged_fire_off': 0, #TODO: score
+    'mountaindamaged_ice_on': 0, #TODO: score
+    'mountaindamaged_ice_off': 0, #TODO: score
+    'mountaindamaged_acid_on': 0, #TODO: score
+    'mountaindamaged_acid_off': 0, #TODO: score
+    'mountaindamaged_shield_on': 0, #TODO: score
+    'mountaindamaged_shield_off': 0, #TODO: score
+    'volcano_hurt': 0, #TODO: score
+    'volcano_die': 0, #TODO: score
+    'volcano_fire_on': 0, #TODO: score
+    'volcano_fire_off': 0, #TODO: score
+    'volcano_ice_on': 0, #TODO: score
+    'volcano_ice_off': 0, #TODO: score
+    'volcano_acid_on': 0, #TODO: score
+    'volcano_acid_off': 0, #TODO: score
+    'volcano_shield_on': 0, #TODO: score
+    'volcano_shield_off': 0, #TODO: score
+    'building_hurt': 0, #TODO: score
+    'building_die': 0, #TODO: score
+    'building_fire_on': 0, #TODO: score
+    'building_fire_off': 0, #TODO: score
+    'building_ice_on': 0, #TODO: score
+    'building_ice_off': 0, #TODO: score
+    'building_acid_on': 0, #TODO: score
+    'building_acid_off': 0, #TODO: score
+    'building_shield_on': 0, #TODO: score
+    'building_shield_off': 0, #TODO: score
+    'buildingobjective_hurt': 0, #TODO: score
+    'buildingobjective_die': 0, #TODO: score
+    'buildingobjective_fire_on': 0, #TODO: score
+    'buildingobjective_fire_off': 0, #TODO: score
+    'buildingobjective_ice_on': 0, #TODO: score
+    'buildingobjective_ice_off': 0, #TODO: score
+    'buildingobjective_acid_on': 0, #TODO: score
+    'buildingobjective_acid_off': 0, #TODO: score
+    'buildingobjective_shield_on': 0, #TODO: score
+    'buildingobjective_shield_off': 0, #TODO: score
+    'acidvat_hurt': 0, #TODO: score
+    'acidvat_die': 0, #TODO: score
+    'acidvat_fire_on': 0, #TODO: score
+    'acidvat_fire_off': 0, #TODO: score
+    'acidvat_ice_on': 0, #TODO: score
+    'acidvat_ice_off': 0, #TODO: score
+    'acidvat_acid_on': 0, #TODO: score
+    'acidvat_acid_off': 0, #TODO: score
+    'acidvat_shield_on': 0, #TODO: score
+    'acidvat_shield_off': 0, #TODO: score
+    'rock_hurt': 0, #TODO: score
+    'rock_die': 0, #TODO: score
+    'rock_fire_on': 0, #TODO: score
+    'rock_fire_off': 0, #TODO: score
+    'rock_ice_on': 0, #TODO: score
+    'rock_ice_off': 0, #TODO: score
+    'rock_acid_on': 0, #TODO: score
+    'rock_acid_off': 0, #TODO: score
+    'rock_shield_on': 0, #TODO: score
+    'rock_shield_off': 0, #TODO: score
+    'acidtank_hurt': 0, #TODO: score
+    'acidtank_die': 0, #TODO: score
+    'acidtank_fire_on': 0, #TODO: score
+    'acidtank_fire_off': 0, #TODO: score
+    'acidtank_ice_on': 0, #TODO: score
+    'acidtank_ice_off': 0, #TODO: score
+    'acidtank_acid_on': 0, #TODO: score
+    'acidtank_acid_off': 0, #TODO: score
+    'acidtank_shield_on': 0, #TODO: score
+    'acidtank_shield_off': 0, #TODO: score
+    'freezetank_hurt': 0, #TODO: score
+    'freezetank_die': 0, #TODO: score
+    'freezetank_fire_on': 0, #TODO: score
+    'freezetank_fire_off': 0, #TODO: score
+    'freezetank_ice_on': 0, #TODO: score
+    'freezetank_ice_off': 0, #TODO: score
+    'freezetank_acid_on': 0, #TODO: score
+    'freezetank_acid_off': 0, #TODO: score
+    'freezetank_shield_on': 0, #TODO: score
+    'freezetank_shield_off': 0, #TODO: score
+    'archivetank_hurt': 0, #TODO: score
+    'archivetank_die': 0, #TODO: score
+    'archivetank_fire_on': 0, #TODO: score
+    'archivetank_fire_off': 0, #TODO: score
+    'archivetank_ice_on': 0, #TODO: score
+    'archivetank_ice_off': 0, #TODO: score
+    'archivetank_acid_on': 0, #TODO: score
+    'archivetank_acid_off': 0, #TODO: score
+    'archivetank_shield_on': 0, #TODO: score
+    'archivetank_shield_off': 0, #TODO: score
+    'oldartillery_hurt': 0, #TODO: score
+    'oldartillery_die': 0, #TODO: score
+    'oldartillery_fire_on': 0, #TODO: score
+    'oldartillery_fire_off': 0, #TODO: score
+    'oldartillery_ice_on': 0, #TODO: score
+    'oldartillery_ice_off': 0, #TODO: score
+    'oldartillery_acid_on': 0, #TODO: score
+    'oldartillery_acid_off': 0, #TODO: score
+    'oldartillery_shield_on': 0, #TODO: score
+    'oldartillery_shield_off': 0, #TODO: score
+    'shieldtank_hurt': 0, #TODO: score
+    'shieldtank_die': 0, #TODO: score
+    'shieldtank_fire_on': 0, #TODO: score
+    'shieldtank_fire_off': 0, #TODO: score
+    'shieldtank_ice_on': 0, #TODO: score
+    'shieldtank_ice_off': 0, #TODO: score
+    'shieldtank_acid_on': 0, #TODO: score
+    'shieldtank_acid_off': 0, #TODO: score
+    'shieldtank_shield_on': 0, #TODO: score
+    'shieldtank_shield_off': 0, #TODO: score
+    'lighttank_hurt': 0, #TODO: score
+    'lighttank_die': 0, #TODO: score
+    'lighttank_fire_on': 0, #TODO: score
+    'lighttank_fire_off': 0, #TODO: score
+    'lighttank_ice_on': 0, #TODO: score
+    'lighttank_ice_off': 0, #TODO: score
+    'lighttank_acid_on': 0, #TODO: score
+    'lighttank_acid_off': 0, #TODO: score
+    'lighttank_shield_on': 0, #TODO: score
+    'lighttank_shield_off': 0, #TODO: score
+    'pulltank_hurt': 0, #TODO: score
+    'pulltank_die': 0, #TODO: score
+    'pulltank_fire_on': 0, #TODO: score
+    'pulltank_fire_off': 0, #TODO: score
+    'pulltank_ice_on': 0, #TODO: score
+    'pulltank_ice_off': 0, #TODO: score
+    'pulltank_acid_on': 0, #TODO: score
+    'pulltank_acid_off': 0, #TODO: score
+    'pulltank_shield_on': 0, #TODO: score
+    'pulltank_shield_off': 0, #TODO: score
+    'dam_hurt': 0, #TODO: score
+    'dam_die': 0, #TODO: score
+    'dam_fire_on': 0, #TODO: score
+    'dam_fire_off': 0, #TODO: score
+    'dam_ice_on': 0, #TODO: score
+    'dam_ice_off': 0, #TODO: score
+    'dam_acid_on': 0, #TODO: score
+    'dam_acid_off': 0, #TODO: score
+    'dam_shield_on': 0, #TODO: score
+    'dam_shield_off': 0, #TODO: score
+    'train_hurt': 0, #TODO: score
+    'train_die': 0, #TODO: score
+    'train_fire_on': 0, #TODO: score
+    'train_fire_off': 0, #TODO: score
+    'train_ice_on': 0, #TODO: score
+    'train_ice_off': 0, #TODO: score
+    'train_acid_on': 0, #TODO: score
+    'train_acid_off': 0, #TODO: score
+    'train_shield_on': 0, #TODO: score
+    'train_shield_off': 0, #TODO: score
+    'traincaboose_hurt': 0, #TODO: score
+    'traincaboose_die': 0, #TODO: score
+    'traincaboose_fire_on': 0, #TODO: score
+    'traincaboose_fire_off': 0, #TODO: score
+    'traincaboose_ice_on': 0, #TODO: score
+    'traincaboose_ice_off': 0, #TODO: score
+    'traincaboose_acid_on': 0, #TODO: score
+    'traincaboose_acid_off': 0, #TODO: score
+    'traincaboose_shield_on': 0, #TODO: score
+    'traincaboose_shield_off': 0, #TODO: score
+    'traindamaged_hurt': 0, #TODO: score
+    'traindamaged_die': 0, #TODO: score
+    'traindamaged_fire_on': 0, #TODO: score
+    'traindamaged_fire_off': 0, #TODO: score
+    'traindamaged_ice_on': 0, #TODO: score
+    'traindamaged_ice_off': 0, #TODO: score
+    'traindamaged_acid_on': 0, #TODO: score
+    'traindamaged_acid_off': 0, #TODO: score
+    'traindamaged_shield_on': 0, #TODO: score
+    'traindamaged_shield_off': 0, #TODO: score
+    'traindamagedcaboose_hurt': 0, #TODO: score
+    'traindamagedcaboose_die': 0, #TODO: score
+    'traindamagedcaboose_fire_on': 0, #TODO: score
+    'traindamagedcaboose_fire_off': 0, #TODO: score
+    'traindamagedcaboose_ice_on': 0, #TODO: score
+    'traindamagedcaboose_ice_off': 0, #TODO: score
+    'traindamagedcaboose_acid_on': 0, #TODO: score
+    'traindamagedcaboose_acid_off': 0, #TODO: score
+    'traindamagedcaboose_shield_on': 0, #TODO: score
+    'traindamagedcaboose_shield_off': 0, #TODO: score
+    'traincorpse_hurt': 0, #TODO: score
+    'traincorpse_die': 0, #TODO: score
+    'traincorpse_fire_on': 0, #TODO: score
+    'traincorpse_fire_off': 0, #TODO: score
+    'traincorpse_ice_on': 0, #TODO: score
+    'traincorpse_ice_off': 0, #TODO: score
+    'traincorpse_acid_on': 0, #TODO: score
+    'traincorpse_acid_off': 0, #TODO: score
+    'traincorpse_shield_on': 0, #TODO: score
+    'traincorpse_shield_off': 0, #TODO: score
+    'terraformer_hurt': 0, #TODO: score
+    'terraformer_die': 0, #TODO: score
+    'terraformer_fire_on': 0, #TODO: score
+    'terraformer_fire_off': 0, #TODO: score
+    'terraformer_ice_on': 0, #TODO: score
+    'terraformer_ice_off': 0, #TODO: score
+    'terraformer_acid_on': 0, #TODO: score
+    'terraformer_acid_off': 0, #TODO: score
+    'terraformer_shield_on': 0, #TODO: score
+    'terraformer_shield_off': 0, #TODO: score
+    'acidlauncher_hurt': 0, #TODO: score
+    'acidlauncher_die': 0, #TODO: score
+    'acidlauncher_fire_on': 0, #TODO: score
+    'acidlauncher_fire_off': 0, #TODO: score
+    'acidlauncher_ice_on': 0, #TODO: score
+    'acidlauncher_ice_off': 0, #TODO: score
+    'acidlauncher_acid_on': 0, #TODO: score
+    'acidlauncher_acid_off': 0, #TODO: score
+    'acidlauncher_shield_on': 0, #TODO: score
+    'acidlauncher_shield_off': 0, #TODO: score
+    'satelliterocket_hurt': 0, #TODO: score
+    'satelliterocket_die': 0, #TODO: score
+    'satelliterocket_fire_on': 0, #TODO: score
+    'satelliterocket_fire_off': 0, #TODO: score
+    'satelliterocket_ice_on': 0, #TODO: score
+    'satelliterocket_ice_off': 0, #TODO: score
+    'satelliterocket_acid_on': 0, #TODO: score
+    'satelliterocket_acid_off': 0, #TODO: score
+    'satelliterocket_shield_on': 0, #TODO: score
+    'satelliterocket_shield_off': 0, #TODO: score
+    'satelliterocketcorpse_hurt': 0, #TODO: score
+    'satelliterocketcorpse_die': 0, #TODO: score
+    'satelliterocketcorpse_fire_on': 0, #TODO: score
+    'satelliterocketcorpse_fire_off': 0, #TODO: score
+    'satelliterocketcorpse_ice_on': 0, #TODO: score
+    'satelliterocketcorpse_ice_off': 0, #TODO: score
+    'satelliterocketcorpse_acid_on': 0, #TODO: score
+    'satelliterocketcorpse_acid_off': 0, #TODO: score
+    'satelliterocketcorpse_shield_on': 0, #TODO: score
+    'satelliterocketcorpse_shield_off': 0, #TODO: score
+    'earthmover_hurt': 0, #TODO: score
+    'earthmover_die': 0, #TODO: score
+    'earthmover_fire_on': 0, #TODO: score
+    'earthmover_fire_off': 0, #TODO: score
+    'earthmover_ice_on': 0, #TODO: score
+    'earthmover_ice_off': 0, #TODO: score
+    'earthmover_acid_on': 0, #TODO: score
+    'earthmover_acid_off': 0, #TODO: score
+    'earthmover_shield_on': 0, #TODO: score
+    'earthmover_shield_off': 0, #TODO: score
+    'earthmovercorpse_hurt': 0, #TODO: score
+    'earthmovercorpse_die': 0, #TODO: score
+    'earthmovercorpse_fire_on': 0, #TODO: score
+    'earthmovercorpse_fire_off': 0, #TODO: score
+    'earthmovercorpse_ice_on': 0, #TODO: score
+    'earthmovercorpse_ice_off': 0, #TODO: score
+    'earthmovercorpse_acid_on': 0, #TODO: score
+    'earthmovercorpse_acid_off': 0, #TODO: score
+    'earthmovercorpse_shield_on': 0, #TODO: score
+    'earthmovercorpse_shield_off': 0, #TODO: score
+    'prototypebomb_hurt': 0, #TODO: score
+    'prototypebomb_die': 0, #TODO: score
+    'prototypebomb_fire_on': 0, #TODO: score
+    'prototypebomb_fire_off': 0, #TODO: score
+    'prototypebomb_ice_on': 0, #TODO: score
+    'prototypebomb_ice_off': 0, #TODO: score
+    'prototypebomb_acid_on': 0, #TODO: score
+    'prototypebomb_acid_off': 0, #TODO: score
+    'prototypebomb_shield_on': 0, #TODO: score
+    'prototypebomb_shield_off': 0, #TODO: score
+    'renfieldbomb_hurt': 0, #TODO: score
+    'renfieldbomb_die': 0, #TODO: score
+    'renfieldbomb_fire_on': 0, #TODO: score
+    'renfieldbomb_fire_off': 0, #TODO: score
+    'renfieldbomb_ice_on': 0, #TODO: score
+    'renfieldbomb_ice_off': 0, #TODO: score
+    'renfieldbomb_acid_on': 0, #TODO: score
+    'renfieldbomb_acid_off': 0, #TODO: score
+    'renfieldbomb_shield_on': 0, #TODO: score
+    'renfieldbomb_shield_off': 0, #TODO: score
+    'blobber_hurt': 0, #TODO: score
+    'blobber_die': 0, #TODO: score
+    'blobber_fire_on': 0, #TODO: score
+    'blobber_fire_off': 0, #TODO: score
+    'blobber_ice_on': 0, #TODO: score
+    'blobber_ice_off': 0, #TODO: score
+    'blobber_acid_on': 0, #TODO: score
+    'blobber_acid_off': 0, #TODO: score
+    'blobber_shield_on': 0, #TODO: score
+    'blobber_shield_off': 0, #TODO: score
+    'alphablobber_hurt': 0, #TODO: score
+    'alphablobber_die': 0, #TODO: score
+    'alphablobber_fire_on': 0, #TODO: score
+    'alphablobber_fire_off': 0, #TODO: score
+    'alphablobber_ice_on': 0, #TODO: score
+    'alphablobber_ice_off': 0, #TODO: score
+    'alphablobber_acid_on': 0, #TODO: score
+    'alphablobber_acid_off': 0, #TODO: score
+    'alphablobber_shield_on': 0, #TODO: score
+    'alphablobber_shield_off': 0, #TODO: score
+    'scorpion_hurt': 0, #TODO: score
+    'scorpion_die': 0, #TODO: score
+    'scorpion_fire_on': 0, #TODO: score
+    'scorpion_fire_off': 0, #TODO: score
+    'scorpion_ice_on': 0, #TODO: score
+    'scorpion_ice_off': 0, #TODO: score
+    'scorpion_acid_on': 0, #TODO: score
+    'scorpion_acid_off': 0, #TODO: score
+    'scorpion_shield_on': 0, #TODO: score
+    'scorpion_shield_off': 0, #TODO: score
+    'volatilevek_hurt': 0, #TODO: score
+    'volatilevek_die': 0, #TODO: score
+    'volatilevek_fire_on': 0, #TODO: score
+    'volatilevek_fire_off': 0, #TODO: score
+    'volatilevek_ice_on': 0, #TODO: score
+    'volatilevek_ice_off': 0, #TODO: score
+    'volatilevek_acid_on': 0, #TODO: score
+    'volatilevek_acid_off': 0, #TODO: score
+    'volatilevek_shield_on': 0, #TODO: score
+    'volatilevek_shield_off': 0, #TODO: score
+    'alphascorpion_hurt': 0, #TODO: score
+    'alphascorpion_die': 0, #TODO: score
+    'alphascorpion_fire_on': 0, #TODO: score
+    'alphascorpion_fire_off': 0, #TODO: score
+    'alphascorpion_ice_on': 0, #TODO: score
+    'alphascorpion_ice_off': 0, #TODO: score
+    'alphascorpion_acid_on': 0, #TODO: score
+    'alphascorpion_acid_off': 0, #TODO: score
+    'alphascorpion_shield_on': 0, #TODO: score
+    'alphascorpion_shield_off': 0, #TODO: score
+    'firefly_hurt': 0, #TODO: score
+    'firefly_die': 0, #TODO: score
+    'firefly_fire_on': 0, #TODO: score
+    'firefly_fire_off': 0, #TODO: score
+    'firefly_ice_on': 0, #TODO: score
+    'firefly_ice_off': 0, #TODO: score
+    'firefly_acid_on': 0, #TODO: score
+    'firefly_acid_off': 0, #TODO: score
+    'firefly_shield_on': 0, #TODO: score
+    'firefly_shield_off': 0, #TODO: score
+    'alphascorpion_hurt': 0, #TODO: score
+    'alphascorpion_die': 0, #TODO: score
+    'alphascorpion_fire_on': 0, #TODO: score
+    'alphascorpion_fire_off': 0, #TODO: score
+    'alphascorpion_ice_on': 0, #TODO: score
+    'alphascorpion_ice_off': 0, #TODO: score
+    'alphascorpion_acid_on': 0, #TODO: score
+    'alphascorpion_acid_off': 0, #TODO: score
+    'alphascorpion_shield_on': 0, #TODO: score
+    'alphascorpion_shield_off': 0, #TODO: score
+    'leaper_hurt': 0, #TODO: score
+    'leaper_die': 0, #TODO: score
+    'leaper_fire_on': 0, #TODO: score
+    'leaper_fire_off': 0, #TODO: score
+    'leaper_ice_on': 0, #TODO: score
+    'leaper_ice_off': 0, #TODO: score
+    'leaper_acid_on': 0, #TODO: score
+    'leaper_acid_off': 0, #TODO: score
+    'leaper_shield_on': 0, #TODO: score
+    'leaper_shield_off': 0, #TODO: score
+    'alphaleaper_hurt': 0, #TODO: score
+    'alphaleaper_die': 0, #TODO: score
+    'alphaleaper_fire_on': 0, #TODO: score
+    'alphaleaper_fire_off': 0, #TODO: score
+    'alphaleaper_ice_on': 0, #TODO: score
+    'alphaleaper_ice_off': 0, #TODO: score
+    'alphaleaper_acid_on': 0, #TODO: score
+    'alphaleaper_acid_off': 0, #TODO: score
+    'alphaleaper_shield_on': 0, #TODO: score
+    'alphaleaper_shield_off': 0, #TODO: score
+    'beetle_hurt': 0, #TODO: score
+    'beetle_die': 0, #TODO: score
+    'beetle_fire_on': 0, #TODO: score
+    'beetle_fire_off': 0, #TODO: score
+    'beetle_ice_on': 0, #TODO: score
+    'beetle_ice_off': 0, #TODO: score
+    'beetle_acid_on': 0, #TODO: score
+    'beetle_acid_off': 0, #TODO: score
+    'beetle_shield_on': 0, #TODO: score
+    'beetle_shield_off': 0, #TODO: score
+    'alphabeetle_hurt': 0, #TODO: score
+    'alphabeetle_die': 0, #TODO: score
+    'alphabeetle_fire_on': 0, #TODO: score
+    'alphabeetle_fire_off': 0, #TODO: score
+    'alphabeetle_ice_on': 0, #TODO: score
+    'alphabeetle_ice_off': 0, #TODO: score
+    'alphabeetle_acid_on': 0, #TODO: score
+    'alphabeetle_acid_off': 0, #TODO: score
+    'alphabeetle_shield_on': 0, #TODO: score
+    'alphabeetle_shield_off': 0, #TODO: score
+    'scarab_hurt': 0, #TODO: score
+    'scarab_die': 0, #TODO: score
+    'scarab_fire_on': 0, #TODO: score
+    'scarab_fire_off': 0, #TODO: score
+    'scarab_ice_on': 0, #TODO: score
+    'scarab_ice_off': 0, #TODO: score
+    'scarab_acid_on': 0, #TODO: score
+    'scarab_acid_off': 0, #TODO: score
+    'scarab_shield_on': 0, #TODO: score
+    'scarab_shield_off': 0, #TODO: score
+    'alphascarab_hurt': 0, #TODO: score
+    'alphascarab_die': 0, #TODO: score
+    'alphascarab_fire_on': 0, #TODO: score
+    'alphascarab_fire_off': 0, #TODO: score
+    'alphascarab_ice_on': 0, #TODO: score
+    'alphascarab_ice_off': 0, #TODO: score
+    'alphascarab_acid_on': 0, #TODO: score
+    'alphascarab_acid_off': 0, #TODO: score
+    'alphascarab_shield_on': 0, #TODO: score
+    'alphascarab_shield_off': 0, #TODO: score
+    'crab_hurt': 0, #TODO: score
+    'crab_die': 0, #TODO: score
+    'crab_fire_on': 0, #TODO: score
+    'crab_fire_off': 0, #TODO: score
+    'crab_ice_on': 0, #TODO: score
+    'crab_ice_off': 0, #TODO: score
+    'crab_acid_on': 0, #TODO: score
+    'crab_acid_off': 0, #TODO: score
+    'crab_shield_on': 0, #TODO: score
+    'crab_shield_off': 0, #TODO: score
+    'alphacrab_hurt': 0, #TODO: score
+    'alphacrab_die': 0, #TODO: score
+    'alphacrab_fire_on': 0, #TODO: score
+    'alphacrab_fire_off': 0, #TODO: score
+    'alphacrab_ice_on': 0, #TODO: score
+    'alphacrab_ice_off': 0, #TODO: score
+    'alphacrab_acid_on': 0, #TODO: score
+    'alphacrab_acid_off': 0, #TODO: score
+    'alphacrab_shield_on': 0, #TODO: score
+    'alphacrab_shield_off': 0, #TODO: score
+    'centipede_hurt': 0, #TODO: score
+    'centipede_die': 0, #TODO: score
+    'centipede_fire_on': 0, #TODO: score
+    'centipede_fire_off': 0, #TODO: score
+    'centipede_ice_on': 0, #TODO: score
+    'centipede_ice_off': 0, #TODO: score
+    'centipede_acid_on': 0, #TODO: score
+    'centipede_acid_off': 0, #TODO: score
+    'centipede_shield_on': 0, #TODO: score
+    'centipede_shield_off': 0, #TODO: score
+    'alphacentipede_hurt': 0, #TODO: score
+    'alphacentipede_die': 0, #TODO: score
+    'alphacentipede_fire_on': 0, #TODO: score
+    'alphacentipede_fire_off': 0, #TODO: score
+    'alphacentipede_ice_on': 0, #TODO: score
+    'alphacentipede_ice_off': 0, #TODO: score
+    'alphacentipede_acid_on': 0, #TODO: score
+    'alphacentipede_acid_off': 0, #TODO: score
+    'alphacentipede_shield_on': 0, #TODO: score
+    'alphacentipede_shield_off': 0, #TODO: score
+    'digger_hurt': 0, #TODO: score
+    'digger_die': 0, #TODO: score
+    'digger_fire_on': 0, #TODO: score
+    'digger_fire_off': 0, #TODO: score
+    'digger_ice_on': 0, #TODO: score
+    'digger_ice_off': 0, #TODO: score
+    'digger_acid_on': 0, #TODO: score
+    'digger_acid_off': 0, #TODO: score
+    'digger_shield_on': 0, #TODO: score
+    'digger_shield_off': 0, #TODO: score
+    'alphadigger_hurt': 0, #TODO: score
+    'alphadigger_die': 0, #TODO: score
+    'alphadigger_fire_on': 0, #TODO: score
+    'alphadigger_fire_off': 0, #TODO: score
+    'alphadigger_ice_on': 0, #TODO: score
+    'alphadigger_ice_off': 0, #TODO: score
+    'alphadigger_acid_on': 0, #TODO: score
+    'alphadigger_acid_off': 0, #TODO: score
+    'alphadigger_shield_on': 0, #TODO: score
+    'alphadigger_shield_off': 0, #TODO: score
+    'hornet_hurt': 0, #TODO: score
+    'hornet_die': 0, #TODO: score
+    'hornet_fire_on': 0, #TODO: score
+    'hornet_fire_off': 0, #TODO: score
+    'hornet_ice_on': 0, #TODO: score
+    'hornet_ice_off': 0, #TODO: score
+    'hornet_acid_on': 0, #TODO: score
+    'hornet_acid_off': 0, #TODO: score
+    'hornet_shield_on': 0, #TODO: score
+    'hornet_shield_off': 0, #TODO: score
+    'alphahornet_hurt': 0, #TODO: score
+    'alphahornet_die': 0, #TODO: score
+    'alphahornet_fire_on': 0, #TODO: score
+    'alphahornet_fire_off': 0, #TODO: score
+    'alphahornet_ice_on': 0, #TODO: score
+    'alphahornet_ice_off': 0, #TODO: score
+    'alphahornet_acid_on': 0, #TODO: score
+    'alphahornet_acid_off': 0, #TODO: score
+    'alphahornet_shield_on': 0, #TODO: score
+    'alphahornet_shield_off': 0, #TODO: score
+    'soldierpsion_hurt': 0, #TODO: score
+    'soldierpsion_die': 0, #TODO: score
+    'soldierpsion_fire_on': 0, #TODO: score
+    'soldierpsion_fire_off': 0, #TODO: score
+    'soldierpsion_ice_on': 0, #TODO: score
+    'soldierpsion_ice_off': 0, #TODO: score
+    'soldierpsion_acid_on': 0, #TODO: score
+    'soldierpsion_acid_off': 0, #TODO: score
+    'soldierpsion_shield_on': 0, #TODO: score
+    'soldierpsion_shield_off': 0, #TODO: score
+    'shellpsion_hurt': 0, #TODO: score
+    'shellpsion_die': 0, #TODO: score
+    'shellpsion_fire_on': 0, #TODO: score
+    'shellpsion_fire_off': 0, #TODO: score
+    'shellpsion_ice_on': 0, #TODO: score
+    'shellpsion_ice_off': 0, #TODO: score
+    'shellpsion_acid_on': 0, #TODO: score
+    'shellpsion_acid_off': 0, #TODO: score
+    'shellpsion_shield_on': 0, #TODO: score
+    'shellpsion_shield_off': 0, #TODO: score
+    'bloodpsion_hurt': 0, #TODO: score
+    'bloodpsion_die': 0, #TODO: score
+    'bloodpsion_fire_on': 0, #TODO: score
+    'bloodpsion_fire_off': 0, #TODO: score
+    'bloodpsion_ice_on': 0, #TODO: score
+    'bloodpsion_ice_off': 0, #TODO: score
+    'bloodpsion_acid_on': 0, #TODO: score
+    'bloodpsion_acid_off': 0, #TODO: score
+    'bloodpsion_shield_on': 0, #TODO: score
+    'bloodpsion_shield_off': 0, #TODO: score
+    'blastpsion_hurt': 0, #TODO: score
+    'blastpsion_die': 0, #TODO: score
+    'blastpsion_fire_on': 0, #TODO: score
+    'blastpsion_fire_off': 0, #TODO: score
+    'blastpsion_ice_on': 0, #TODO: score
+    'blastpsion_ice_off': 0, #TODO: score
+    'blastpsion_acid_on': 0, #TODO: score
+    'blastpsion_acid_off': 0, #TODO: score
+    'blastpsion_shield_on': 0, #TODO: score
+    'blastpsion_shield_off': 0, #TODO: score
+    'psiontyrant_hurt': 0, #TODO: score
+    'psiontyrant_die': 0, #TODO: score
+    'psiontyrant_fire_on': 0, #TODO: score
+    'psiontyrant_fire_off': 0, #TODO: score
+    'psiontyrant_ice_on': 0, #TODO: score
+    'psiontyrant_ice_off': 0, #TODO: score
+    'psiontyrant_acid_on': 0, #TODO: score
+    'psiontyrant_acid_off': 0, #TODO: score
+    'psiontyrant_shield_on': 0, #TODO: score
+    'psiontyrant_shield_off': 0, #TODO: score
+    'spider_hurt': 0, #TODO: score
+    'spider_die': 0, #TODO: score
+    'spider_fire_on': 0, #TODO: score
+    'spider_fire_off': 0, #TODO: score
+    'spider_ice_on': 0, #TODO: score
+    'spider_ice_off': 0, #TODO: score
+    'spider_acid_on': 0, #TODO: score
+    'spider_acid_off': 0, #TODO: score
+    'spider_shield_on': 0, #TODO: score
+    'spider_shield_off': 0, #TODO: score
+    'alphaspider_hurt': 0, #TODO: score
+    'alphaspider_die': 0, #TODO: score
+    'alphaspider_fire_on': 0, #TODO: score
+    'alphaspider_fire_off': 0, #TODO: score
+    'alphaspider_ice_on': 0, #TODO: score
+    'alphaspider_ice_off': 0, #TODO: score
+    'alphaspider_acid_on': 0, #TODO: score
+    'alphaspider_acid_off': 0, #TODO: score
+    'alphaspider_shield_on': 0, #TODO: score
+    'alphaspider_shield_off': 0, #TODO: score
+    'burrower_hurt': 0, #TODO: score
+    'burrower_die': 0, #TODO: score
+    'burrower_fire_on': 0, #TODO: score
+    'burrower_fire_off': 0, #TODO: score
+    'burrower_ice_on': 0, #TODO: score
+    'burrower_ice_off': 0, #TODO: score
+    'burrower_acid_on': 0, #TODO: score
+    'burrower_acid_off': 0, #TODO: score
+    'burrower_shield_on': 0, #TODO: score
+    'burrower_shield_off': 0, #TODO: score
+    'alphaburrower_hurt': 0, #TODO: score
+    'alphaburrower_die': 0, #TODO: score
+    'alphaburrower_fire_on': 0, #TODO: score
+    'alphaburrower_fire_off': 0, #TODO: score
+    'alphaburrower_ice_on': 0, #TODO: score
+    'alphaburrower_ice_off': 0, #TODO: score
+    'alphaburrower_acid_on': 0, #TODO: score
+    'alphaburrower_acid_off': 0, #TODO: score
+    'alphaburrower_shield_on': 0, #TODO: score
+    'alphaburrower_shield_off': 0, #TODO: score
+    'beetleleader_hurt': 0, #TODO: score
+    'beetleleader_die': 0, #TODO: score
+    'beetleleader_fire_on': 0, #TODO: score
+    'beetleleader_fire_off': 0, #TODO: score
+    'beetleleader_ice_on': 0, #TODO: score
+    'beetleleader_ice_off': 0, #TODO: score
+    'beetleleader_acid_on': 0, #TODO: score
+    'beetleleader_acid_off': 0, #TODO: score
+    'beetleleader_shield_on': 0, #TODO: score
+    'beetleleader_shield_off': 0, #TODO: score
+    'largegoo_hurt': 0, #TODO: score
+    'largegoo_die': 0, #TODO: score
+    'largegoo_fire_on': 0, #TODO: score
+    'largegoo_fire_off': 0, #TODO: score
+    'largegoo_ice_on': 0, #TODO: score
+    'largegoo_ice_off': 0, #TODO: score
+    'largegoo_acid_on': 0, #TODO: score
+    'largegoo_acid_off': 0, #TODO: score
+    'largegoo_shield_on': 0, #TODO: score
+    'largegoo_shield_off': 0, #TODO: score
+    'mediumgoo_hurt': 0, #TODO: score
+    'mediumgoo_die': 0, #TODO: score
+    'mediumgoo_fire_on': 0, #TODO: score
+    'mediumgoo_fire_off': 0, #TODO: score
+    'mediumgoo_ice_on': 0, #TODO: score
+    'mediumgoo_ice_off': 0, #TODO: score
+    'mediumgoo_acid_on': 0, #TODO: score
+    'mediumgoo_acid_off': 0, #TODO: score
+    'mediumgoo_shield_on': 0, #TODO: score
+    'mediumgoo_shield_off': 0, #TODO: score
+    'smallgoo_hurt': 0, #TODO: score
+    'smallgoo_die': 0, #TODO: score
+    'smallgoo_fire_on': 0, #TODO: score
+    'smallgoo_fire_off': 0, #TODO: score
+    'smallgoo_ice_on': 0, #TODO: score
+    'smallgoo_ice_off': 0, #TODO: score
+    'smallgoo_acid_on': 0, #TODO: score
+    'smallgoo_acid_off': 0, #TODO: score
+    'smallgoo_shield_on': 0, #TODO: score
+    'smallgoo_shield_off': 0, #TODO: score
+    'hornetleader_hurt': 0, #TODO: score
+    'hornetleader_die': 0, #TODO: score
+    'hornetleader_fire_on': 0, #TODO: score
+    'hornetleader_fire_off': 0, #TODO: score
+    'hornetleader_ice_on': 0, #TODO: score
+    'hornetleader_ice_off': 0, #TODO: score
+    'hornetleader_acid_on': 0, #TODO: score
+    'hornetleader_acid_off': 0, #TODO: score
+    'hornetleader_shield_on': 0, #TODO: score
+    'hornetleader_shield_off': 0, #TODO: score
+    'psionabomination_hurt': 0, #TODO: score
+    'psionabomination_die': 0, #TODO: score
+    'psionabomination_fire_on': 0, #TODO: score
+    'psionabomination_fire_off': 0, #TODO: score
+    'psionabomination_ice_on': 0, #TODO: score
+    'psionabomination_ice_off': 0, #TODO: score
+    'psionabomination_acid_on': 0, #TODO: score
+    'psionabomination_acid_off': 0, #TODO: score
+    'psionabomination_shield_on': 0, #TODO: score
+    'psionabomination_shield_off': 0, #TODO: score
+    'scorpionleader_hurt': 0, #TODO: score
+    'scorpionleader_die': 0, #TODO: score
+    'scorpionleader_fire_on': 0, #TODO: score
+    'scorpionleader_fire_off': 0, #TODO: score
+    'scorpionleader_ice_on': 0, #TODO: score
+    'scorpionleader_ice_off': 0, #TODO: score
+    'scorpionleader_acid_on': 0, #TODO: score
+    'scorpionleader_acid_off': 0, #TODO: score
+    'scorpionleader_shield_on': 0, #TODO: score
+    'scorpionleader_shield_off': 0, #TODO: score
+    'fireflyleader_hurt': 0, #TODO: score
+    'fireflyleader_die': 0, #TODO: score
+    'fireflyleader_fire_on': 0, #TODO: score
+    'fireflyleader_fire_off': 0, #TODO: score
+    'fireflyleader_ice_on': 0, #TODO: score
+    'fireflyleader_ice_off': 0, #TODO: score
+    'fireflyleader_acid_on': 0, #TODO: score
+    'fireflyleader_acid_off': 0, #TODO: score
+    'fireflyleader_shield_on': 0, #TODO: score
+    'fireflyleader_shield_off': 0, #TODO: score
+    'spiderleader_hurt': 0, #TODO: score
+    'spiderleader_die': 0, #TODO: score
+    'spiderleader_fire_on': 0, #TODO: score
+    'spiderleader_fire_off': 0, #TODO: score
+    'spiderleader_ice_on': 0, #TODO: score
+    'spiderleader_ice_off': 0, #TODO: score
+    'spiderleader_acid_on': 0, #TODO: score
+    'spiderleader_acid_off': 0, #TODO: score
+    'spiderleader_shield_on': 0, #TODO: score
+    'spiderleader_shield_off': 0, #TODO: score
+    'alphablob_hurt': 0, #TODO: score
+    'alphablob_die': 0, #TODO: score
+    'alphablob_fire_on': 0, #TODO: score
+    'alphablob_fire_off': 0, #TODO: score
+    'alphablob_ice_on': 0, #TODO: score
+    'alphablob_ice_off': 0, #TODO: score
+    'alphablob_acid_on': 0, #TODO: score
+    'alphablob_acid_off': 0, #TODO: score
+    'alphablob_shield_on': 0, #TODO: score
+    'alphablob_shield_off': 0, #TODO: score
+    'blob_hurt': 0, #TODO: score
+    'blob_die': 0, #TODO: score
+    'blob_fire_on': 0, #TODO: score
+    'blob_fire_off': 0, #TODO: score
+    'blob_ice_on': 0, #TODO: score
+    'blob_ice_off': 0, #TODO: score
+    'blob_acid_on': 0, #TODO: score
+    'blob_acid_off': 0, #TODO: score
+    'blob_shield_on': 0, #TODO: score
+    'blob_shield_off': 0, #TODO: score
+    'spiderlingegg_hurt': 0, #TODO: score
+    'spiderlingegg_die': 0, #TODO: score
+    'spiderlingegg_fire_on': 0, #TODO: score
+    'spiderlingegg_fire_off': 0, #TODO: score
+    'spiderlingegg_ice_on': 0, #TODO: score
+    'spiderlingegg_ice_off': 0, #TODO: score
+    'spiderlingegg_acid_on': 0, #TODO: score
+    'spiderlingegg_acid_off': 0, #TODO: score
+    'spiderlingegg_shield_on': 0, #TODO: score
+    'spiderlingegg_shield_off': 0, #TODO: score
+    'spiderling_hurt': 0, #TODO: score
+    'spiderling_die': 0, #TODO: score
+    'spiderling_fire_on': 0, #TODO: score
+    'spiderling_fire_off': 0, #TODO: score
+    'spiderling_ice_on': 0, #TODO: score
+    'spiderling_ice_off': 0, #TODO: score
+    'spiderling_acid_on': 0, #TODO: score
+    'spiderling_acid_off': 0, #TODO: score
+    'spiderling_shield_on': 0, #TODO: score
+    'spiderling_shield_off': 0, #TODO: score
+    'alphaspiderling_hurt': 0, #TODO: score
+    'alphaspiderling_die': 0, #TODO: score
+    'alphaspiderling_fire_on': 0, #TODO: score
+    'alphaspiderling_fire_off': 0, #TODO: score
+    'alphaspiderling_ice_on': 0, #TODO: score
+    'alphaspiderling_ice_off': 0, #TODO: score
+    'alphaspiderling_acid_on': 0, #TODO: score
+    'alphaspiderling_acid_off': 0, #TODO: score
+    'alphaspiderling_shield_on': 0, #TODO: score
+    'alphaspiderling_shield_off': 0, #TODO: score
+    'cannonbot_hurt': 0, #TODO: score
+    'cannonbot_die': 0, #TODO: score
+    'cannonbot_fire_on': 0, #TODO: score
+    'cannonbot_fire_off': 0, #TODO: score
+    'cannonbot_ice_on': 0, #TODO: score
+    'cannonbot_ice_off': 0, #TODO: score
+    'cannonbot_acid_on': 0, #TODO: score
+    'cannonbot_acid_off': 0, #TODO: score
+    'cannonbot_shield_on': 0, #TODO: score
+    'cannonbot_shield_off': 0, #TODO: score
+    'cannonmech_hurt': 0, #TODO: score
+    'cannonmech_die': 0, #TODO: score
+    'cannonmech_fire_on': 0, #TODO: score
+    'cannonmech_fire_off': 0, #TODO: score
+    'cannonmech_ice_on': 0, #TODO: score
+    'cannonmech_ice_off': 0, #TODO: score
+    'cannonmech_acid_on': 0, #TODO: score
+    'cannonmech_acid_off': 0, #TODO: score
+    'cannonmech_shield_on': 0, #TODO: score
+    'cannonmech_shield_off': 0, #TODO: score
+    'artillerybot_hurt': 0, #TODO: score
+    'artillerybot_die': 0, #TODO: score
+    'artillerybot_fire_on': 0, #TODO: score
+    'artillerybot_fire_off': 0, #TODO: score
+    'artillerybot_ice_on': 0, #TODO: score
+    'artillerybot_ice_off': 0, #TODO: score
+    'artillerybot_acid_on': 0, #TODO: score
+    'artillerybot_acid_off': 0, #TODO: score
+    'artillerybot_shield_on': 0, #TODO: score
+    'artillerybot_shield_off': 0, #TODO: score
+    'artillerymech_hurt': 0, #TODO: score
+    'artillerymech_die': 0, #TODO: score
+    'artillerymech_fire_on': 0, #TODO: score
+    'artillerymech_fire_off': 0, #TODO: score
+    'artillerymech_ice_on': 0, #TODO: score
+    'artillerymech_ice_off': 0, #TODO: score
+    'artillerymech_acid_on': 0, #TODO: score
+    'artillerymech_acid_off': 0, #TODO: score
+    'artillerymech_shield_on': 0, #TODO: score
+    'artillerymech_shield_off': 0, #TODO: score
+    'laserbot_hurt': 0, #TODO: score
+    'laserbot_die': 0, #TODO: score
+    'laserbot_fire_on': 0, #TODO: score
+    'laserbot_fire_off': 0, #TODO: score
+    'laserbot_ice_on': 0, #TODO: score
+    'laserbot_ice_off': 0, #TODO: score
+    'laserbot_acid_on': 0, #TODO: score
+    'laserbot_acid_off': 0, #TODO: score
+    'laserbot_shield_on': 0, #TODO: score
+    'laserbot_shield_off': 0, #TODO: score
+    'lasermech_hurt': 0, #TODO: score
+    'lasermech_die': 0, #TODO: score
+    'lasermech_fire_on': 0, #TODO: score
+    'lasermech_fire_off': 0, #TODO: score
+    'lasermech_ice_on': 0, #TODO: score
+    'lasermech_ice_off': 0, #TODO: score
+    'lasermech_acid_on': 0, #TODO: score
+    'lasermech_acid_off': 0, #TODO: score
+    'lasermech_shield_on': 0, #TODO: score
+    'lasermech_shield_off': 0, #TODO: score
+    'minebot_hurt': 0, #TODO: score
+    'minebot_die': 0, #TODO: score
+    'minebot_fire_on': 0, #TODO: score
+    'minebot_fire_off': 0, #TODO: score
+    'minebot_ice_on': 0, #TODO: score
+    'minebot_ice_off': 0, #TODO: score
+    'minebot_acid_on': 0, #TODO: score
+    'minebot_acid_off': 0, #TODO: score
+    'minebot_shield_on': 0, #TODO: score
+    'minebot_shield_off': 0, #TODO: score
+    'botleaderattacking_hurt': 0, #TODO: score
+    'botleaderattacking_die': 0, #TODO: score
+    'botleaderattacking_fire_on': 0, #TODO: score
+    'botleaderattacking_fire_off': 0, #TODO: score
+    'botleaderattacking_ice_on': 0, #TODO: score
+    'botleaderattacking_ice_off': 0, #TODO: score
+    'botleaderattacking_acid_on': 0, #TODO: score
+    'botleaderattacking_acid_off': 0, #TODO: score
+    'botleaderattacking_shield_on': 0, #TODO: score
+    'botleaderattacking_shield_off': 0, #TODO: score
+    'botleaderhealing_hurt': 0, #TODO: score
+    'botleaderhealing_die': 0, #TODO: score
+    'botleaderhealing_fire_on': 0, #TODO: score
+    'botleaderhealing_fire_off': 0, #TODO: score
+    'botleaderhealing_ice_on': 0, #TODO: score
+    'botleaderhealing_ice_off': 0, #TODO: score
+    'botleaderhealing_acid_on': 0, #TODO: score
+    'botleaderhealing_acid_off': 0, #TODO: score
+    'botleaderhealing_shield_on': 0, #TODO: score
+    'botleaderhealing_shield_off': 0, #TODO: score
+    'mechcorpse_hurt': 0, #TODO: score
+    'mechcorpse_die': 0, #TODO: score
+    'mechcorpse_fire_on': 0, #TODO: score
+    'mechcorpse_fire_off': 0, #TODO: score
+    'mechcorpse_ice_on': 0, #TODO: score
+    'mechcorpse_ice_off': 0, #TODO: score
+    'mechcorpse_acid_on': 0, #TODO: score
+    'mechcorpse_acid_off': 0, #TODO: score
+    'mechcorpse_shield_on': 0, #TODO: score
+    'mechcorpse_shield_off': 0, #TODO: score
+    'combat_hurt': 0, #TODO: score
+    'combat_die': 0, #TODO: score
+    'combat_fire_on': 0, #TODO: score
+    'combat_fire_off': 0, #TODO: score
+    'combat_ice_on': 0, #TODO: score
+    'combat_ice_off': 0, #TODO: score
+    'combat_acid_on': 0, #TODO: score
+    'combat_acid_off': 0, #TODO: score
+    'combat_shield_on': 0, #TODO: score
+    'combat_shield_off': 0, #TODO: score
+    'laser_hurt': 0, #TODO: score
+    'laser_die': 0, #TODO: score
+    'laser_fire_on': 0, #TODO: score
+    'laser_fire_off': 0, #TODO: score
+    'laser_ice_on': 0, #TODO: score
+    'laser_ice_off': 0, #TODO: score
+    'laser_acid_on': 0, #TODO: score
+    'laser_acid_off': 0, #TODO: score
+    'laser_shield_on': 0, #TODO: score
+    'laser_shield_off': 0, #TODO: score
+    'lightning_hurt': 0, #TODO: score
+    'lightning_die': 0, #TODO: score
+    'lightning_fire_on': 0, #TODO: score
+    'lightning_fire_off': 0, #TODO: score
+    'lightning_ice_on': 0, #TODO: score
+    'lightning_ice_off': 0, #TODO: score
+    'lightning_acid_on': 0, #TODO: score
+    'lightning_acid_off': 0, #TODO: score
+    'lightning_shield_on': 0, #TODO: score
+    'lightning_shield_off': 0, #TODO: score
+    'judo_hurt': 0, #TODO: score
+    'judo_die': 0, #TODO: score
+    'judo_fire_on': 0, #TODO: score
+    'judo_fire_off': 0, #TODO: score
+    'judo_ice_on': 0, #TODO: score
+    'judo_ice_off': 0, #TODO: score
+    'judo_acid_on': 0, #TODO: score
+    'judo_acid_off': 0, #TODO: score
+    'judo_shield_on': 0, #TODO: score
+    'judo_shield_off': 0, #TODO: score
+    'flame_hurt': 0, #TODO: score
+    'flame_die': 0, #TODO: score
+    'flame_fire_on': 0, #TODO: score
+    'flame_fire_off': 0, #TODO: score
+    'flame_ice_on': 0, #TODO: score
+    'flame_ice_off': 0, #TODO: score
+    'flame_acid_on': 0, #TODO: score
+    'flame_acid_off': 0, #TODO: score
+    'flame_shield_on': 0, #TODO: score
+    'flame_shield_off': 0, #TODO: score
+    'aegis_hurt': 0, #TODO: score
+    'aegis_die': 0, #TODO: score
+    'aegis_fire_on': 0, #TODO: score
+    'aegis_fire_off': 0, #TODO: score
+    'aegis_ice_on': 0, #TODO: score
+    'aegis_ice_off': 0, #TODO: score
+    'aegis_acid_on': 0, #TODO: score
+    'aegis_acid_off': 0, #TODO: score
+    'aegis_shield_on': 0, #TODO: score
+    'aegis_shield_off': 0, #TODO: score
+    'leap_hurt': 0, #TODO: score
+    'leap_die': 0, #TODO: score
+    'leap_fire_on': 0, #TODO: score
+    'leap_fire_off': 0, #TODO: score
+    'leap_ice_on': 0, #TODO: score
+    'leap_ice_off': 0, #TODO: score
+    'leap_acid_on': 0, #TODO: score
+    'leap_acid_off': 0, #TODO: score
+    'leap_shield_on': 0, #TODO: score
+    'leap_shield_off': 0, #TODO: score
+    'cannon_hurt': 0, #TODO: score
+    'cannon_die': 0, #TODO: score
+    'cannon_fire_on': 0, #TODO: score
+    'cannon_fire_off': 0, #TODO: score
+    'cannon_ice_on': 0, #TODO: score
+    'cannon_ice_off': 0, #TODO: score
+    'cannon_acid_on': 0, #TODO: score
+    'cannon_acid_off': 0, #TODO: score
+    'cannon_shield_on': 0, #TODO: score
+    'cannon_shield_off': 0, #TODO: score
+    'jet_hurt': 0, #TODO: score
+    'jet_die': 0, #TODO: score
+    'jet_fire_on': 0, #TODO: score
+    'jet_fire_off': 0, #TODO: score
+    'jet_ice_on': 0, #TODO: score
+    'jet_ice_off': 0, #TODO: score
+    'jet_acid_on': 0, #TODO: score
+    'jet_acid_off': 0, #TODO: score
+    'jet_shield_on': 0, #TODO: score
+    'jet_shield_off': 0, #TODO: score
+    'charge_hurt': 0, #TODO: score
+    'charge_die': 0, #TODO: score
+    'charge_fire_on': 0, #TODO: score
+    'charge_fire_off': 0, #TODO: score
+    'charge_ice_on': 0, #TODO: score
+    'charge_ice_off': 0, #TODO: score
+    'charge_acid_on': 0, #TODO: score
+    'charge_acid_off': 0, #TODO: score
+    'charge_shield_on': 0, #TODO: score
+    'charge_shield_off': 0, #TODO: score
+    'hook_hurt': 0, #TODO: score
+    'hook_die': 0, #TODO: score
+    'hook_fire_on': 0, #TODO: score
+    'hook_fire_off': 0, #TODO: score
+    'hook_ice_on': 0, #TODO: score
+    'hook_ice_off': 0, #TODO: score
+    'hook_acid_on': 0, #TODO: score
+    'hook_acid_off': 0, #TODO: score
+    'hook_shield_on': 0, #TODO: score
+    'hook_shield_off': 0, #TODO: score
+    'mirror_hurt': 0, #TODO: score
+    'mirror_die': 0, #TODO: score
+    'mirror_fire_on': 0, #TODO: score
+    'mirror_fire_off': 0, #TODO: score
+    'mirror_ice_on': 0, #TODO: score
+    'mirror_ice_off': 0, #TODO: score
+    'mirror_acid_on': 0, #TODO: score
+    'mirror_acid_off': 0, #TODO: score
+    'mirror_shield_on': 0, #TODO: score
+    'mirror_shield_off': 0, #TODO: score
+    'unstable_hurt': 0, #TODO: score
+    'unstable_die': 0, #TODO: score
+    'unstable_fire_on': 0, #TODO: score
+    'unstable_fire_off': 0, #TODO: score
+    'unstable_ice_on': 0, #TODO: score
+    'unstable_ice_off': 0, #TODO: score
+    'unstable_acid_on': 0, #TODO: score
+    'unstable_acid_off': 0, #TODO: score
+    'unstable_shield_on': 0, #TODO: score
+    'unstable_shield_off': 0, #TODO: score
+    'artillery_hurt': 0, #TODO: score
+    'artillery_die': 0, #TODO: score
+    'artillery_fire_on': 0, #TODO: score
+    'artillery_fire_off': 0, #TODO: score
+    'artillery_ice_on': 0, #TODO: score
+    'artillery_ice_off': 0, #TODO: score
+    'artillery_acid_on': 0, #TODO: score
+    'artillery_acid_off': 0, #TODO: score
+    'artillery_shield_on': 0, #TODO: score
+    'artillery_shield_off': 0, #TODO: score
+    'rocket_hurt': 0, #TODO: score
+    'rocket_die': 0, #TODO: score
+    'rocket_fire_on': 0, #TODO: score
+    'rocket_fire_off': 0, #TODO: score
+    'rocket_ice_on': 0, #TODO: score
+    'rocket_ice_off': 0, #TODO: score
+    'rocket_acid_on': 0, #TODO: score
+    'rocket_acid_off': 0, #TODO: score
+    'rocket_shield_on': 0, #TODO: score
+    'rocket_shield_off': 0, #TODO: score
+    'boulder_hurt': 0, #TODO: score
+    'boulder_die': 0, #TODO: score
+    'boulder_fire_on': 0, #TODO: score
+    'boulder_fire_off': 0, #TODO: score
+    'boulder_ice_on': 0, #TODO: score
+    'boulder_ice_off': 0, #TODO: score
+    'boulder_acid_on': 0, #TODO: score
+    'boulder_acid_off': 0, #TODO: score
+    'boulder_shield_on': 0, #TODO: score
+    'boulder_shield_off': 0, #TODO: score
+    'siege_hurt': 0, #TODO: score
+    'siege_die': 0, #TODO: score
+    'siege_fire_on': 0, #TODO: score
+    'siege_fire_off': 0, #TODO: score
+    'siege_ice_on': 0, #TODO: score
+    'siege_ice_off': 0, #TODO: score
+    'siege_acid_on': 0, #TODO: score
+    'siege_acid_off': 0, #TODO: score
+    'siege_shield_on': 0, #TODO: score
+    'siege_shield_off': 0, #TODO: score
+    'meteor_hurt': 0, #TODO: score
+    'meteor_die': 0, #TODO: score
+    'meteor_fire_on': 0, #TODO: score
+    'meteor_fire_off': 0, #TODO: score
+    'meteor_ice_on': 0, #TODO: score
+    'meteor_ice_off': 0, #TODO: score
+    'meteor_acid_on': 0, #TODO: score
+    'meteor_acid_off': 0, #TODO: score
+    'meteor_shield_on': 0, #TODO: score
+    'meteor_shield_off': 0, #TODO: score
+    'ice_hurt': 0, #TODO: score
+    'ice_die': 0, #TODO: score
+    'ice_fire_on': 0, #TODO: score
+    'ice_fire_off': 0, #TODO: score
+    'ice_ice_on': 0, #TODO: score
+    'ice_ice_off': 0, #TODO: score
+    'ice_acid_on': 0, #TODO: score
+    'ice_acid_off': 0, #TODO: score
+    'ice_shield_on': 0, #TODO: score
+    'ice_shield_off': 0, #TODO: score
+    'pulse_hurt': 0, #TODO: score
+    'pulse_die': 0, #TODO: score
+    'pulse_fire_on': 0, #TODO: score
+    'pulse_fire_off': 0, #TODO: score
+    'pulse_ice_on': 0, #TODO: score
+    'pulse_ice_off': 0, #TODO: score
+    'pulse_acid_on': 0, #TODO: score
+    'pulse_acid_off': 0, #TODO: score
+    'pulse_shield_on': 0, #TODO: score
+    'pulse_shield_off': 0, #TODO: score
+    'defense_hurt': 0, #TODO: score
+    'defense_die': 0, #TODO: score
+    'defense_fire_on': 0, #TODO: score
+    'defense_fire_off': 0, #TODO: score
+    'defense_ice_on': 0, #TODO: score
+    'defense_ice_off': 0, #TODO: score
+    'defense_acid_on': 0, #TODO: score
+    'defense_acid_off': 0, #TODO: score
+    'defense_shield_on': 0, #TODO: score
+    'defense_shield_off': 0, #TODO: score
+    'gravity_hurt': 0, #TODO: score
+    'gravity_die': 0, #TODO: score
+    'gravity_fire_on': 0, #TODO: score
+    'gravity_fire_off': 0, #TODO: score
+    'gravity_ice_on': 0, #TODO: score
+    'gravity_ice_off': 0, #TODO: score
+    'gravity_acid_on': 0, #TODO: score
+    'gravity_acid_off': 0, #TODO: score
+    'gravity_shield_on': 0, #TODO: score
+    'gravity_shield_off': 0, #TODO: score
+    'swap_hurt': 0, #TODO: score
+    'swap_die': 0, #TODO: score
+    'swap_fire_on': 0, #TODO: score
+    'swap_fire_off': 0, #TODO: score
+    'swap_ice_on': 0, #TODO: score
+    'swap_ice_off': 0, #TODO: score
+    'swap_acid_on': 0, #TODO: score
+    'swap_acid_off': 0, #TODO: score
+    'swap_shield_on': 0, #TODO: score
+    'swap_shield_off': 0, #TODO: score
+    'nano_hurt': 0, #TODO: score
+    'nano_die': 0, #TODO: score
+    'nano_fire_on': 0, #TODO: score
+    'nano_fire_off': 0, #TODO: score
+    'nano_ice_on': 0, #TODO: score
+    'nano_ice_off': 0, #TODO: score
+    'nano_acid_on': 0, #TODO: score
+    'nano_acid_off': 0, #TODO: score
+    'nano_shield_on': 0, #TODO: score
+    'nano_shield_off': 0, #TODO: score
+    'technobeetle_hurt': 0, #TODO: score
+    'technobeetle_die': 0, #TODO: score
+    'technobeetle_fire_on': 0, #TODO: score
+    'technobeetle_fire_off': 0, #TODO: score
+    'technobeetle_ice_on': 0, #TODO: score
+    'technobeetle_ice_off': 0, #TODO: score
+    'technobeetle_acid_on': 0, #TODO: score
+    'technobeetle_acid_off': 0, #TODO: score
+    'technobeetle_shield_on': 0, #TODO: score
+    'technobeetle_shield_off': 0, #TODO: score
+    'technohornet_hurt': 0, #TODO: score
+    'technohornet_die': 0, #TODO: score
+    'technohornet_fire_on': 0, #TODO: score
+    'technohornet_fire_off': 0, #TODO: score
+    'technohornet_ice_on': 0, #TODO: score
+    'technohornet_ice_off': 0, #TODO: score
+    'technohornet_acid_on': 0, #TODO: score
+    'technohornet_acid_off': 0, #TODO: score
+    'technohornet_shield_on': 0, #TODO: score
+    'technohornet_shield_off': 0, #TODO: score
+    'technoscarab_hurt': 0, #TODO: score
+    'technoscarab_die': 0, #TODO: score
+    'technoscarab_fire_on': 0, #TODO: score
+    'technoscarab_fire_off': 0, #TODO: score
+    'technoscarab_ice_on': 0, #TODO: score
+    'technoscarab_ice_off': 0, #TODO: score
+    'technoscarab_acid_on': 0, #TODO: score
+    'technoscarab_acid_off': 0, #TODO: score
+    'technoscarab_shield_on': 0, #TODO: score
+    'technoscarab_shield_off': 0, #TODO: score
 }
 ############### FUNCTIONS #################
 
@@ -623,7 +1710,7 @@ class Tile_Ground(Tile_Base):
         if Effects.MINE in self.effects:
             self.unit.die()
             self.effects.discard(Effects.MINE)
-            self.game.score.submit('mine_killed')
+            self.game.score.submit('mine_die')
         elif Effects.FREEZEMINE in self.effects:
             self.effects.discard(Effects.FREEZEMINE)
             self.unit.applyIce()
@@ -634,7 +1721,7 @@ class Tile_Ground(Tile_Base):
             else:
                 self.game.score.submit('timepod_die')
     def _tileTakeDamage(self):
-        for (effect, event) in (Effects.TIMEPOD, 'timepod_die'), (Effects.MINE, 'mine_killed'), (Effects.FREEZEMINE, 'freezemine_die'):
+        for (effect, event) in (Effects.TIMEPOD, 'timepod_die'), (Effects.MINE, 'mine_die'), (Effects.FREEZEMINE, 'freezemine_die'):
             try:
                 self.effects.remove(effect)
             except KeyError:  # there was no effect on the tile
@@ -897,6 +1984,9 @@ class Unit_Base(TileUnit_Base):
             self.web = set()
         else:
             self.web = set(web)
+        self.gotfire = self.gotacid = self.gotice = self.gotshield = False # These flags are set to true when this unit gets fire, acid, or ice applied to it.
+        # This is done so we can avoid scoring a unit catching on fire and then dying from damage being more valuable than just killing the unit.
+        self.lostfire = self.lostacid = self.lostice = self.lostshield = False # these flags are set to true when this unit loses fire, acid, or ice.
     def applyEffectUnshielded(self, effect):
         "A helper method to check for the presence of a shield before applying an effect. return True if the effect was added, False if not."
         if Effects.SHIELD not in self.effects:
@@ -904,43 +1994,72 @@ class Unit_Base(TileUnit_Base):
             return True
         return False
     def applyFire(self):
-        self.effects.discard(Effects.ICE)
-        if not Attributes.IMMUNEFIRE in self.attributes:
-            self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
+        if Effects.FIRE not in self.effects:
+            try:
+                self.effects.remove(Effects.ICE)
+            except KeyError:
+                pass
+            else:
+                self._removeIceScore()
+                self.lostice = True
+            if not Attributes.IMMUNEFIRE in self.attributes:
+                self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
+                self.gotfire = True
+                self._applyFireScore()
     def applyIce(self):
-        if self.applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
-            self.effects.discard(Effects.FIRE)
-        try:
-            self.weapon1.qshot = None
-        except AttributeError:  # self.None.qshot
-            pass
-        self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
+        if Effects.ICE not in self.effects:
+            if self.applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+                try:
+                    self.effects.remove(Effects.FIRE)
+                except KeyError:
+                    pass
+                else:
+                    self._removeFireScore()
+                    self.lostfire = True
+            try:
+                self.weapon1.qshot = None # invalidate the unit's queued shot
+            except AttributeError:  # self.None.qshot
+                pass
+            self.gotice = True
+            self._applyIceScore()
+            self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
-        self.applyEffectUnshielded(Effects.ACID) # you only get acid if you don't have a shield.
+        if self.applyEffectUnshielded(Effects.ACID): # you only get acid if you don't have a shield.
+            self.gotacid = True
+            self._applyAcidScore()
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
-        self.effects.add(Effects.SHIELD)
+        if Effects.SHIELD not in self.effects:
+            self.effects.add(Effects.SHIELD)
+            self.gotshield = True
+            self._applyShieldScore()
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         """Process this unit taking damage. All effects are considered unless the ignore* flags are set in the arguments.
         Units will not die after reaching 0 hp here, run _allowDeath() to allow them to die. This is needed for vek units that can be killed and then pushed to do bump damage or spread effects.
         return False if ice or a shield blocked the damage, True otherwise."""
-        for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
+        if self._takeDamageProtected():
+            if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects: # if you have both armor and acid...
+                pass # acid cancels out armored
+            elif not ignorearmor and Attributes.ARMORED in self.attributes: # if we aren't ignoring armor and you're armored...
+                damage -= 1 # damage reduced by 1
+            elif not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
+                damage *= 2
+            self.hp -= damage # the unit takes the damage
+            self.damage_taken += damage
+            self._takeDamageScore(damage)
+            return True
+    def _takeDamageProtected(self):
+        "Check if there is a shield or ice on the unit before it takes damage. return True if there was no shield or ice, False if the damage was blocked by one of them."
+        for effect, meth in (Effects.SHIELD, '_removeShieldScore'), (Effects.ICE, '_removeIceScore'): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
             except KeyError:
                 pass
             else:
+                getattr(self, meth)() # score the shield or ice being lost
                 self.game.board[self.square]._spreadEffects() # spread effects now that they lost a shield or ice
                 return False # and then stop processing things, the shield or ice took the damage.
-        if Attributes.ARMORED in self.attributes and Effects.ACID in self.effects: # if you have both armor and acid...
-            pass # acid cancels out armored
-        elif not ignorearmor and Attributes.ARMORED in self.attributes: # if we aren't ignoring armor and you're armored...
-            damage -= 1 # damage reduced by 1
-        elif not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
-            damage *= 2
-        self.hp -= damage # the unit takes the damage
-        self.damage_taken += damage
         return True
     def takeBumpDamage(self):
         "take damage from bumping. This is when you're pushed into something or a vek tries to emerge beneath you."
@@ -961,6 +2080,7 @@ class Unit_Base(TileUnit_Base):
             self.game.board[self.square].applyAcid()
         self._breakAllWebs()
         self.explode()
+        self._dieScore()
     def explode(self):
         "Make the unit explode only if it is explosive (to be used after death). Explosion damage ignores acid and armor."
         if Effects.EXPLOSIVE in self.effects:
@@ -1022,6 +2142,42 @@ class Unit_Base(TileUnit_Base):
         for sq in self.web:
             self.game.board[sq].unit._breakWeb(self.square, prop=False)
         self.web = set()
+    def _applyFireScore(self):
+        "submit the score event for this unit catching on fire. returns nothing"
+        self.game.score.submit('{0}_fire_on'.format(self.type))
+    def _removeFireScore(self):
+        "submit the score event for this unit having fire removed. returns nothing"
+        self.game.score.submit('{0}_fire_off'.format(self.type))
+    def _applyIceScore(self):
+        "submit the score event for this unit becoming frozen."
+        self.game.score.submit('{0}_ice_on'.format(self.type))
+    def _removeIceScore(self):
+        "submit the score event for this unit becoming frozen."
+        self.game.score.submit('{0}_ice_off'.format(self.type))
+    def _applyAcidScore(self):
+        "submit the score event for this unit getting acid."
+        self.game.score.submit('{0}_acid_on'.format(self.type))
+    def _removeAcidScore(self):
+        "submit the score event for this unit getting rid of acid."
+        self.game.score.submit('{0}_acid_off'.format(self.type))
+    def _applyShieldScore(self):
+        "submit the score event for this unit getting shielded"
+        self.game.score.submit('{0}_shield_on'.format(self.type))
+    def _removeShieldScore(self):
+        "submit the score event for this unit losing it's shield"
+        self.game.score.submit('{0}_shield_off'.format(self.type))
+    def _takeDamageScore(self, damage):
+        "submit the score event for this unit taking damage."
+        self.game.score.submit('{0}_hurt'.format(self.type), damage)
+    def _dieScore(self):
+        "submit the score event for this unit dying."
+        self.game.score.submit('{0}_die'.format(self.type))
+        if self.damage_taken:
+            self.game.score.undo('{0}_hurt'.format(self.type), self.damage_taken) # undo the damage that this unit took.
+        # we want to avoid the situation of damaging something for 5 hp to kill it is more valuable than just pushing it into water.
+        for effect, name in (self.gotfire, 'fire'), (self.gotacid, 'acid'), (self.gotice, 'ice'), (self.gotshield, 'shield'):
+            if effect:
+                self.game.score.undo('{0}_{1}_on'.format(self.type, name))
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s Webs: %s" % (self.type, self.hp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)), self.web)
 
@@ -1132,6 +2288,9 @@ class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base, Unit_NonPlayerContro
         self.attributes.update((Attributes.STABLE, Attributes.IMMUNEFIRE))
     def applyFire(self):
         pass # mountains can't be set on fire, but the tile they're on can!
+    def _applyFireScore(self):
+        "Don't score mountains or building catching on fire since they can't"
+        pass
 
 class Unit_Mountain(Unit_Mountain_Building_Base):
     def __init__(self, game, type='mountain', attributes=None, effects=None):
@@ -1140,21 +2299,32 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         self._mountain = True
     def applyAcid(self):
         pass
+    def _applyAcidScore(self):
+        pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.game.board[self.square]._putUnitHere(Unit_Mountain_Damaged(self.game))
+        "This takeDamage ignores the amount of damage dealt to the mountain and flattens it to 1."
+        if self._takeDamageProtected():
+            self.damage_taken += 1
+            self._takeDamageScore(1)
+            self.game.board[self.square]._putUnitHere(Unit_Mountain_Damaged(self.game))
     def _takeDamageScore(self, damage):
-        "Score the mountain taking damage and becoming a damaged mountain"
-        self.game.score.submit('mountain_hurt')
+        "submit the score event for this unit taking damage."
+        self.game.score.submit('mountain_hurt', 1)
     def _dieScore(self):
+        "submit the score event for the mountain or damagedmountain dying."
         self.game.score.submit('mountain_die')
+        if self.damage_taken:
+            self.game.score.undo('mountain_hurt', self.damage_taken) # undo the damage that this unit took.
 
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, game, type='mountaindamaged', effects=None):
         super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
-        self.hp = 0 # required for PrimeSpear to detect a unit that died
-        self.game.board[self.square]._putUnitHere(None)
+        if self._takeDamageProtected():
+            self.hp = 0 # required for PrimeSpear to detect a unit that died
+            self._dieScore()
+            self.game.board[self.square]._putUnitHere(None)
 
 class Unit_Volcano(Unit_Mountain):
     "Indestructible volcano that blocks movement and projectiles."
@@ -1184,13 +2354,12 @@ class Unit_Building(Unit_Mountain_Building_Base):
             if super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid): # just run the parent's takeDamage
                 self.game.powergrid.takeDamage(damage)
 
+
 class Unit_Building_Objective(Unit_Building):
     alliance = Alliance.NEUTRAL
     _building = True
     def __init__(self, game, type='buildingobjective', hp=1, maxhp=1, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
-    def _dieScore(self):
-        self.game.score.submit('objectivebuilding_die')
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1205,7 +2374,6 @@ class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlay
         self.game.board[self.square].replaceTile(Tile_Water(self.game, effects=(Effects.ACID,)), keepeffects=True) # replace the tile with a water tile that has an acid effect and keep the old effects
         self.game.vekemerge.remove(self.square) # don't let vek emerge from this newly created acid water tile
         self.game.board[self.square].effects.discard(Effects.FIRE) # don't keep fire, this tile can't be on fire.
-        self.game.score.submit('acidvat_die')
 
 class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1231,10 +2399,6 @@ class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
 
 class Deployable_Unit_Base():
     "A base unit for deployable tanks to handle their scoring."
-    def _takeDamageScore(self, damage):
-        self.game.score.submit('deployable_hurt', damage)
-    def _dieScore(self):
-        self.game.score.submit('deployable_die')
 
 class Unit_AcidTank(Sub_Unit_Base, Deployable_Unit_Base):
     def __init__(self, game, type='acidtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
@@ -4678,5 +5842,8 @@ class ScoreKeeper():
     def undo(self, event, amount):
         "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
         for r in range(amount):
-            self.log.remove(event)
+            try:
+                self.log.remove(event)
+            except ValueError:
+                pass # TODO: undo this and make this exception fatal again!
             self.score -= SCORE[event]

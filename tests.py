@@ -12238,8 +12238,8 @@ def t_ScoreBuildingDamage():
     assert g.score.keepers['best'].score == 0
     g.board[(1, 1)].takeDamage(1)
     assert g.score.keepers['best'].score == SCORE['powergrid_hurt']
-    print(g.score.keepers['best'].log)
-    #assert g.score.keepers['best'].log == ['powergrid_hurt']
+    #print(g.score.keepers['best'].log)
+    assert g.score.keepers['best'].log == ['1building_hurt', '1powergrid_hurt']
 
 def t_ScoreTimepodPickup():
     "Test out the scoring system on a timepod picked up by a friendly."
@@ -12249,7 +12249,7 @@ def t_ScoreTimepodPickup():
     assert g.score.keepers['best'].score == 0
     g.board[(1, 2)].moveUnit((1, 1))
     assert g.score.keepers['best'].score == SCORE['timepod_pickup']
-    assert g.score.keepers['best'].log == ['timepod_pickup']
+    assert g.score.keepers['best'].log == ['1timepod_pickup']
 
 def t_ScoreTimepodKilled():
     "Test out the scoring system on a timepod destroyed up by a vek."
@@ -12259,7 +12259,8 @@ def t_ScoreTimepodKilled():
     assert g.score.keepers['best'].score == 0
     g.board[(1, 2)].moveUnit((1, 1))
     assert g.score.keepers['best'].score == SCORE['timepod_die']
-    assert g.score.keepers['best'].log == ['timepod_die']
+    assert g.score.keepers['best'].log == ['1timepod_die']
+    assert g.score.keepers['best'].score < 0
 
 def t_MountainDeath():
     "A mountain gets hit by an instakill weapon, removing it instantly"
@@ -12268,6 +12269,34 @@ def t_MountainDeath():
     assert g.board[(1, 1)].unit.type == 'mountain'
     g.board[(1, 1)].die()
     assert g.board[(1, 1)].unit is None
+
+def t_MountainCantBeSetOnFireScore():
+    "mountains can't be set on fire, but the tile they're on can! make sure this is scored appropriately"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Mountain(g))
+    assert g.score.keepers['best'].score == 0
+    assert g.board[(1, 1)].effects == set()
+    assert g.board[(1, 1)].unit.effects == set()
+    g.board[(1, 1)].applyFire()
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == {Effects.FIRE}
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.score.keepers['best'].score == 0
+    assert g.score.keepers['best'].log == [] # no score for the mountain being set on fire
+
+def t_UnscorableThings():
+    "Test out some special units and actions that should NOT generate a scoring event."
+    g = Game()
+    for unit in Unit_Mountain, Unit_Mountain_Damaged, Unit_Volcano:
+        g.board[(1, 1)].createUnitHere(unit(g))
+        for effect in 'applyFire', 'applyAcid', 'applyShield', 'applyIce':
+            getattr(g.board[(1, 1)], effect)()
+            assert g.score.keepers['best'].log == []
+    # now just test out the volcano getting hurt and dying
+    g.board[(1, 1)].createUnitHere(unit(g))
+    for effect in 'takeDamage', 'die':
+        getattr(g.board[(1, 1)], effect)()
+        assert g.score.keepers['best'].log == []
 
 ########### write tests for these:
 # a shielded mountain takes damage. same with ice

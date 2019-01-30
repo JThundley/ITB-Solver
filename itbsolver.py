@@ -142,96 +142,59 @@ SCORE = {
     'timepod_die': -20,
     'mine_die': -5,
     'freezemine_die': -4,
-    'mountain_hurt': 0, #TODO: score
-    'mountain_die': 0, #TODO: score
-    'mountain_fire_on': 0, #TODO: score
-    'mountain_fire_off': 0, #TODO: score
-    'mountain_ice_on': 0, #TODO: score
-    'mountain_ice_off': 0, #TODO: score
-    'mountain_acid_on': 0, #TODO: score
-    'mountain_acid_off': 0, #TODO: score
-    'mountain_shield_on': 0, #TODO: score
-    'mountain_shield_off': 0, #TODO: score
-    'mountaindamaged_hurt': 0, #TODO: score
-    'mountaindamaged_die': 0, #TODO: score
-    'mountaindamaged_fire_on': 0, #TODO: score
-    'mountaindamaged_fire_off': 0, #TODO: score
-    'mountaindamaged_ice_on': 0, #TODO: score
-    'mountaindamaged_ice_off': 0, #TODO: score
-    'mountaindamaged_acid_on': 0, #TODO: score
-    'mountaindamaged_acid_off': 0, #TODO: score
-    'mountaindamaged_shield_on': 0, #TODO: score
-    'mountaindamaged_shield_off': 0, #TODO: score
-    'volcano_hurt': 0, #TODO: score
-    'volcano_die': 0, #TODO: score
-    'volcano_fire_on': 0, #TODO: score
-    'volcano_fire_off': 0, #TODO: score
-    'volcano_ice_on': 0, #TODO: score
-    'volcano_ice_off': 0, #TODO: score
-    'volcano_acid_on': 0, #TODO: score
-    'volcano_acid_off': 0, #TODO: score
-    'volcano_shield_on': 0, #TODO: score
-    'volcano_shield_off': 0, #TODO: score
-    'building_hurt': 0, #TODO: score
-    'building_die': 0, #TODO: score
-    'building_fire_on': 0, #TODO: score
-    'building_fire_off': 0, #TODO: score
-    'building_ice_on': 0, #TODO: score
-    'building_ice_off': 0, #TODO: score
-    'building_acid_on': 0, #TODO: score
-    'building_acid_off': 0, #TODO: score
-    'building_shield_on': 0, #TODO: score
-    'building_shield_off': 0, #TODO: score
-    'buildingobjective_hurt': 0, #TODO: score
-    'buildingobjective_die': 0, #TODO: score
-    'buildingobjective_fire_on': 0, #TODO: score
-    'buildingobjective_fire_off': 0, #TODO: score
-    'buildingobjective_ice_on': 0, #TODO: score
-    'buildingobjective_ice_off': 0, #TODO: score
-    'buildingobjective_acid_on': 0, #TODO: score
-    'buildingobjective_acid_off': 0, #TODO: score
-    'buildingobjective_shield_on': 0, #TODO: score
-    'buildingobjective_shield_off': 0, #TODO: score
-    'acidvat_hurt': 0, #TODO: score
-    'acidvat_die': 0, #TODO: score
-    'acidvat_fire_on': 0, #TODO: score
-    'acidvat_fire_off': 0, #TODO: score
-    'acidvat_ice_on': 0, #TODO: score
-    'acidvat_ice_off': 0, #TODO: score
-    'acidvat_acid_on': 0, #TODO: score
-    'acidvat_acid_off': 0, #TODO: score
-    'acidvat_shield_on': 0, #TODO: score
-    'acidvat_shield_off': 0, #TODO: score
-    'rock_hurt': 0, #TODO: score
-    'rock_die': 0, #TODO: score
-    'rock_fire_on': 0, #TODO: score
-    'rock_fire_off': 0, #TODO: score
-    'rock_ice_on': 0, #TODO: score
-    'rock_ice_off': 0, #TODO: score
-    'rock_acid_on': 0, #TODO: score
-    'rock_acid_off': 0, #TODO: score
-    'rock_shield_on': 0, #TODO: score
-    'rock_shield_off': 0, #TODO: score
-    'acidtank_hurt': 0, #TODO: score
-    'acidtank_die': 0, #TODO: score
-    'acidtank_fire_on': 0, #TODO: score
-    'acidtank_fire_off': 0, #TODO: score
-    'acidtank_ice_on': 0, #TODO: score
-    'acidtank_ice_off': 0, #TODO: score
-    'acidtank_acid_on': 0, #TODO: score
-    'acidtank_acid_off': 0, #TODO: score
-    'acidtank_shield_on': 0, #TODO: score
-    'acidtank_shield_off': 0, #TODO: score
-    'freezetank_hurt': 0, #TODO: score
-    'freezetank_die': 0, #TODO: score
-    'freezetank_fire_on': 0, #TODO: score
-    'freezetank_fire_off': 0, #TODO: score
-    'freezetank_ice_on': 0, #TODO: score
-    'freezetank_ice_off': 0, #TODO: score
-    'freezetank_acid_on': 0, #TODO: score
-    'freezetank_acid_off': 0, #TODO: score
-    'freezetank_shield_on': 0, #TODO: score
-    'freezetank_shield_off': 0, #TODO: score
+    'mountain_hurt': 0,
+    'mountain_die': 0,
+    'mountain_ice_on': 0,
+    'mountain_ice_off': 0,
+    'mountain_shield_on': 0,
+    'mountain_shield_off': 0,
+    'building_hurt': -10,
+    'building_ice_on': 6,
+    'building_ice_off': -2,
+    'building_shield_on': 6,
+    'building_shield_off': -2,
+    'buildingobjective_hurt': -12,
+    'buildingobjective_ice_on': 7,
+    'buildingobjective_ice_off': -3,
+    'buildingobjective_shield_on': 7,
+    'buildingobjective_shield_off': -3,
+    'acidvat_hurt': 5,
+    'acidvat_die': 10,
+    'acidvat_fire_on': 6,
+    'acidvat_fire_off': -2,
+    'acidvat_ice_on': -3,
+    'acidvat_ice_off': 2,
+    'acidvat_acid_on': 1,
+    'acidvat_shield_on': -3,
+    'acidvat_shield_off': 2,
+    'rock_die': 0,
+    'rock_fire_on': 0,
+    'rock_fire_off': 0,
+    'rock_ice_on': 0,
+    'rock_ice_off': 0,
+    'rock_acid_on': 0,
+    'rock_shield_on': 0,
+    'rock_shield_off': 0,
+    'acidtank_hurt': -5,
+    'acidtank_die': -15,
+    'acidtank_fire_on': -8,
+    'acidtank_fire_off': 2,
+    'acidtank_ice_on': -4,
+    'acidtank_ice_off': 4,
+    'acidtank_acid_on': -3,
+    'acidtank_acid_off': 3,
+    'acidtank_shield_on': 3,
+    'acidtank_shield_off': -3,
+    'freezetank_hurt': -5,
+    'freezetank_die': -15,
+    'freezetank_fire_on': -8,
+    'freezetank_fire_off': 2,
+    'freezetank_ice_on': -4,
+    'freezetank_ice_off': 4,
+    'freezetank_acid_on': -3,
+    'freezetank_acid_off': 3,
+    'freezetank_shield_on': 3,
+    'freezetank_shield_off': -3,
     'archivetank_hurt': 0, #TODO: score
     'archivetank_die': 0, #TODO: score
     'archivetank_fire_on': 0, #TODO: score
@@ -1314,11 +1277,12 @@ class Powergrid_CriticalShields(Powergrid):
 ############# THE MAIN GAME BOARD!
 class Game():
     "This represents the a single instance of a game. This is the highest level of the game."
-    def __init__(self, board=None, powergrid_hp=7, environeffect=None, vekemerge=None):
+    def __init__(self, board=None, powergrid_hp=7, environeffect=None, vekemerge=None, scorekeeper=None):
         """board is a dict of tiles to use. If it's left blank, a default board full of empty ground tiles is generated.
         powergrid_hp is the amount of power (hp) you as a player have. When this reaches 0, the entire game ends.
         environeffect is an environmental effect object that should be run during a turn.
-        vekemerge is the special VekEmerge environmental effect. If left blank, an empty one is created."""
+        vekemerge is the special VekEmerge environmental effect. If left blank, an empty one is created.
+        scorekeeper is the scorekeeper object that this game simulation submits scores to."""
         if board:
             self.board = board
         else: # create a blank board of normal ground tiles
@@ -1355,7 +1319,10 @@ class Game():
         self.stormGeneratorTurn = None # This will be replaced by a method provided by the StormGenerator passive weapon
         self.visceraheal = 0 # The amount to heal a mech that killed a vek. Each vek that is killed grants this amount of hp healing
         self.otherpassives = set() # misc passives that only need to be checked for presence and nothing else.
-        self.score = MasterScoreKeeper()
+        if not scorekeeper:
+            self.score = MasterScoreKeeper() # assign a dummy scorekeeper
+        else:
+            self.score = scorekeeper # use the passed in MasterScoreKeeper()
     def flushHurt(self):
         "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -2315,6 +2282,14 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         self.game.score.submit('mountain_die')
         if self.damage_taken:
             self.game.score.undo('mountain_hurt', self.damage_taken) # undo the damage that this unit took.
+    def _applyShieldScore(self):
+        pass
+    def _removeShieldScore(self):
+        pass
+    def _applyIceScore(self):
+        pass
+    def _removeIceScore(self):
+        pass
 
 class Unit_Mountain_Damaged(Unit_Mountain):
     def __init__(self, game, type='mountaindamaged', effects=None):
@@ -2335,6 +2310,11 @@ class Unit_Volcano(Unit_Mountain):
         return # what part of indestructible do you not understand?!
     def die(self):
         return # indestructible!
+    def applyIce(self):
+        "while volcanos can be frozen, it makes no difference in the game."
+        return
+    def applyShield(self):
+        return
 
 class Unit_Building(Unit_Mountain_Building_Base):
     def __init__(self, game, type='building', hp=1, maxhp=1, effects=None, attributes=None):
@@ -2353,7 +2333,9 @@ class Unit_Building(Unit_Mountain_Building_Base):
         else:
             if super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid): # just run the parent's takeDamage
                 self.game.powergrid.takeDamage(damage)
-
+    def _dieScore(self):
+        "Don't score the death of the building because it can have 1 or 2 hp. It's death is meaningless, really what we want is the damage and powergrid damage."
+        pass
 
 class Unit_Building_Objective(Unit_Building):
     alliance = Alliance.NEUTRAL
@@ -2380,6 +2362,9 @@ class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     _blocksmove = True
     def __init__(self, game, type='rock', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=1, maxhp=1, attributes=attributes, effects=effects)
+    def _takeDamageScore(self, damage):
+        "This unit always has 1 hp, so don't score damage"
+        pass
 
 ############################################################################################################################
 ################################################### FRIENDLY Sub-Units #####################################################
@@ -5808,7 +5793,8 @@ class Weapon_CriticalShields(Weapon_NoUpgradesInit_Base):
 class MasterScoreKeeper():
     "This object keeps track of the score of a single simulation. It feeds the score to the contained ScoreKeeper objects."
     def __init__(self):
-        self.keepers = {"best": ScoreKeeper(),}
+        self._resetKeepers()
+        self.highscores = self._getEmptyKeepers() # give it a default scorekeeper object as a high score
     def submit(self, event, amount=1):
         "Submit a single event to be scored. event is a score constant. amount is the number of times to score it. returns nothing."
         for v in self.keepers.values():
@@ -5817,6 +5803,18 @@ class MasterScoreKeeper():
         "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
         for v in self.keepers.values():
             v.undo(event, amount)
+    def endSimulation(self):
+        "End a single simulation and decide if this simulation was a new record best."
+        for keeper in self.keepers: # check if the high score was beaten
+            if self.keepsers[keeper].score > self.highscores[keeper].score:
+                self.highscores[keeper] = self.keepsers[keeper] # TODO: get the actual log of the simulation here somehow
+            self._resetKeepers()
+    def _resetKeepers(self):
+        "Reset self.keepers for a new simulation. returns nothing"
+        self.keepers = self._getEmptyKeepers()
+    def _getEmptyKeepers(self):
+        "return a dict of empty keepers to use on init and reset"
+        return {"best": ScoreKeeper(),}
 
 class ScoreKeeper():
     "This object keeps track of the score of a single simulation with certain criteria. The MasterScoreKeeper feeds it "
@@ -5829,21 +5827,19 @@ class ScoreKeeper():
             self.exceptions = exceptions
         else:
             self.exceptions = ()
-        self.log = [] # a tally of which events this scorekeeper saw in reverse order. The newest event will always be log[0]
+        self.log = [] # a tally of which events this scorekeeper saw. The amount is prepended to the log event
+        # When a score is undone, a - is prepended to the log event.
     def submit(self, event, amount):
         "Submit a single event to be scored. event is the string of a score key. amount is the number of times to score it. returns nothing."
         if not self.invalid:
             if event in self.exceptions: # make sure this event isn't banned from othis ScoreKeeper
                 self.invalid = True
                 return
-            for r in range(amount): # now we know we're good
-                self.log.insert(0, event)
-                self.score += SCORE[event]
+            # now we know we're good
+            self.log.append('{0}{1}'.format(amount, event))
+            self.score += SCORE[event] * amount
     def undo(self, event, amount):
         "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
-        for r in range(amount):
-            try:
-                self.log.remove(event)
-            except ValueError:
-                pass # TODO: undo this and make this exception fatal again!
-            self.score -= SCORE[event]
+        if not self.invalid: # don't bother checking for exceptions here
+            self.log.append('-{0}{1}'.format(amount, event))
+            self.score -= SCORE[event] * amount

@@ -12237,7 +12237,9 @@ def t_ScoreBuildingDamage():
     g.board[(1, 1)].createUnitHere(Unit_Building(g))
     assert g.score.keepers['best'].score == 0
     g.board[(1, 1)].takeDamage(1)
-    assert g.score.keepers['best'].score == SCORE['powergrid_hurt']
+    #print(g.score.keepers['best'].score)
+    #print(SCORE['powergrid_hurt'])
+    assert g.score.keepers['best'].score == SCORE['powergrid_hurt'] + SCORE['building_hurt']
     #print(g.score.keepers['best'].log)
     assert g.score.keepers['best'].log == ['1building_hurt', '1powergrid_hurt']
 

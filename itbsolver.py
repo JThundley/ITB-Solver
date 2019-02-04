@@ -183,8 +183,8 @@ SCORE = {
     'acidtank_ice_off': 4,
     'acidtank_acid_on': -3,
     'acidtank_acid_off': 3,
-    'acidtank_shield_on': 3,
-    'acidtank_shield_off': -3,
+    'acidtank_shield_on': 5,
+    'acidtank_shield_off': -5,
     'freezetank_hurt': -5,
     'freezetank_die': -15,
     'freezetank_fire_on': -8,
@@ -193,78 +193,73 @@ SCORE = {
     'freezetank_ice_off': 4,
     'freezetank_acid_on': -3,
     'freezetank_acid_off': 3,
-    'freezetank_shield_on': 3,
-    'freezetank_shield_off': -3,
-    'archivetank_hurt': 0, #TODO: score
-    'archivetank_die': 0, #TODO: score
-    'archivetank_fire_on': 0, #TODO: score
-    'archivetank_fire_off': 0, #TODO: score
-    'archivetank_ice_on': 0, #TODO: score
-    'archivetank_ice_off': 0, #TODO: score
-    'archivetank_acid_on': 0, #TODO: score
-    'archivetank_acid_off': 0, #TODO: score
-    'archivetank_shield_on': 0, #TODO: score
-    'archivetank_shield_off': 0, #TODO: score
-    'oldartillery_hurt': 0, #TODO: score
-    'oldartillery_die': 0, #TODO: score
-    'oldartillery_fire_on': 0, #TODO: score
-    'oldartillery_fire_off': 0, #TODO: score
-    'oldartillery_ice_on': 0, #TODO: score
-    'oldartillery_ice_off': 0, #TODO: score
-    'oldartillery_acid_on': 0, #TODO: score
-    'oldartillery_acid_off': 0, #TODO: score
-    'oldartillery_shield_on': 0, #TODO: score
-    'oldartillery_shield_off': 0, #TODO: score
-    'shieldtank_hurt': 0, #TODO: score
-    'shieldtank_die': 0, #TODO: score
-    'shieldtank_fire_on': 0, #TODO: score
-    'shieldtank_fire_off': 0, #TODO: score
-    'shieldtank_ice_on': 0, #TODO: score
-    'shieldtank_ice_off': 0, #TODO: score
-    'shieldtank_acid_on': 0, #TODO: score
-    'shieldtank_acid_off': 0, #TODO: score
-    'shieldtank_shield_on': 0, #TODO: score
-    'shieldtank_shield_off': 0, #TODO: score
-    'lighttank_hurt': 0, #TODO: score
-    'lighttank_die': 0, #TODO: score
-    'lighttank_fire_on': 0, #TODO: score
-    'lighttank_fire_off': 0, #TODO: score
-    'lighttank_ice_on': 0, #TODO: score
-    'lighttank_ice_off': 0, #TODO: score
-    'lighttank_acid_on': 0, #TODO: score
-    'lighttank_acid_off': 0, #TODO: score
-    'lighttank_shield_on': 0, #TODO: score
-    'lighttank_shield_off': 0, #TODO: score
-    'pulltank_hurt': 0, #TODO: score
-    'pulltank_die': 0, #TODO: score
-    'pulltank_fire_on': 0, #TODO: score
-    'pulltank_fire_off': 0, #TODO: score
-    'pulltank_ice_on': 0, #TODO: score
-    'pulltank_ice_off': 0, #TODO: score
-    'pulltank_acid_on': 0, #TODO: score
-    'pulltank_acid_off': 0, #TODO: score
-    'pulltank_shield_on': 0, #TODO: score
-    'pulltank_shield_off': 0, #TODO: score
-    'dam_hurt': 0, #TODO: score
-    'dam_die': 0, #TODO: score
-    'dam_fire_on': 0, #TODO: score
-    'dam_fire_off': 0, #TODO: score
-    'dam_ice_on': 0, #TODO: score
-    'dam_ice_off': 0, #TODO: score
-    'dam_acid_on': 0, #TODO: score
-    'dam_acid_off': 0, #TODO: score
-    'dam_shield_on': 0, #TODO: score
-    'dam_shield_off': 0, #TODO: score
-    'train_hurt': 0, #TODO: score
-    'train_die': 0, #TODO: score
-    'train_fire_on': 0, #TODO: score
-    'train_fire_off': 0, #TODO: score
-    'train_ice_on': 0, #TODO: score
-    'train_ice_off': 0, #TODO: score
-    'train_acid_on': 0, #TODO: score
-    'train_acid_off': 0, #TODO: score
-    'train_shield_on': 0, #TODO: score
-    'train_shield_off': 0, #TODO: score
+    'freezetank_shield_on': 5,
+    'freezetank_shield_off': -5,
+    'archivetank_hurt': -5,
+    'archivetank_die': -15,
+    'archivetank_fire_on': -8,
+    'archivetank_fire_off': 2,
+    'archivetank_ice_on': -4,
+    'archivetank_ice_off': 4,
+    'archivetank_acid_on': -3,
+    'archivetank_acid_off': 3,
+    'archivetank_shield_on': 5,
+    'archivetank_shield_off': -5,
+    'oldartillery_hurt': -5,
+    'oldartillery_die': -15,
+    'oldartillery_fire_on': -8,
+    'oldartillery_fire_off': 2,
+    'oldartillery_ice_on': -4,
+    'oldartillery_ice_off': 4,
+    'oldartillery_acid_on': -3,
+    'oldartillery_acid_off': 3,
+    'oldartillery_shield_on': 5,
+    'oldartillery_shield_off': -5,
+    'shieldtank_hurt': -5,
+    'shieldtank_die': -15,
+    'shieldtank_fire_on': -8,
+    'shieldtank_fire_off': 2,
+    'shieldtank_ice_on': -4,
+    'shieldtank_ice_off': 4,
+    'shieldtank_acid_on': -3,
+    'shieldtank_acid_off': 3,
+    'shieldtank_shield_on': 5,
+    'shieldtank_shield_off': -5,
+    'lighttank_hurt': -5,
+    'lighttank_die': -15,
+    'lighttank_fire_on': -8,
+    'lighttank_fire_off': 2,
+    'lighttank_ice_on': -4,
+    'lighttank_ice_off': 4,
+    'lighttank_acid_on': -3,
+    'lighttank_acid_off': 3,
+    'lighttank_shield_on': 5,
+    'lighttank_shield_off': -5,
+    'pulltank_hurt': -5,
+    'pulltank_die': -15,
+    'pulltank_fire_on': -8,
+    'pulltank_fire_off': 2,
+    'pulltank_ice_on': -4,
+    'pulltank_ice_off': 4,
+    'pulltank_acid_on': -3,
+    'pulltank_acid_off': 3,
+    'pulltank_shield_on': 5,
+    'pulltank_shield_off': -5,
+    'dam_hurt': 5,
+    'dam_die': 10,
+    'dam_ice_on': -5,
+    'dam_ice_off': 5,
+    'dam_acid_on': 1,
+    'dam_shield_on': -5,
+    'dam_shield_off': 5,
+    'train_hurt': -20,
+    'train_die': -40,
+    'train_ice_on': 9,
+    'train_ice_off': -9,
+    'train_acid_on': 0,
+    'train_acid_off': 0,
+    'train_shield_on': 8,
+    'train_shield_off': -8,
     'traincaboose_hurt': 0, #TODO: score
     'traincaboose_die': 0, #TODO: score
     'traincaboose_fire_on': 0, #TODO: score
@@ -295,18 +290,8 @@ SCORE = {
     'traindamagedcaboose_acid_off': 0, #TODO: score
     'traindamagedcaboose_shield_on': 0, #TODO: score
     'traindamagedcaboose_shield_off': 0, #TODO: score
-    'traincorpse_hurt': 0, #TODO: score
-    'traincorpse_die': 0, #TODO: score
-    'traincorpse_fire_on': 0, #TODO: score
-    'traincorpse_fire_off': 0, #TODO: score
-    'traincorpse_ice_on': 0, #TODO: score
-    'traincorpse_ice_off': 0, #TODO: score
-    'traincorpse_acid_on': 0, #TODO: score
-    'traincorpse_acid_off': 0, #TODO: score
-    'traincorpse_shield_on': 0, #TODO: score
-    'traincorpse_shield_off': 0, #TODO: score
-    'terraformer_hurt': 0, #TODO: score
-    'terraformer_die': 0, #TODO: score
+    'terraformer_hurt': -7,
+    'terraformer_die': -20,
     'terraformer_fire_on': 0, #TODO: score
     'terraformer_fire_off': 0, #TODO: score
     'terraformer_ice_on': 0, #TODO: score
@@ -1596,6 +1581,7 @@ class Tile_Base(TileUnit_Base):
             except AttributeError: # raised from None.takeBumpDamage, there is no unit there to bump into
                 self.moveUnit(destinationsquare) # move the unit from this tile to destination square
             except KeyError:
+                #raise # DEBUG
                 return False # raised by self.board[None], attempted to push unit off the Game, no action is taken
             else:
                 self.unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
@@ -1954,7 +1940,7 @@ class Unit_Base(TileUnit_Base):
         self.gotfire = self.gotacid = self.gotice = self.gotshield = False # These flags are set to true when this unit gets fire, acid, or ice applied to it.
         # This is done so we can avoid scoring a unit catching on fire and then dying from damage being more valuable than just killing the unit.
         self.lostfire = self.lostacid = self.lostice = self.lostshield = False # these flags are set to true when this unit loses fire, acid, or ice.
-    def applyEffectUnshielded(self, effect):
+    def _applyEffectUnshielded(self, effect):
         "A helper method to check for the presence of a shield before applying an effect. return True if the effect was added, False if not."
         if Effects.SHIELD not in self.effects:
             self.effects.add(effect)
@@ -1962,36 +1948,24 @@ class Unit_Base(TileUnit_Base):
         return False
     def applyFire(self):
         if Effects.FIRE not in self.effects:
-            try:
-                self.effects.remove(Effects.ICE)
-            except KeyError:
-                pass
-            else:
-                self._removeIceScore()
-                self.lostice = True
+            self._removeIce()
             if not Attributes.IMMUNEFIRE in self.attributes:
-                self.applyEffectUnshielded(Effects.FIRE) # no need to try to remove a timepod from a unit (from super())
-                self.gotfire = True
-                self._applyFireScore()
+                if self._applyEffectUnshielded(Effects.FIRE): # no need to try to remove a timepod from a unit (from super())
+                    self.gotfire = True
+                    self._applyFireScore()
     def applyIce(self):
         if Effects.ICE not in self.effects:
-            if self.applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+            if self._applyEffectUnshielded(Effects.ICE): # If a unit has a shield and someone tries to freeze it, NOTHING HAPPENS!
+                self._removeFire()
                 try:
-                    self.effects.remove(Effects.FIRE)
-                except KeyError:
+                    self.weapon1.qshot = None # invalidate the unit's queued shot
+                except AttributeError:  # self.None.qshot
                     pass
-                else:
-                    self._removeFireScore()
-                    self.lostfire = True
-            try:
-                self.weapon1.qshot = None # invalidate the unit's queued shot
-            except AttributeError:  # self.None.qshot
-                pass
-            self.gotice = True
-            self._applyIceScore()
-            self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
+                self.gotice = True
+                self._applyIceScore()
+                self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
     def applyAcid(self):
-        if self.applyEffectUnshielded(Effects.ACID): # you only get acid if you don't have a shield.
+        if self._applyEffectUnshielded(Effects.ACID): # you only get acid if you don't have a shield.
             self.gotacid = True
             self._applyAcidScore()
     def applyWeb(self):
@@ -2105,7 +2079,7 @@ class Unit_Base(TileUnit_Base):
         if prop:
             self.game.board[compsquare].unit._breakWeb(self.square, prop=False)
     def _breakAllWebs(self):
-        "same as breakWeb except we remove all webs that this unit has. This method doesn't use argumens and propagates by default"
+        "same as breakWeb except we remove all webs that this unit has. This method doesn't use arguments and propagates by default"
         for sq in self.web:
             self.game.board[sq].unit._breakWeb(self.square, prop=False)
         self.web = set()
@@ -2137,14 +2111,51 @@ class Unit_Base(TileUnit_Base):
         "submit the score event for this unit taking damage."
         self.game.score.submit('{0}_hurt'.format(self.type), damage)
     def _dieScore(self):
-        "submit the score event for this unit dying."
+        "submit the score event for this unit dying and undo scoring of damage and effects to the unit. returns nothing"
         self.game.score.submit('{0}_die'.format(self.type))
         if self.damage_taken:
-            self.game.score.undo('{0}_hurt'.format(self.type), self.damage_taken) # undo the damage that this unit took.
+            try:
+                self.game.score.undo('{0}_hurt'.format(self.type), self.damage_taken) # undo the damage that this unit took.
+            except KeyError: # this unit isn't scored for damage, like the rock
+                pass
         # we want to avoid the situation of damaging something for 5 hp to kill it is more valuable than just pushing it into water.
-        for effect, name in (self.gotfire, 'fire'), (self.gotacid, 'acid'), (self.gotice, 'ice'), (self.gotshield, 'shield'):
-            if effect:
-                self.game.score.undo('{0}_{1}_on'.format(self.type, name))
+        for onoff in ('got', 'on'), ('lost', 'off'):
+            for effectname in 'fire', 'acid', 'ice', 'shield':
+                if getattr(self, '{0}{1}'.format(onoff[0], effectname)):
+                    self.game.score.undo('{0}_{1}_{2}'.format(self.type, effectname, onoff[1]))
+    def _removeFire(self):
+        "Remove fire from the unit and do scoring based on it."
+        try:
+            self.effects.remove(Effects.FIRE)
+        except KeyError:
+            pass
+        else:
+            self._removeFireScore()
+            self.lostfire = True
+    def _removeIce(self):
+        "Remove ice from the unit and do scoring based on it"
+        try:
+            self.effects.remove(Effects.ICE)
+        except KeyError:
+            pass
+        else:
+            self._removeIceScore()
+    def _removeAcid(self):
+        "Remove acid from the unit and do scoring."
+        try:
+            self.effects.remove(Effects.ACID)
+        except KeyError:
+            pass
+        else:
+            self._removeAcidScore()
+    def _removeShield(self):
+        "Remove the shield and do scoring."
+        try:
+            self.effects.remove(Effects.Shield)
+        except KeyError:
+            pass
+        else:
+            self._removeShieldScore()
     def __str__(self):
         return "%s %s/%s HP. Effects: %s, Attributes: %s Webs: %s" % (self.type, self.hp, self.maxhp, set(Effects.pprint(self.effects)), set(Attributes.pprint(self.attributes)), self.web)
 
@@ -2169,6 +2180,9 @@ class Unit_Repairable_Base(Unit_Fighting_Base):
         self.hp += hp
         if self.hp > self.maxhp:
             self.hp = self.maxhp
+    def _repairHPScore(self, amount):
+        "Score the unit repairing it's HP."
+        self.game.score.submit('{0}_heal'.format(self.type), amount)
 
 class Unit_Unwebbable_Base():
     """A base class that provide blank web methods for units that aren't effected by webs.
@@ -2382,14 +2396,11 @@ class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
     def die(self):
         super().die()
 
-class Deployable_Unit_Base():
-    "A base unit for deployable tanks to handle their scoring."
-
-class Unit_AcidTank(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_AcidTank(Sub_Unit_Base):
     def __init__(self, game, type='acidtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_FreezeTank(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_FreezeTank(Sub_Unit_Base):
     def __init__(self, game, type='freezetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
@@ -2397,19 +2408,19 @@ class Unit_ArchiveTank(Sub_Unit_Base):
     def __init__(self, game, type='archivetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_OldArtillery(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_OldArtillery(Sub_Unit_Base):
     def __init__(self, game, type='oldartillery', hp=2, maxhp=2, moves=1, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_OldEarthArtillery(), moves=moves, effects=effects, attributes=attributes)
 
-class Unit_ShieldTank(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_ShieldTank(Sub_Unit_Base):
     def __init__(self, game, type='shieldtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_LightTank(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_LightTank(Sub_Unit_Base):
     def __init__(self, game, type='lighttank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_PullTank(Sub_Unit_Base, Deployable_Unit_Base):
+class Unit_PullTank(Sub_Unit_Base):
     def __init__(self, game, type='pulltank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
@@ -2449,24 +2460,18 @@ class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControl
         self._replicate('applyShield')
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "Process this unit taking damage. All effects are considered unless set to True in the arguments. Yes this is copypasta from the base, but we don't need to check for armored here."
-        for effect in (Effects.SHIELD, Effects.ICE): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
-            try:
-                self.effects.remove(effect)
-            except KeyError:
-                pass
-            else:
-                self.game.board[self.square]._putUnitHere(self) # put the unit here again to process effects spreading.
-                return False# and then stop processing things, the shield or ice took the damage.
-        if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
-            damage *= 2
-        self.hp -= damage # the unit takes the damage
-        self.damage_taken += damage
-        if self.hp <= 0: # if the unit has no more HP
-            self.damage_taken += self.hp # hp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
-            self.deadfromdamage = True
-            self.die()
-        self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
-        return True
+        if self._takeDamageProtected():
+            if not ignoreacid and Effects.ACID in self.effects: # if we're not ignoring acid and the unit has acid
+                damage *= 2
+            self.hp -= damage # the unit takes the damage
+            self.damage_taken += damage
+            self._takeDamageScore(damage)
+            if self.hp <= 0:  # if the unit has no more HP
+                self.damage_taken += self.hp  # hp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
+                self.deadfromdamage = True
+                self.die()
+            self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
+            return True
 
 class Unit_Dam(Unit_MultiTile_Base):
     "When the Dam dies, it floods the middle of the map. Dam is not effected by RepairDrop."

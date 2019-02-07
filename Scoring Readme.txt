@@ -25,7 +25,7 @@ Objective units you're supposed to kill are 10 * total hp when killed
 A new vek emerging into fire or acid is 7
 
 ENEMIES:
-An enemy taking damage is is -10
+An enemy taking damage is is 10
 An enemy dying is 11 * total hp, e.g. killing a 1hp leaper = 11, killing a 4hp boss = 44
 A boss dying is 12 * total hp
 An enemy gaining fire/acid/ice is 6

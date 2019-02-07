@@ -317,6 +317,10 @@ class Game():
                 unit.weapon1.validate()
             except AttributeError:
                 pass
+            try: # set companion tiles for multi-tile units
+                unit._setCompanion()
+            except AttributeError: # not a multi-tile unit
+                pass
     def endPlayerTurn(self):
         """Simulate the outcome of this single turn, as if the player clicked the 'end turn' button in the game. Let the vek take their turn now.
         Order of turn operations:
@@ -617,16 +621,16 @@ class Tile_Ground(Tile_Base):
         if Effects.MINE in self.effects:
             self.unit.die()
             self.effects.discard(Effects.MINE)
-            self._mineDieScore()
+            self.game.score.submit(-3, 'mine_die')
         elif Effects.FREEZEMINE in self.effects:
             self.effects.discard(Effects.FREEZEMINE)
             self.unit.applyIce()
-            self._freezemineDieScore()
+            self.game.score.submit(-3, 'freezemine_die')
         elif Effects.TIMEPOD in self.effects:
             if self.unit.alliance == Alliance.FRIENDLY:
                 self.game.score.submit(2, 'timepod_pickup')
             else:
-                self._timepodDieScore()
+                self.game.score.submit(-30, 'timepod_die')
     def _tileTakeDamage(self):
         for (effect, event) in (Effects.TIMEPOD, 'timepod'), (Effects.MINE, 'mine'), (Effects.FREEZEMINE, 'freezemine'):
             try:
@@ -635,15 +639,6 @@ class Tile_Ground(Tile_Base):
                 pass
             else:
                 getattr(self, '_{0}DieScore'.format(event))()
-    def _mineDieScore(self):
-        "Score a mine dying"
-        self.game.score.submit(-3, 'mine_die')
-    def _freezemineDieScore(self):
-        "score a freezemine dying"
-        self.game.score.submit(-3, 'freezemine_die')
-    def _timepodDieScore(self):
-        "score a timepod dying"
-        self.game.score.submit(-30, 'timepod_die')
 
 class Tile_Forest_Sand_Base(Tile_Base):
     "This is the base class for both Forest and Sand Tiles since they both share the same applyAcid mechanics."
@@ -952,17 +947,17 @@ class Unit_Base(TileUnit_Base):
                 damage *= 2
             self.hp -= damage # the unit takes the damage
             self.damage_taken += damage
-            self.game.score.submit(self.score['hurt'], '{0}_hurt'.format(self.type))
+            self.game.score.submit(self.score['hurt'], '{0}_hurt'.format(self.type), damage)
             return True
     def _takeDamageProtected(self):
         "Check if there is a shield or ice on the unit before it takes damage. return True if there was no shield or ice, False if the damage was blocked by one of them."
-        for effect, meth in (Effects.SHIELD, '_removeShieldScore'), (Effects.ICE, '_removeIceScore'): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
+        for effect, effname in (Effects.SHIELD, 'shield'), (Effects.ICE, 'ice'): # let the shield and then ice take the damage instead if present. Frozen units can have a shield over the ice, but not the other way around.
             try:
                 self.effects.remove(effect)
             except KeyError:
                 pass
             else:
-                getattr(self, meth)() # score the shield or ice being lost
+                self.game.score.submit(self.score['{0}_off'.format(effname)], '{0}_{1}_off'.format(self.type, effname)) # score the shield or ice being lost
                 self.game.board[self.square]._spreadEffects() # spread effects now that they lost a shield or ice
                 return False # and then stop processing things, the shield or ice took the damage.
         return True
@@ -1164,7 +1159,36 @@ class Unit_PlayerControlled_Base():
     def getMoves(self):
         """Find out where this unit can move to in the current state of the gameboard and return it as a set of coordinate tuples.
         returns a set-like dict_keys of squares of where this unit can travel to.
-        It's important to note that that this list includes squares that are occupied by other units that you can pass through! Another part of the code must check if the square is occupied before actually moving you there."""
+        It's important to note that that this list includes squares that are occupied by other units that you can pass through!
+        Another part of the code must check if the square is occupied before actually moving you there.
+        Things that DO block movement:
+        Enemies
+          Blob
+          Bots
+          Volatile Vek
+        Buildings
+        Mountains
+        Chasm Tiles
+        Boulder/Rock
+        AcidVat
+
+        Things that DONT block movement:
+        Mechs
+          Frozen Mechs
+          Mech Corpses
+        Objective units
+          Satellite Rocket (and corpse)
+          Archive Tank
+          Old Artillery
+          Terraformer
+          Earth Mover
+          Train
+          Acid Launcher
+          Prototype Renfield Bomb
+        Light Tank (deployable)
+        Mine Bot (Technically an enemy)
+        
+        Flying lets you pass through anything."""
         self.positions = {}
         self._getMovesBranch(self.square, self.moves+1)
         return self.positions.keys()
@@ -1246,7 +1270,7 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
         "This takeDamage ignores the amount of damage dealt to the mountain and flattens it to 1."
         if self._takeDamageProtected():
             self.damage_taken += 1
-            self.game.score.submit(self.score['hurt'])
+            self.game.score.submit(self.score['hurt'], '{0}_hurt'.format(self.type), damage)
             self.game.board[self.square]._putUnitHere(Unit_Mountain_Damaged(self.game))
 
 class Unit_Mountain_Damaged(Unit_Mountain):
@@ -1266,7 +1290,7 @@ class Unit_Volcano(Unit_Mountain):
         super().__init__(game, type=type, effects=effects)
         self.alliance = Alliance.NEUTRAL
     def _initScore(self):
-        "we can get around with not scoring anything to do with volcanos since you can't really interact with them"
+        "we can get away with not scoring anything to do with volcanos since you can't really interact with them"
         return
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         return # what part of indestructible do you not understand?!
@@ -1301,14 +1325,16 @@ class Unit_Building(Unit_Mountain_Building_Base):
     def applyAcid(self):
         raise DontGiveUnitAcid # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
+        orighp = self.hp
         if Passives.AUTOSHIELDS in self.game.otherpassives:
-            orighp = self.hp
             super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
             # The only situation that should actually hit this is 0 < 1 < 2, meaning that the building had 2 hp and took 1 damage surviving the attack.
             if 0 < self.hp < orighp:
                 self.applyShield() # the passive gives it a shield
         else:
             if super().takeDamage(damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid): # just run the parent's takeDamage
+                if damage > orighp:
+                    damage = orighp # flatten damage down to the hp of the building that died, otherwise hitting a 2hp building for 5 damage does 5 damage to powergrid :(
                 self.game.powergrid.takeDamage(damage)
 
 class Unit_Building_Objective(Unit_Building):
@@ -1316,12 +1342,38 @@ class Unit_Building_Objective(Unit_Building):
     _building = True
     def __init__(self, game, type='buildingobjective', hp=1, maxhp=1, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
+    def _initScore(self):
+        self.score = {#'fire_on': 0,
+                      #'fire_off': 0,
+                      'ice_on': 0,
+                      'ice_off': 0,
+                      #'acid_on': 0,
+                      #'acid_off': 0,
+                      'shield_on': 0,
+                      'shield_off': 0,
+                      'hurt': -20,
+                      'die': -20,
+                      #'heal': 0
+                    }
 
 class Unit_Acid_Vat(Unit_NoDelayedDeath_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
     _blocksmove = True
     def __init__(self, game, type='acidvat', hp=2, maxhp=2, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, effects=effects)
+    def _initScore(self):
+        self.score = {'fire_on': 6,
+                      'fire_off': -6,
+                      'ice_on': -6,
+                      'ice_off': 6,
+                      'acid_on': 2,
+                      #'acid_off': 0,
+                      'shield_on': -6,
+                      'shield_off': 6,
+                      'hurt': 10,
+                      'die': 20,
+                      #'heal': 0
+                    }
     def die(self):
         "Acid vats turn into acid water when destroyed."
         self.game.board[self.square]._putUnitHere(None) # remove the unit before replacing the tile otherwise we get caught in an infinite loop of the vat starting to die,
@@ -1356,31 +1408,47 @@ class Sub_Unit_Base(Unit_Fighting_Base, Unit_PlayerControlled_Base):
     def die(self):
         super().die()
 
-class Unit_AcidTank(Sub_Unit_Base):
+class Deployable_Tank_Base(Sub_Unit_Base):
+    "A base unit for deployable tanks that only provides scoring."
+    def _initScore(self):
+        self.score = {'fire_on': -6,
+                      'fire_off': 6,
+                      'ice_on': -5,
+                      'ice_off': 5,
+                      'acid_on': -2,
+                      'acid_off': 2,
+                      'shield_on': 6,
+                      'shield_off': -6,
+                      'hurt': 10,
+                      'die': -30,
+                      'heal': 10
+                      }
+
+class Unit_AcidTank(Deployable_Tank_Base):
     def __init__(self, game, type='acidtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_FreezeTank(Sub_Unit_Base):
+class Unit_FreezeTank(Deployable_Tank_Base):
     def __init__(self, game, type='freezetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_ArchiveTank(Sub_Unit_Base):
+class Unit_ArchiveTank(Deployable_Tank_Base):
     def __init__(self, game, type='archivetank', hp=1, maxhp=1, weapon1=None, moves=4, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_OldArtillery(Sub_Unit_Base):
+class Unit_OldArtillery(Deployable_Tank_Base):
     def __init__(self, game, type='oldartillery', hp=2, maxhp=2, moves=1, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_OldEarthArtillery(), moves=moves, effects=effects, attributes=attributes)
 
-class Unit_ShieldTank(Sub_Unit_Base):
+class Unit_ShieldTank(Deployable_Tank_Base):
     def __init__(self, game, type='shieldtank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None): # shield tanks can optionally have 3 hp with a power upgrade
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_LightTank(Sub_Unit_Base):
+class Unit_LightTank(Deployable_Tank_Base):
     def __init__(self, game, type='lighttank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
-class Unit_PullTank(Sub_Unit_Base):
+class Unit_PullTank(Deployable_Tank_Base):
     def __init__(self, game, type='pulltank', hp=1, maxhp=1, weapon1=None, moves=3, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, moves=moves, effects=effects, attributes=attributes)
 
@@ -1398,17 +1466,13 @@ class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControl
     def _replicate(self, meth, **kwargs):
         "Replicate an action from this unit to the other. meth is a string of the method to run. Returns nothing."
         if self.replicate:
-            try: # Set the companion tile
-                self.companion
-            except AttributeError: # only once
-                self._setCompanion()
-            self.game.board[self.companion].unit.replicate = False
+            comptile = self.game.board[self.companion]
+            comptile.unit.replicate = False
             try: # try running the companion's method as takeDamage() with keyword arguments
-                getattr(self.game.board[self.companion].unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
+                getattr(comptile.unit, meth)(damage=kwargs['damage'], ignorearmor=kwargs['ignorearmor'], ignoreacid=kwargs['ignoreacid'])
             except KeyError: # else it's an applySomething() method with no args
-                #getattr(self.game.board[self.companion].unit, meth)() # this is how we used to run the companion unit's method instead of the tile's
-                getattr(self.game.board[self.companion], meth)()
-            self.game.board[self.companion].unit.replicate = True
+                getattr(comptile, meth)()
+            comptile.unit.replicate = True
     def applyIce(self):
         super().applyIce()
         self._replicate('applyIce')
@@ -1425,25 +1489,45 @@ class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControl
                 damage *= 2
             self.hp -= damage # the unit takes the damage
             self.damage_taken += damage
-            self._takeDamageScore(damage)
+            self.game.score.submit(self.score['hurt'], '{0}_hurt'.format(self.type), damage)
             if self.hp <= 0:  # if the unit has no more HP
                 self.damage_taken += self.hp  # hp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
                 self.deadfromdamage = True
                 self.die()
             self._replicate('takeDamage', damage=damage, ignorearmor=ignorearmor, ignoreacid=ignoreacid)
             return True
+    # def _dieScore(self): # fuck it, let's just make the score for multi-tile units half of what they should be so when they count twice they add up to a whole unit :D
+    #     "only count the death of this unit once, not once per tile"
+    #     if self.replicate:
+    #         super()._dieScore()
 
 class Unit_Dam(Unit_MultiTile_Base):
     "When the Dam dies, it floods the middle of the map. Dam is not effected by RepairDrop."
     def __init__(self, game, type='dam', hp=2, maxhp=2, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.MASSIVE)
+    def _initScore(self):
+        "These score events are done twice, once per each tile"
+        self.score = {#'fire_on': -6,
+                      #'fire_off': 6,
+                      'ice_on': -2.5,
+                      'ice_off': 2.5,
+                      'acid_on': -1,
+                      'acid_off': 1,
+                      'shield_on': -2.5,
+                      'shield_off': 2.5,
+                      'hurt': 5,
+                      'die': 10,
+                      #'heal': 10
+                      }
     def _setCompanion(self):
         "Set self.companion to the square of this unit's companion."
         if self.square[1] == 4:  # set the companion tile without user intervention since the dam is always on the same 2 tiles.
             self.companion = (8, 3)
-        else:
+        elif self.square[1] == 3:
             self.companion = (8, 4)
+        else:
+            raise CantHappenInGame
     def die(self):
         "Make the unit die."
         self._removeUnitFromGame()
@@ -1461,7 +1545,20 @@ class Unit_Train_Base(Unit_MultiTile_Base):
     def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.update({Attributes.IMMUNEFIRE, Attributes.IMMUNESMOKE, Attributes.STABLE})
-        # self._setCompanion() this can't be done on init because self.square is set after this
+    def _initScore(self):
+        "These score events are done twice, once per each tile"
+        self.score = {#'fire_on': -6,
+                      #'fire_off': 6,
+                      'ice_on': 3,
+                      'ice_off': -3,
+                      'acid_on': 0,
+                      'acid_off': 0,
+                      'shield_on': 2.5,
+                      'shield_off': -2.5,
+                      'hurt': -5,
+                      'die': -5,
+                      #'heal': 10
+                      }
     def die(self):
         "Make the unit die."
         # we also don't care about spreading acid back to the tile, nothing can ever spread them from these tiles.
@@ -1489,6 +1586,7 @@ class Unit_Train(Unit_Train_Base):
     def _deathAction(self):
         self._removeUnitFromGame()
         self.game.board[self.square]._putUnitHere(Unit_TrainDamaged(self.game))
+        self.game.board[self.square].unit._setCompanion()
 
 class Unit_TrainCaboose(Unit_Train_Base):
     def __init__(self, game, type='traincaboose', hp=1, maxhp=1, attributes=None, effects=None):
@@ -1498,6 +1596,7 @@ class Unit_TrainCaboose(Unit_Train_Base):
         self.companion = (self.square[0]+1, self.square[1])
     def _deathAction(self):
         self.game.board[self.square]._putUnitHere(Unit_TrainDamagedCaboose(self.game))
+        self.game.board[self.square].unit._setCompanion()
 
 class Unit_TrainDamaged_Base(Unit_Train):
     def __init__(self, game, type=None, hp=1, maxhp=1, attributes=None, effects=None):
@@ -1538,6 +1637,19 @@ class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base, Unit_No
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SatelliteLaunch(), attributes=attributes, effects=effects)
         self.moves = moves
         self.attributes.add(Attributes.STABLE)
+    def _initScore(self):
+        self.score = {'fire_on': -8,
+                      'fire_off': 8,
+                      'ice_on': -7,
+                      'ice_off': 7,
+                      'acid_on': -4,
+                      'acid_off': 4,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': -15,
+                      'die': -30,
+                      'heal': 15
+                    }
     def die(self):
         super().die()
         self.game.board[self.square]._putUnitHere(Unit_SatelliteRocketCorpse(self.game))
@@ -1559,6 +1671,19 @@ class Unit_EarthMover(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='earthmover', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
+    def _initScore(self):
+        self.score = {'fire_on': -8,
+                      'fire_off': 8,
+                      'ice_on': 7,
+                      'ice_off': -7,
+                      'acid_on': -4,
+                      'acid_off': 4,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': -15,
+                      'die': -30,
+                      'heal': 15
+                    }
     def die(self):
         super().die()
         self.game.board[self.square]._putUnitHere(Unit_EarthMoveCorpse(self.game))
@@ -1574,6 +1699,19 @@ class Unit_PrototypeRenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayer
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.effects.add(Effects.EXPLOSIVE)
         self.attributes.add(Attributes.IMMUNEFIRE)
+    def _initScore(self):
+        self.score = {#'fire_on': -8, immune to fire
+                      #'fire_off': 8,
+                      'ice_on': 7,
+                      'ice_off': -7,
+                      'acid_on': 0, # 1 hp, acid, damage, and healing doesn't matter
+                      'acid_off': 0,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': 0,
+                      'die': -30,
+                      'heal': 0
+                    }
 
 class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlledIgnore_Base):
     alliance = Alliance.NEUTRAL
@@ -1582,6 +1720,19 @@ class Unit_RenfieldBomb(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControlle
     def __init__(self, game, type='renfieldbomb', hp=4, maxhp=4, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, attributes=attributes, effects=effects)
         self.attributes.add(Attributes.IMMUNEFIRE)
+    def _initScore(self):
+        self.score = {'fire_on': -8,
+                      'fire_off': 8,
+                      'ice_on': 7,
+                      'ice_off': -7,
+                      'acid_on': -4,
+                      'acid_off': 4,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': -15,
+                      'die': -30,
+                      'heal': 15
+                    }
 
 ############################################################################################################################
 ###################################################### ENEMY UNITS #########################################################
@@ -1592,6 +1743,19 @@ class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayer
     _blocksmove = True
     def __init__(self, game, type, hp, maxhp, weapon1=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
+    def _initScore(self):
+        self.score = {'fire_on': 6,
+                      'fire_off': -6,
+                      'ice_on': 6,
+                      'ice_off': -6,
+                      'acid_on': 6,
+                      'acid_off': -6,
+                      'shield_on': -6,
+                      'shield_off': -6,
+                      'hurt': 10,
+                      'die': 11 * self.totalhp, # XXX CONTINUE
+                      'heal': 10
+                    }
 
 class Unit_Vek_Base():
     "A base class for all vek, including psions but excluding bots and minions."

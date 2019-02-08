@@ -13,7 +13,7 @@ Death is the highest score, in the higher 10s. Death points typically scale with
 
 MISC:
 The powergrid taking damage is -50
-A building taking damage is 0 (we only count the powergrid damage)
+A building taking damage is and/or dying is 0 (we only count the powergrid damage)
 An objective building taking damage is -20 in addition to the powergrid damage that goes with it.
 A building being frozen or shielded is 9
 A freezemine/mine being destroyed is -3
@@ -32,8 +32,12 @@ An enemy gaining fire/acid/ice is 6
 An enemy losing fire/acid/ice is -6
 An enemy being shielded is -6
 An enemy losing shield is 6
-An enemy with 1 hp gaining acid is 0
 An enemy repairing is 10 per hp
+A vek emerging (not into acid or fire) is -2
+A vek emerge being blocked is 2
+A vek emerging on fire is 7
+A vek emerging with acid is 7
+An emerging vek being permanently removed (e.g. by killing the damn and flooding the tile) is 12
 
 FRIENDLIES:
 A mech taking damage is -15

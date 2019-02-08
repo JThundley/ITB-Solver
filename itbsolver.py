@@ -923,10 +923,18 @@ class Unit_Base(TileUnit_Base):
                 self.gotice = True
                 self.game.score.submit(self.score['ice_on'], '{0}_ice_on'.format(self.type))
                 self.game.board[self.square]._spreadEffects() # spread effects after freezing because flying units frozen over chasms need to die
-    def applyAcid(self):
-        if self._applyEffectUnshielded(Effects.ACID): # you only get acid if you don't have a shield.
-            self.gotacid = True
-            self.game.score.submit(self.score['acid_on'], '{0}_acid_on'.format(self.type))
+    def applyAcid(self, ignoreprotection=False):
+        "give the unit acid. If ignoreprotection is True, don't check if the unit is protected by a shield or ice first (this is used by acid weapons). returns nothing."
+        if Effects.ACID not in self.effects:
+            if ignoreprotection:
+                self.effects.add(Effects.ACID)
+                self._applyAcidScore()
+            elif self._applyEffectUnshielded(Effects.ACID): # you only get acid if you don't have a shield.
+                self._applyAcidScore()
+    def _applyAcidScore(self): # XXX
+        "A helper method to score the unit getting acid."
+        self.gotacid = True
+        self.game.score.submit(self.score['acid_on'], '{0}_acid_on'.format(self.type))
     def applyWeb(self):
         self.effects.add(Effects.WEB)
     def applyShield(self):
@@ -1388,9 +1396,19 @@ class Unit_Rock(Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     _blocksmove = True
     def __init__(self, game, type='rock', hp=1, maxhp=1, attributes=None, effects=None):
         super().__init__(game, type=type, hp=1, maxhp=1, attributes=attributes, effects=effects)
-    def _takeDamageScore(self, damage):
-        "This unit always has 1 hp, so don't score damage"
-        pass
+    def _initScore(self):
+        self.score = {'fire_on': 0,
+                      'fire_off': 0,
+                      'ice_on': 0,
+                      'ice_off': 0,
+                      'acid_on': 0,
+                      'acid_off': 0,
+                      'shield_on': 0,
+                      'shield_off': 0,
+                      'hurt': 0,
+                      'die': 0,
+                      #'heal': 0
+                    }
 
 ############################################################################################################################
 ################################################### FRIENDLY Sub-Units #####################################################
@@ -1624,11 +1642,37 @@ class Unit_Terraformer(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='terraformer', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Terraformer(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
+    def _initScore(self):
+        self.score = {'fire_on': -8,
+                      'fire_off': 8,
+                      'ice_on': -7,
+                      'ice_off': 7,
+                      'acid_on': -4,
+                      'acid_off': 4,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': -15,
+                      'die': -30,
+                      'heal': 15
+                    }
 
 class Unit_AcidLauncher(Sub_Unit_Base, Unit_Unwebbable_Base):
     def __init__(self, game, type='acidlauncher', hp=2, maxhp=2, moves=0, attributes=None, effects=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, moves=moves, weapon1=Weapon_Disintegrator(), attributes=attributes, effects=effects)
         self.attributes.add(Attributes.STABLE)
+    def _initScore(self):
+        self.score = {'fire_on': -8,
+                      'fire_off': 8,
+                      'ice_on': -7,
+                      'ice_off': 7,
+                      'acid_on': -4,
+                      'acid_off': 4,
+                      'shield_on': 7,
+                      'shield_off': -7,
+                      'hurt': -15,
+                      'die': -30,
+                      'heal': 15
+                    }
 
 class Unit_SatelliteRocket(Unit_Fighting_Base, Unit_NoDelayedDeath_Base, Unit_NonPlayerControlled_Base):
     alliance = Alliance.NEUTRAL
@@ -1663,6 +1707,19 @@ class Unit_SatelliteRocketCorpse(Unit_Fighting_Base, Unit_Unwebbable_Base):
         return # invincible
     def die(self):
         return # invincible
+    def _initScore(self):
+        self.score = {'fire_on': 0,
+                      'fire_off': 0,
+                      'ice_on': 0,
+                      'ice_off': 0,
+                      'acid_on': 0,
+                      'acid_off': 0,
+                      'shield_on': 0,
+                      'shield_off': 0,
+                      'hurt': 0,
+                      'die': 0,
+                      'heal': 0
+                    }
 
 class Unit_EarthMover(Sub_Unit_Base, Unit_Unwebbable_Base):
     "This unit doesn't get a weapon because its effect doesn't matter for a single turn."
@@ -1751,9 +1808,9 @@ class Unit_Enemy_Base(Unit_Repairable_Base, Unit_Unwebbable_Base, Unit_NonPlayer
                       'acid_on': 6,
                       'acid_off': -6,
                       'shield_on': -6,
-                      'shield_off': -6,
+                      'shield_off': 6,
                       'hurt': 10,
-                      'die': 11 * self.totalhp, # XXX CONTINUE
+                      'die': 11 * self.maxhp,
                       'heal': 10
                     }
 
@@ -1826,6 +1883,7 @@ class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
     def __init__(self, game, type, hp, maxhp, weapon1=None, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, qshot=qshot, effects=effects, attributes=attributes)
         self.attributes.add(Attributes.MASSIVE)
+        self.score['die'] = 12 * self.maxhp
 
 class Unit_Blobber(Unit_NormalVek_Base):
     "The Blobber doesn't have a direct attack."
@@ -2042,14 +2100,31 @@ class Unit_MineBot(Unit_EnemyBot_Base):
     _blocksmove = False # the minebot actually does not block movement even though it's an enemy. I guess because it's an enemy you need to protect.
     def __init__(self, game, type='minebot', hp=1, maxhp=1, qshot=None, effects=None, attributes=None): # this unit doesn't get a weapon.
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=None, qshot=qshot, effects=effects, attributes=attributes)
+    def _initScore(self):
+        self.score = {'fire_on': -6,
+                      'fire_off': 6,
+                      'ice_on': 6,
+                      'ice_off': -6,
+                      'acid_on': 0,
+                      'acid_off': 0,
+                      'shield_on': 6,
+                      'shield_off': -6,
+                      'hurt': 10,
+                      'die': -20,
+                      'heal': 10
+                    }
 
 class Unit_BotLeader_Attacking(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderattacking', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_Vk8RocketsMarkIII(), qshot=qshot, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.MASSIVE)
+        self.score['die'] = 12 * self.maxhp
 
 class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
     def __init__(self, game, type='botleaderhealing', hp=5, maxhp=5, qshot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=Weapon_SelfRepair(), qshot=qshot, effects=effects, attributes=attributes)
+        self.attributes.add(Attributes.MASSIVE)
+        self.score['die'] = 12 * self.maxhp
 
 ############################################################################################################################
 ##################################################### FRIENDLY MECHS #######################################################
@@ -2087,12 +2162,21 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
             if Effects.EXPLOSIVE in self.effects: # if the mech that died was explosive, the corpse needs to be explosive and explode
                 self.game.board[self.square].unit.effects.add(Effects.EXPLOSIVE)
         self.game.playerunits.discard(self)
+        self._dieScore()
     def repair(self, hp, ignorerepairfield=False):
         "Repair the unit healing hp and removing bad effects. ignorerepairfield is set to True by _repairField() to make sure we don't get stuck in a loop."
         if ignorerepairfield or not self._repairField():
             self.repairHP(hp)
-            for e in (Effects.FIRE, Effects.ICE, Effects.ACID):
-                self.effects.discard(e)
+            for effect, effectname in (Effects.FIRE, 'fire'), (Effects.ACID, 'acid'), (Effects.ICE, 'ice'):
+                try: # try removing bad effects
+                    self.effects.remove(effect)
+                except KeyError:
+                    pass
+                else:
+                    if getattr(self, 'got{0}'.format(effectname)): # if we got the effect during this turn, undo getting it
+                        event = '{0}_on'.format(effectname)
+                        self.game.score.undo(self.score[event], '{0}_{1}'.format(self.type, event))
+                    self.game.score.submit(self.score['{0}_off'.format(effectname)], '{0}_{1}_off'.format(self.type, effectname)) # score getting rid of the bad effect
     def _repairField(self):
         "Repair all your mechs if the repairfield passive is in play. Returns True if it was and the healing was done, False if the passive wasn't active."
         if Passives.REPAIRFIELD in self.game.otherpassives:
@@ -2112,6 +2196,19 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
         if Passives.STABILIZERS in self.game.otherpassives:
             return
         self.takeBumpDamage()
+    def _initScore(self):
+        self.score = {'fire_on': -6,
+                      'fire_off': 6,
+                      'ice_on': -6,
+                      'ice_off': 6,
+                      'acid_on': -6,
+                      'acid_off': 6,
+                      'shield_on': 6,
+                      'shield_off': -6,
+                      'hurt': -15,
+                      'die': -15 * self.maxhp,
+                      'heal': 15
+                    } # TODO: score pilot deaths?
 
 class Unit_MechFlying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
@@ -2143,7 +2240,12 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
         self._revive()
     def _revive(self):
         "Revive the corpse into a mech. returns nothing"
-        self.oldunit.effects.discard(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
+        try:
+            self.oldunit.effects.remove(Effects.FIRE)  # fire is removed revived mechs. They get fire again if they're revived on a fire tile.
+        except KeyError:
+            pass
+        else:
+            self.game.score.submit(self.score['fire_off'], '{0}_fire_off'.format(self.type)) # score getting rid of fire
         self.game.board[self.square].createUnitHere(self.oldunit)
     def _realDeath(self):
         "This method removes the mech corpse from the game. This kind of death can only be achieved by pushing a mech corpse into a chasm tile (or a flying mech dying over a chasm). returns nothing"
@@ -2378,10 +2480,14 @@ class Environ_VekEmerge():
             self.squares = []
     def run(self):
         for square in self.squares:
+            tile = self.game.board[square]
             try:
-                self.game.board[square].unit.takeEmergeDamage()
+                tile.unit.takeEmergeDamage()
             except AttributeError: # there was no unit
-                pass # TODO: score: the vek emerges
+                if (Effects.FIRE in tile.effects) or (Effects.ACID in tile.effects):
+                    self.game.score.submit(7, 'vek_emerge_fire_or_acid')
+                else:
+                    self.game.score.submit(-2, 'vek_emerge')
             else:
                 self.game.flushHurt() # let the unit that took this bump damage die
     def remove(self, square):
@@ -2391,7 +2497,7 @@ class Environ_VekEmerge():
         except ValueError:
             pass
         else:
-            pass # TODO: score: Vek emerging cancelled!
+            self.game.score.submit(12, 'vek_emerge_removed')
 
 ##############################################################################
 ################################## WEAPONS ###################################
@@ -2748,7 +2854,7 @@ class Weapon_AcidGun_Base(Weapon_Projectile_Base):
         except AttributeError: # there was no unit
             self.game.board[targetsquare].applyAcid() # give it to the tile instead
         else: # unit needs to be hit with acid
-            self.game.board[targetsquare].unit.effects.add(Effects.ACID)  # directly give the unit acid, ice and shield won't prevent you from getting acid unlike when you move to an acid pool.
+            self.game.board[targetsquare].unit.applyAcid(True) # directly give the unit acid, ice and shield won't prevent you from getting acid from the gun unlike when you move to an acid pool.
             if push:
                 self.game.board[targetsquare].push(direction) # now push the unit
 
@@ -3391,6 +3497,7 @@ class Weapon_VortexFist(Weapon_NoChoiceGen_Base, Weapon_hurtAndPushEnemy_Base):
         self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
 
 class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
+    "Swing a massive sword to damage and push 3 tiles."
     def __init__(self, power1=False, power2=False, usesremaining=1):
         self.usesremaining = usesremaining
         self.damage = 2
@@ -3860,8 +3967,8 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
         else: # unit was revived, we need to now change unit to the revived unit
             unit = self.game.board[unit.square].unit
         unit.hp = unit.maxhp # restore all health
-        unit.effects.discard(Effects.FIRE) # put out fire on the unit
-        unit.effects.discard(Effects.ICE) # break the unit out of ice
+        unit._removeFire() # put out fire on the unit
+        unit._removeIce() # break the unit out of ice
         self.game.board[unit.square]._spreadEffects() # possibly spread fire back to the unit
     def isHealNPC(self, unit):
         "Returns true if this NPC is healed by RepairDrop, False if it's not."

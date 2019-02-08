@@ -11559,6 +11559,87 @@ def t_PassiveRepairField():
     assert g.board[(7, 1)].unit.hp == 1 # repaired back to 1 hp
     assert g.board[(7, 1)].unit.type == 'pulse' # back alive
 
+def t_PassiveRepairFieldMoreDamage():
+    "Test out the repair field passive but with more damage to the mech that initiates the repair."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Flame_Mech(g, weapon1=Weapon_RepairField(power1=True, power2=True), hp=2, maxhp=5)) # power is ignored
+    g.board[(2, 1)].createUnitHere(Unit_PsionAbomination(g, hp=4, maxhp=5))
+    g.board[(3, 1)].createUnitHere(Unit_Hook_Mech(g, hp=2, maxhp=5))
+    g.board[(4, 1)].createUnitHere(Unit_Jet_Mech(g, hp=2, maxhp=5))
+    g.board[(5, 1)].createUnitHere(Unit_ShieldTank(g, hp=2, maxhp=5))
+    g.board[(6, 1)].createUnitHere(Unit_AcidLauncher(g, hp=2, maxhp=5))
+    g.board[(7, 1)].createUnitHere(Unit_Pulse_Mech(g)) # kill this to make sure its corpse reanimates
+    g.board[(7, 1)].takeDamage(8)
+    g.flushHurt()
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == {Attributes.FLYING, Attributes.MASSIVE}
+    assert g.board[(2, 1)].unit.hp == 4
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 2
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 2
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == {Attributes.STABLE}
+    assert g.board[(6, 1)].unit.hp == 2
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(7, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.type == 'mechcorpse'
+    g.board[(1, 1)].unit.weapon1.enable() # this itself doesn't change the units yet, make sure of that:
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == {Attributes.FLYING, Attributes.MASSIVE}
+    assert g.board[(2, 1)].unit.hp == 4
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 2
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(4, 1)].unit.hp == 2
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 2
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == {Attributes.STABLE}
+    assert g.board[(6, 1)].unit.hp == 2
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(7, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(7, 1)].unit.hp == 1
+    assert g.board[(7, 1)].unit.type == 'mechcorpse'
+    g.board[(3, 1)].unit.repweapon.shoot() # this did though
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.hp == 3 # healed for 1
+    assert g.board[(2, 1)].unit.effects == set()
+    assert g.board[(2, 1)].unit.attributes == {Attributes.FLYING, Attributes.MASSIVE}
+    assert g.board[(2, 1)].unit.hp == 4 # no change
+    assert g.board[(3, 1)].unit.effects == set()
+    assert g.board[(3, 1)].unit.attributes == {Attributes.ARMORED, Attributes.MASSIVE}
+    assert g.board[(3, 1)].unit.hp == 3
+    assert g.board[(4, 1)].unit.effects == set()
+    assert g.board[(4, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+    assert g.board[(4, 1)].unit.hp == 3
+    assert g.board[(5, 1)].unit.effects == set()
+    assert g.board[(5, 1)].unit.attributes == set()
+    assert g.board[(5, 1)].unit.hp == 2 # no change because not mech
+    assert g.board[(6, 1)].unit.effects == set()
+    assert g.board[(6, 1)].unit.attributes == {Attributes.STABLE}
+    assert g.board[(6, 1)].unit.hp == 2 # no change because not mech
+    assert g.board[(7, 1)].unit.effects == set()
+    assert g.board[(7, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(7, 1)].unit.hp == 1 # repaired back to 1 hp
+    assert g.board[(7, 1)].unit.type == 'pulse' # back alive
+
 def t_PassiveAutoShields():
     "Test out the AutoShields passive."
     g = Game()

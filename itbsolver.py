@@ -519,6 +519,7 @@ class Tile_Base(TileUnit_Base):
         # assert Attributes.STABLE not in self.unit.attributes # the train is a stable unit that moves
         if destsquare == self.square:
             return # tried to move a unit to the same square it's already one. This had the unintended consequence of leaving the square blank!
+        print("moveUnit from", self.square, destsquare) # DEBUG
         self.unit._breakAllWebs()
         self.game.board[destsquare]._putUnitHere(self.unit)
         self.unit = None
@@ -1875,8 +1876,7 @@ class Unit_EnemyBurrower_Base(Unit_NormalVek_Base):
         "Burrow the unit underground, removing fire if present."
         self.game.board[self.square].unit = None # The unit is gone from the board, but still present otherwise.
         self.weapon1.qshot = None # cancel the unit's attack.
-        # TODO: score: fire removed from an enemy.
-        self.effects.discard(Effects.FIRE) # they lose fire after going underground.
+        self._removeFire()
 
 class Unit_EnemyLeader_Base(Unit_NormalVek_Base):
     "A simple base class for Massive bosses."
@@ -2891,11 +2891,14 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
             self.damage += 2
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
-        if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding():
-           pass
-        else:
+        try:
+            if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding(): # ifi buildings are immune and the target is a building..
+                pass # don't damage the target
+            else:
+                raise AttributeError
+        except AttributeError: # None.isBuilding(), there was no unit there or manually raised because buildings aren't immune or the unit there isn't a building
             self.game.board[self.targetsquare].takeDamage(self.damage)
-        self._pushAdjacent(self.targetsquare) # now push all the tiles around targetsquare
+        self._pushAdjacent(self.targetsquare) # now push all the tiles around targetsquare regardless
 
 class Weapon_BurstBeam(Weapon_DirectionalGen_Base, Weapon_BlocksBeamShot_Base):
     """Laser Mech's default weapon.
@@ -4405,26 +4408,25 @@ class Weapon_VolatileGuts(Weapon_Blob_Base):
     "Explode, killing itself and damaging adjacent tiles for 3 damage. Kill it first to stop it. Alpha Blob"
     damage = 3
 
-# TODO: score We can't predict the shooting of these 4 weapons, but they need to be counted towards spawning new enemies
 class Weapon_UnstableGrowths(Weapon_Vek_Base):
     "Throw a sticky blob that will explode. Blobber"
     def shoot(self):
-        print("TODO score!")
+        self.game.score.submit(-5, 'blob_spawned')
 
 class Weapon_VolatileGrowths(Weapon_Vek_Base):
-    "Throw a sticky blob that will explode. Blobber"
+    "Throw a massive blob that will explode. Blobber"
     def shoot(self):
-        print("TODO score!")
+        self.game.score.submit(-6, 'alpha_blob_spawned')
 
 class Weapon_TinyOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into a Spiderling. Spider"
     def shoot(self):
-        print("TODO score!")
+        self.game.score.submit(-2, 'spideregg_spawned')
 
 class Weapon_LargeOffspring(Weapon_Vek_Base):
     "Throw a sticky egg that hatches into an Alpha Spiderling. AlphaSpider"
     def shoot(self):
-        print("TODO score!")
+        self.game.score.submit(-3, 'alphaspideregg_spawned')
 
 class Weapon_StingingSpinneret(Weapon_VekMelee_Base):
     "Web an adjacent target, preparing to stab it for 1 damage. (We don't actually do any webbing here). Scorpion."
@@ -4595,15 +4597,15 @@ class Weapon_PlentifulOffspring(Weapon_Vek_Base, Weapon_Validate_Base):
     "Throw out 2-3 Spider eggs. SpiderLeader"
     def shoot(self):
         if self.qshot is not None:
-            pass # This weapon, just like the blobber, creates new units in unpredictable locations. The creation of these new units needs to be counted against your score.
-            # TODO: score this.
+            self.game.score.submit(-5, 'many_spidereggs_spawned')
+            # This weapon, just like the blobber, creates new units in unpredictable locations. The creation of these new units needs to be counted against your score.
 
 class Weapon_SpiderlingEgg(Weapon_Vek_Base):
     "Hatch into Spiderling. SpiderlingEgg. The unit name and weapon name are the same."
     def validate(self):
         pass
     def shoot(self): # A spiderling egg will always hatch unless it is killed first, so we ignore qshot.
-        pass # TODO: score: count the creation of a new spiderling toward the simulation's score
+        self.game.score.submit(-3, 'spider_spawned')
 
 class Weapon_TinyMandibles(Weapon_VekMelee_Base):
     "Weak 1 damage attack against a single adjacent target. Spiderling"
@@ -4757,7 +4759,7 @@ class Weapon_Terraformer(Weapon_DirectionalGen_Base):
             tile = self.game.board[sq]
         except KeyError:
             raise CantHappenInGame("The Terraformer was placed in a way that it's weapon shoots off the board. This can't happen in the game.")
-        # if the we're killing a mountain, don't replace the tile. Mountains should always only have ground tiles under them.
+        # if we're killing a mountain, don't replace the tile. Mountains should always only have ground tiles under them.
         # This is the correct behavior from the game, if you terraform a mountain it leaves a ground tile and not a sand tile
         try:
             if tile.unit.isMountain():
@@ -5031,6 +5033,7 @@ class MasterScoreKeeper():
     def __init__(self):
         self._resetKeepers()
         self.highscores = self._getEmptyKeepers() # give it a default scorekeeper object as a high score
+        self.simulations = 0
     def submit(self, score, event, amount=1):
         """Submit a single event to be scored.
         score is an int of the points that it's worth.
@@ -5048,6 +5051,7 @@ class MasterScoreKeeper():
             v.undo(score, event, amount)
     def endSimulation(self):
         "End a single simulation and decide if this simulation was a new record best."
+        self.simulations += 1
         for keeper in self.keepers: # check if the high score was beaten
             if self.keepsers[keeper].score > self.highscores[keeper].score:
                 self.highscores[keeper] = self.keepsers[keeper] # TODO: get the actual log of the simulation here somehow

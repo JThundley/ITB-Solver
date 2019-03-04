@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # This script brute forces the best possible single turn in Into The Breach
 ############ IMPORTS ######################
-
+from itertools import permutations
+from copy import deepcopy
 ############### GLOBALS ###################
-
 # this generator and class are out of place and separate from the others, sue me
 def numGen():
     "A simple generator to count up from 0."
@@ -120,6 +120,13 @@ Passives = Constant(thegen, ( # This isn't all passives, just ones that need to 
     'STABILIZERS',
     'KICKOFFBOOSTERS',
     'FORCEAMP',
+    ))
+
+Actions = Constant(thegen, ( # These are the actions that a player can take with a unit they control.
+    'MOVE',
+    'SHOOT',
+    'MOVE2', # secondary move
+    'SHOOT2', # secondary shoot
     ))
 
 # don't need these anymore
@@ -263,10 +270,11 @@ class Game():
         else:
             self.score = scorekeeper # use the passed in MasterScoreKeeper()
     def flushHurt(self):
-        "resolve the effects of hurt units, returns nothing. Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
+        "resolve the effects of hurt units, returns the number of enemies killed (for use with viscera nanobots). Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
         # print("hurtplayerunits:", self.hurtplayerunits)
         # print("hurtpsion:", self.hurtpsion)
+        killedenemies = 0
         postattackmoves = self.postattackmoves
         self.postattackmoves = set()
         while True:
@@ -280,18 +288,20 @@ class Game():
             except AttributeError:
                 pass
             try:
-                self.hurtpsion._allowDeath()
+                if self.hurtpsion._allowDeath():
+                    killedenemies += 1
                 self.hurtpsion = None
             except AttributeError:
                 pass
             for hpu in hurtplayerunits:
                 hpu.explode()
             for he in hurtenemies:
-                he._allowDeath()
+                if he._allowDeath():
+                    killedenemies += 1
             for srcsquare, destsquare in postattackmoves:
                 self.board[srcsquare].moveUnit(destsquare)
             if not (self.hurtenemies or self.hurtplayerunits or self.hurtpsion):
-                break
+                return killedenemies
     def start(self):
         "Initialize the simulation. Run this after all units have been placed on the board."
         psionicreceiver = False
@@ -519,7 +529,7 @@ class Tile_Base(TileUnit_Base):
         # assert Attributes.STABLE not in self.unit.attributes # the train is a stable unit that moves
         if destsquare == self.square:
             return # tried to move a unit to the same square it's already one. This had the unintended consequence of leaving the square blank!
-        print("moveUnit from", self.square, destsquare) # DEBUG
+        #print("moveUnit from", self.square, destsquare) # DEBUG
         self.unit._breakAllWebs()
         self.game.board[destsquare]._putUnitHere(self.unit)
         self.unit = None
@@ -977,10 +987,11 @@ class Unit_Base(TileUnit_Base):
         """Take damage from vek emerging below. Most of the time this is just normal bump damage, but mechs override this to take no damage with a certain passive."""
         self.takeBumpDamage()
     def _allowDeath(self):
-        "Check if this unit was killed but had it's death supressed. Kill it now if it has 0 or less hp."
+        "Check if this unit was killed but had it's death suppressed. Kill it now if it has 0 or less hp."
         if self.hp <= 0:  # if the unit has no more HP and is allowed to die
             self.damage_taken += self.hp  # hp is now negative or 0. Adjust damage_taken to ignore overkill. If the unit had 4 hp and it took 7 damage, we consider the unit as only taking 4 damage because overkill is useless. Dead is dead.
             self.die()
+            return True
     def die(self):
         "Make the unit die. This method is not ok for mechs to use as they never leave acid where they die. They leave corpses which are also units."
         self.game.board[self.square].unit = None # it's dead, replace it with nothing
@@ -1013,7 +1024,7 @@ class Unit_Base(TileUnit_Base):
             return False
     def isMech(self):
         "return True if unit is a mech, False if it's not."
-        return hasattr(self, 'pilot') # only mechs have pilots
+        return hasattr(self, 'repweapon') # only mechs have a repweapon slot
     def isNormalVek(self):
         "Return True if the unit is a vek THAT RECEIVES PSION BONUSES, false if it doesn't get buffs from a psion."
         try:
@@ -2131,10 +2142,12 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
 ############################################################################################################################
 class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
     "This is the base unit of Mechs."
+    kwanmove = False # This is set to True when HenryKwan allows the mech to move through enemy units
+    doubleshot = False # This is set to True when Silica allows the mech to shoot twice if it doesn't move
     def __init__(self, game, type, hp, maxhp, moves, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
-        self.pilot = pilot # the pilot in this mech that might provide bonuses or extra abilities
+        self.secondarymoves = 0 # These are moves that you make after shooting, only pilots can enable this
         self.attributes.add(Attributes.MASSIVE) # all mechs are massive
         self.alliance = Alliance.FRIENDLY # and friendly, duh
         # repweapon is the weapon that is fired when a mech repairs itself. Every mech must have some type of repair weapon
@@ -2152,6 +2165,12 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
         else:
             self.weapon2 = weapon2
             self.weapon2.game = self.game
+        try: # see if there's a pilot that provides something
+            pilot.mech = self
+        except AttributeError:
+            pass # there isn't, just ignore it
+        else: # there was a pilot
+            pilot.enable()
     def die(self):
         "Make the mech die."
         self.hp = 0
@@ -4993,14 +5012,20 @@ class Weapon_PsionicReceiver(Weapon_NoUpgradesInit_Base):
     def enable(self):
         raise FakeException
 
-class Weapon_KickoffBoosters():
-    "Mechs gain +1 move if they start their turn adjacent to each other."
-    move = 1
-    def __init__(self, power1=False, power2=False):
-        if power1:
-            self.move += 1
-    def enable(self):
-        self.game.otherpassives.add(Passives.KICKOFFBOOSTERS) # TODO: Implement this. Only effects mechs, not subunits. Both units get the buff even after you move one away.
+# Not doing this one, just tell the game how many moves your mechs currently have.
+# class Weapon_KickoffBoosters():
+#     "Mechs gain +1 move if they start their turn adjacent to each other."
+#     move = 1
+#     def __init__(self, power1=False, power2=False):
+#         if power1:
+#             self.move += 1 # mechs get 2 total moves
+#     def enable(self):
+#         for pu in self.game.playerunits:
+#             if pu.isMech():
+#                 for d in Direction.gen():
+#                     try:
+#
+#         self.game.otherpassives.add(Passives.KICKOFFBOOSTERS) # Only effects mechs, not subunits. Both units get the buff even after you move one away.
 
 # class Weapon_MedicalSupplies(Weapon_NoUpgradesInit_Base): # Not implementing this one either.
 
@@ -5026,6 +5051,68 @@ class Weapon_CriticalShields(Weapon_NoUpgradesInit_Base):
     def enable(self):
         "Replace your old and busted powergrid object with the special powergrid for dealing with critical shields."
         self.game.powergrid = Powergrid_CriticalShields(self.game, self.game.powergrid.hp)
+
+########################## PILOTS #########################
+# Few pilots are implemented because only a few actually have unique behavior that is needed.
+# All pilots must have an enable() method to start their functionality
+# All pilots must have a mech attribute which is set by the mech itself when initialized
+# If you pilot isn't powered, then don't even tell the sim about it.
+class Pilot_AddAttr_Base():
+    "A base class for pilots that add an attribute to the mech."
+    def __init__(self, attr):
+        self.attr = attr
+    def enable(self):
+        self.mech.attributes.add(self.attr)
+
+class Pilot_SecondaryMove_Base():
+    "A base class for pilots that enable moving again after shooting."
+    def enable(self):
+        self.mech.secondarymoves = self.moves
+
+class Pilot_AbeIsamu(Pilot_AddAttr_Base):
+    "Armored: Mech gains Armored"
+    def __init__(self):
+        super().__init__(Attributes.ARMORED)
+
+class Pilot_Prospero(Pilot_AddAttr_Base):
+    "Flying: Mech gains Flying (1 power required)"
+    def __init__(self):
+        super().__init__(Attributes.FLYING)
+
+class Pilot_Ariadne(Pilot_AddAttr_Base):
+    "Rockman: +3 Health and immune to Fire."
+    def __init__(self):
+        super().__init__(Attributes.IMMUNEFIRE)
+
+class Pilot_CamilaVera(Pilot_AddAttr_Base):
+    "Evasion: Mech unaffected by Webbing and Smoke. (being immune to webbing is ignored, you'll just show up in the sim as not webbed)."
+    def __init__(self):
+        super().__init__(Attributes.IMMUNESMOKE)
+
+class Pilot_ChenRong(Pilot_SecondaryMove_Base):
+    "Sidestep: After attacking, gain 1 free tile movement."
+    moves = 1
+
+class Pilot_Archimedes(Pilot_SecondaryMove_Base):
+    "Fire-and-Forget: Move again after shooting. (1 power required)"
+    def enable(self):
+        self.moves = self.mech.moves
+        super().enable()
+
+class Pilot_HenryKwan():
+    "Maneuverable: Mech can move through enemy units."
+    def enable(self):
+        self.mech.kwanmove = True
+
+class Pilot_Silica():
+    "Double Shot: Mech can act twice if it does not move. (2 power required)"
+    def enable(self):
+        self.mech.doubleshot = True
+
+class Pilot_Mafan():
+    "Zoltan: +1 Reactor Core. Reduce Mech HP to 1. Gain Shield every turn. The only thing this pilot does is remove the score penalty for losing your shield since it always comes back."
+    def enable(self):
+        self.mech.score['shield_off'] = 0
 
 ############################# SCORING #######################
 class MasterScoreKeeper():
@@ -5090,3 +5177,10 @@ class ScoreKeeper():
         "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
         self.log.append('-{0}{1}'.format(amount, event))
         self.score -= score * amount
+
+################################ SIMULATING ############################
+class AttemptGenerator():
+    "This object takes a Game object that's been set up and it generates instructions for worker threads to carry out and simulate."
+    def __init__(self, game):
+        self.game = game
+        self.game.start()

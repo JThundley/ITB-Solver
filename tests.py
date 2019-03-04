@@ -12379,6 +12379,80 @@ def t_MountainCantBeSetOnFireScore():
     assert g.score.keepers['best'].score == 0
     assert g.score.keepers['best'].log == [] # no score for the mountain being set on fire
 
+def t_Pilot_AbeIsamu():
+    "Make sure AbeIsamu works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_AbeIsamu()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.ARMORED}
+
+def t_Pilot_Prospero():
+    "Make sure Prospero works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Prospero()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.FLYING}
+
+def t_Pilot_CamilaVera():
+    "Make sure CamilaVera works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_CamilaVera()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.IMMUNESMOKE}
+
+def t_Pilot_Ariadne():
+    "Make sure Ariadne works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Ariadne()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE, Attributes.IMMUNEFIRE}
+
+def t_Pilot_ChenRong():
+    "Make sure ChenRong works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_ChenRong()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 1 # mech gets one secondary move
+
+def t_Pilot_Archimedes():
+    "Make sure Archimedes works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Archimedes()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 3 # mech's default move is 3
+
+def t_Pilot_HenryKwan():
+    "Make sure HenryKwan works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_HenryKwan()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 0
+    assert g.board[(1, 1)].unit.kwanmove == True
+
+def t_Pilot_Silica():
+    "Make sure Silica works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Silica()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 0
+    assert g.board[(1, 1)].unit.kwanmove == False
+    assert g.board[(1, 1)].unit.doubleshot == True
+
+def t_Pilot_Mafan():
+    "Make sure Mafan works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Mafan()))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 0
+    assert g.board[(1, 1)].unit.kwanmove == False
+    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.score['shield_off'] == 0
+
 # def t_UnscorableThings():
 #     "Test out some special units and actions that should NOT generate a scoring event."
 #     g = Game()

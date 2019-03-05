@@ -12453,20 +12453,35 @@ def t_Pilot_Mafan():
     assert g.board[(1, 1)].unit.doubleshot == False
     assert g.board[(1, 1)].unit.score['shield_off'] == 0
 
-# def t_UnscorableThings():
-#     "Test out some special units and actions that should NOT generate a scoring event."
-#     g = Game()
-#     for unit in Unit_Mountain, Unit_Mountain_Damaged, Unit_Volcano:
-#         g.board[(1, 1)].createUnitHere(unit(g))
-#         for effect in 'applyFire', 'applyAcid', 'applyShield', 'applyIce':
-#             getattr(g.board[(1, 1)], effect)()
-#     print(g.score.keepers['best'].log)
-#     #assert g.score.keepers['best'].log == []
-#     # now just test out the volcano getting hurt and dying
-#     g.board[(1, 1)].createUnitHere(unit(g))
-#     for effect in 'takeDamage', 'die':
-#         getattr(g.board[(1, 1)], effect)()
-#         assert g.score.keepers['best'].log == []
+def t_Pilot_HaroldSchmidt():
+    "Make sure HaroldSchmidt works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_HaroldSchmidt()))
+    g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g, ))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 0
+    assert g.board[(1, 1)].unit.kwanmove == False
+    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.score['shield_off'] != 0
+    g.board[(1, 1)].unit.repweapon.shoot() # shoot the repair weapon
+    assert g.board[(2, 1)].unit == None # pushed from here
+    assert g.board[(3, 1)].unit.type == 'combat' # to here
+
+def t_Pilot_Kazaaakpleth():
+    "Make sure Kazaaakpleth works properly"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Kazaaakpleth()))
+    g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g, ))
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
+    assert g.board[(1, 1)].unit.secondarymoves == 0
+    assert g.board[(1, 1)].unit.kwanmove == False
+    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.score['shield_off'] != 0
+    g.board[(1, 1)].unit.repweapon.shoot(Direction.RIGHT) # shoot the repair weapon
+    assert g.board[(2, 1)].unit == None  # pushed from here
+    assert g.board[(3, 1)].unit.hp == 1 # unit pushed here and took 2 damage
 
 ########### write tests for these:
 # a shielded mountain takes damage. same with ice

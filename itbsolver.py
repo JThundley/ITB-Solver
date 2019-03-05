@@ -2142,22 +2142,35 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
 ############################################################################################################################
 class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
     "This is the base unit of Mechs."
+    alliance = Alliance.FRIENDLY  # and friendly, duh
     kwanmove = False # This is set to True when HenryKwan allows the mech to move through enemy units
     doubleshot = False # This is set to True when Silica allows the mech to shoot twice if it doesn't move
+    secondarymoves = 0  # These are moves that you make after shooting, only pilots can enable this # TODO: implement this
     def __init__(self, game, type, hp, maxhp, moves, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
-        self.secondarymoves = 0 # These are moves that you make after shooting, only pilots can enable this
         self.attributes.add(Attributes.MASSIVE) # all mechs are massive
-        self.alliance = Alliance.FRIENDLY # and friendly, duh
-        # repweapon is the weapon that is fired when a mech repairs itself. Every mech must have some type of repair weapon
-        try:
-            repweapon.wieldingunit = self
+
+        try: # see if there's a pilot that provides something
+            pilot.mech = self
         except AttributeError:
-            repweapon = Weapon_Repair()
-            repweapon.wieldingunit = self
-        self.repweapon = repweapon
-        self.repweapon.game = self.game
+            pass # there isn't, that's fine
+        else: # there was a pilot
+            pilot.enable()
+
+        # repweapon is the weapon that is fired when a mech repairs itself. Every mech must have some type of repair weapon
+        try: # see if the pilot provided a repweapon
+            self.repweapon.game = self.game
+        except AttributeError: # it didn't
+            try: # check if there was a repweapon passed in
+                repweapon.game = self.game
+            except AttributeError: # there wasn't so just set a default
+                self.repweapon = Weapon_Repair()
+                self.repweapon.game = self.game
+            else:
+                self.repweapon = repweapon
+        self.repweapon.wieldingunit = self
+
         try:
             weapon2.wieldingunit = self
         except AttributeError:
@@ -2165,12 +2178,6 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
         else:
             self.weapon2 = weapon2
             self.weapon2.game = self.game
-        try: # see if there's a pilot that provides something
-            pilot.mech = self
-        except AttributeError:
-            pass # there isn't, just ignore it
-        else: # there was a pilot
-            pilot.enable()
     def die(self):
         "Make the mech die."
         self.hp = 0
@@ -4171,7 +4178,7 @@ class Weapon_MantisSlash(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
         self.damage = 2
     def shoot(self, direction):
         super().shoot_punch(direction)
-        self.wieldingunit.effects.discard(Effects.ICE)
+        self.wieldingunit._removeIce() # yes this breaks you out of ice and does the attack
 
 ################################ Vek Weapons #################################
 # All weapons have their ingame description in the docstring followed by the type/name of the enemy that wields this weapon.
@@ -5069,6 +5076,13 @@ class Pilot_SecondaryMove_Base():
     def enable(self):
         self.mech.secondarymoves = self.moves
 
+class Pilot_ReplaceRepairWep_Base():
+    def __init__(self, weapon):
+        "weapon is the weapon object to replace the mech's repair."
+        self.weapon = weapon
+    def enable(self):
+        self.mech.repweapon = self.weapon
+
 class Pilot_AbeIsamu(Pilot_AddAttr_Base):
     "Armored: Mech gains Armored"
     def __init__(self):
@@ -5113,6 +5127,16 @@ class Pilot_Mafan():
     "Zoltan: +1 Reactor Core. Reduce Mech HP to 1. Gain Shield every turn. The only thing this pilot does is remove the score penalty for losing your shield since it always comes back."
     def enable(self):
         self.mech.score['shield_off'] = 0
+
+class Pilot_HaroldSchmidt(Pilot_ReplaceRepairWep_Base):
+    "Frenzied Repair: Push adjacent tiles when repairing."
+    def __init__(self):
+        super().__init__(Weapon_FrenziedRepair())
+
+class Pilot_Kazaaakpleth(Pilot_ReplaceRepairWep_Base):
+    "Mantis: 2 damage melee attack replaces Repair."
+    def __init__(self):
+        super().__init__(Weapon_MantisSlash())
 
 ############################# SCORING #######################
 class MasterScoreKeeper():

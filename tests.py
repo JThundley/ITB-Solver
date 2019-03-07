@@ -12265,7 +12265,7 @@ def t_Movement1():
     g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
     g.board[(3, 1)].unit = None
     moves = g.board[(1, 1)].unit.getMoves()
-    assert set(moves) == {(1, 1), (2, 1), (3, 1)}
+    assert set(moves) == {(2, 1), (3, 1)}
 
 def t_MovementMountain():
     "Test movement with a very basic test where a mountain blocks movement."
@@ -12277,7 +12277,7 @@ def t_MovementMountain():
     #g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
     g.board[(3, 1)].unit = None
     moves = g.board[(1, 1)].unit.getMoves()
-    assert set(moves) == {(1, 1)}
+    assert set(moves) == set()
 
 def t_MovementMech():
     "Test movement with a very basic test where a mech doesn't block movement, but does prevent movement to the occupied square."
@@ -12289,7 +12289,7 @@ def t_MovementMech():
     g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g)) # put a mech next to him
     g.board[(3, 1)].unit = None # remove mountains from 2 squares next to it
     moves = g.board[(1, 1)].unit.getMoves()
-    assert set(moves) == {(1, 1), (2, 1), (3, 1)}
+    assert set(moves) == {(2, 1), (3, 1)}
 
 def t_MovementLarge4():
     "Test movement with a basic test where there are some mountains that block movement. The mech has 4 moves."
@@ -12299,7 +12299,7 @@ def t_MovementLarge4():
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     moves = g.board[(1, 1)].unit.getMoves()
-    assert set(moves) == {(1, 1), (2, 1), (2, 2), (3, 2), (3, 3), (4, 2)}
+    assert set(moves) == {(2, 1), (2, 2), (3, 2), (3, 3), (4, 2)}
 
 def t_MovementLarge5():
     "Test movement with a basic test where there are some mountains that block movement. The mech has 5 moves."
@@ -12309,7 +12309,7 @@ def t_MovementLarge5():
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     moves = g.board[(1, 1)].unit.getMoves()
-    assert set(moves) == {(1, 1), (2, 1), (2, 2), (3, 2), (3, 3), (4, 2), (3, 4), (4, 1), (4, 3), (5, 2)}
+    assert set(moves) == { (2, 1), (2, 2), (3, 2), (3, 3), (4, 2), (3, 4), (4, 1), (4, 3), (5, 2)}
 
 def t_MovementLarge4Flying():
     "Test movement with a basic test where there are some mountains that block movement. The mech has 4 moves and can fly."
@@ -12320,7 +12320,17 @@ def t_MovementLarge4Flying():
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
     moves = g.board[(1, 1)].unit.getMoves()
     #print(moves)
-    assert set(moves) == {(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
+    assert set(moves) == { (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
+
+def t_MovementLarge4Kwan():
+    "Test movement with a basic test where there are some mountains that block movement. There is also an enemy that does NOT block movement because the mech has the Kwan pilot. Mech has 4 moves."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, moves=4, pilot=Pilot_HenryKwan()))
+    g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
+    g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
+    g.board[(3, 1)].createUnitHere(Unit_Scorpion(g))
+    moves = g.board[(1, 1)].unit.getMoves()
+    assert set(moves) == { (2, 1), (2, 2), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
 
 def t_ScoreBuildingDamage():
     "Test out the scoring system on a damaged building."

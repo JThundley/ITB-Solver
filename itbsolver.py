@@ -5216,16 +5216,12 @@ class AttemptGenerator():
     def gen(self):
         "Do the actual generating."
         for order in permutations(self._getAllActions()):
+            pretty = [(unit.type, Actions.pprint((action,))[0]) for unit, action in order] # DEBUG
             if self._validate(order):
-                print("Order was valid")
+                print("Valid:", pretty)
                 yield order # DEBUG
             else:
-                print("Order was NOT valid")
-            # neworder = []
-            # for item in order:
-            #     neworder.append((item[0].type, Actions.pprint((item[1],))))
-            # print(neworder)
-
+                print("Invalid:", pretty)
     def _getAllActions(self):
         """return a list of all possible actions the player can take on their turn.
         It's a list of (unit, action) tuples."""
@@ -5258,31 +5254,32 @@ class AttemptGenerator():
             Letting a unit shoot, move, then shoot again. (You can only shoot twice if you don't move)
             Letting a unit move twice and then shoot. (You can only move a 2nd time after taking a shot)
         return True if it's a valid attempt, False if it's not."""
-        # make a dict of player units to the actions that they have remaining.
-        unitactions = {p: {Actions.SHOOT, Actions.MOVE, Actions.MOVE2, Actions.SHOOT2} for p in self.game.playerunits}
-        # as we step through the attempt, we'll remove actions that are no longer available and find illegal attempts
+        # make a dict of player units to the actions that they can no longer use
+        bannedactions = {p: set() for p in self.game.playerunits}
+        # as we step through the attempt, we'll add actions that are no longer available and find illegal attempts
         for unit, action in attempt:
-            try: # try removing the current action
-                unitactions[unit].remove(action)
-            except KeyError: # it's already been removed which means this unit can no longer take this action
+            if action in bannedactions[unit]: # make sure the current action isn't already banned
                 return False
-            if action == Actions.SHOOT:
-                try: # shooting means you can no longer move
-                    unitactions[unit].remove(Actions.MOVE)
-                except KeyError:  # this unit already moved which is good
-                    pass
-            elif action == Actions.MOVE:
-                try:  # After moving, you can no longer fire a 2nd shot
-                    unitactions[unit].remove(Actions.SHOOT2)
-                except KeyError: # A 2nd shot has already been taken, you can't move after that
-                    return False
-            elif action == Actions.MOVE2:
-                if Actions.MOVE in unitactions[unit]: # You can't move after doing your 2nd move
-                    return False
-            elif actions == Actions.SHOOT2:
-                if (Actions.MOVE in unitactions[unit]) or (Actions.SHOOT in unitactions[unit]): # you can't move or take your first shot after your 2nd shot.
-                    return False
+            else: # if not, it is now
+                bannedactions[unit].add(action)
+
+            if action == Actions.SHOOT: # shooting means you can no longer move
+                bannedactions[unit].add(Actions.MOVE)
+            elif action == Actions.MOVE2: # You can't move, shoot, or shoot2 or after doing your 2nd move
+                bannedactions[unit].update({Actions.MOVE, Actions.SHOOT, Actions.SHOOT2})
+            elif action == Actions.SHOOT2: # you can't move or take your first shot after your 2nd shot.
+                bannedactions[unit].update({Actions.MOVE, Actions.SHOOT})
         return True
+
+class OrderSimulator():
+    "This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves and shots for this order of operations."
+    def __init__(self, game, order):
+        self.game = game
+        self.order = order
+    def gen(self):
+        pass
+
+def unitAllShotsGen(unit):
 
 class UnitMoveGen():
     "This object takes a Game object and a player-controlled-unit in that game and generates all possible moves for it."

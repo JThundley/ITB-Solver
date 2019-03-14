@@ -5208,7 +5208,7 @@ class ScoreKeeper():
         self.score -= score * amount
 
 ################################ SIMULATING ############################
-class AttemptGenerator():
+class OrderGenerator():
     "This object takes a Game object that's been set up and it generates instructions for worker threads to carry out and simulate."
     def __init__(self, game):
         self.game = game
@@ -5276,22 +5276,35 @@ class OrderSimulator():
     def __init__(self, game, order):
         self.game = game
         self.order = order
-    def gen(self):
-        pass
+    def run(self):
+        # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
+        # first, create a dict of dicts containing a unit to it's actions to it's action counter object: {unit:{Actions.MOVE: unitAllMovesGen(), Actions.SHOOT: unitAllShotsGen()}, ...}
+        # Note that each action counter is actually set to None so we can do the null action first.
+        unit_action_counters = {}
+        for item in order:
+            try: # try to add a new action to an existing unit key
+                unit_action_counters[item[0]][item[1]] = None
+            except KeyError: # create the new unit key
+                unit_action_counters[item[0]] = {item[1]: None}
+        while True: # the main loop
+            game = deepcopy(self.game) # make a new copy of the game, we can't modify the same one over and over again
+            
 
 def unitAllShotsGen(unit):
+    """This generator takes a unit and yields the next shot they should attempt sequentially.
+    unit is a unit object.
+    returns a tuple of (weaponname, shot) where weaponname is a str, shot is a tuple from genShots.
+    """
+    for weapon in 'repweapon', 'weapon1', 'weapon2':
+        for gs in getattr(unit, weapon).genShots():
+            yield (weapon, gs)
 
-class UnitMoveGen():
-    "This object takes a Game object and a player-controlled-unit in that game and generates all possible moves for it."
-    def __init__(self, game, unit):
-        """game is a gameboard object
-        unit is the player-controlled-unit that this object will generate moves for
-        """
-        self.game = game
-        self.unit = unit
-    def gen(self):
-        "yields squares to move this unit to."
-        if not self.unit.web: # if the unit is webbed, it can't move
-            for move in self.unit.getMoves():
-                if not self.game.board[move].unit: # if there's not a unit present on the square
-                    yield move
+def unitAllMovesGen(unit):
+    """This generator takes a unit and yields the next move they should attempt sequentially.
+    unit is a unit object.
+    returns a tuple of the square to move the unit to.
+    """
+    if not self.unit.web:  # if the unit is webbed, it can't move
+        for move in self.unit.getMoves():
+            if not self.game.board[move].unit: # if there's not a unit present on the square
+                yield move

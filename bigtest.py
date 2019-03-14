@@ -58,7 +58,7 @@ g.board[(4, 6)].createUnitHere(Unit_AlphaScarab(g, hp=1, qshot=(Direction.DOWN, 
 #                     for shot in getattr(unit, weapon).genShots():
 #                         getattr(unit, weapon).shoot(*shot)
 
-ag = AttemptGenerator(g)
-for i in ag.gen():
+og = OrderGenerator(g)
+for i in og.gen():
     pass
     #print(i)

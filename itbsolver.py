@@ -5215,40 +5215,44 @@ class OrderGenerator():
         self.game.start()
     def gen(self):
         "Do the actual generating."
-        for order in permutations(self._getAllActions()):
-            pretty = [(unit.type, Actions.pprint((action,))[0]) for unit, action in order] # DEBUG
-            if self._validate(order):
-                print("Valid:", pretty)
-                yield order # DEBUG
-            else:
-                print("Invalid:", pretty)
+        for playeractions in self._genActions():
+            for order in permutations(playeractions):
+                pretty = [(unit.type, Actions.pprint((action,))[0]) for unit, action in order] # DEBUG
+                if self._validate(order):
+                    print("Valid:", pretty)
+                    yield order # DEBUG
+                else:
+                    print("Invalid:", pretty)
     def _getAllActions(self):
         """return a list of all possible actions the player can take on their turn.
-        It's a list of (unit, action) tuples."""
+        This includes exclusive moves, for example if a unit can shoot twice this will also show that they can move,
+        even though they can't do both on a single turn.
+        It's a list of lists: [[False, unit, action], ...]
+        False indicates that this action is not included in the current turn. OrderGenerator will change these flags."""
         allactions = []
         for pcu in self.game.playerunits:
-            #for action in Actions.NULL, Actions.SHOOT: # all units can do nothing or shoot
             #   allactions.append((pcu, action)) # maybe NULL can be figured into a different part of logic
-            allactions.append((pcu, Actions.SHOOT)) # all units can shoot
+            allactions.append([False, pcu, Actions.SHOOT]) # all units can shoot
             if pcu.moves: # if the unit can move
-                allactions.append((pcu, Actions.MOVE)) # give it a move turn
+                allactions.append([False, pcu, Actions.MOVE]) # give it a move turn
             try:
                 if pcu.secondarymoves: # if the unit has a secondary move
                     raise FakeException
             except AttributeError: # unit didn't have secondarymoves at all, it wasn't a mech
                 pass
             except FakeException:
-                allactions.append((pcu, Actions.MOVE2))  # give it a 2nd move turn
+                allactions.append([False, pcu, Actions.MOVE2])  # give it a 2nd move turn
             try:
                 if pcu.doubleshot: # if the unit is allowed a 2nd shot
                     raise FakeException
             except AttributeError:
                 pass
             except FakeException:
-                allactions.append((pcu, Actions.SHOOT2))
+                allactions.append([False, pcu, Actions.SHOOT2])
         return allactions
-    def _validate(self, attempt):
+    def _validate(self, actionorder):
         """Verify that this attempt is valid and not trying to simulate something not allowed in the game.
+        actionorder must be an iter of (unit, action) tuples.
         Some examples of invalid attempts are:
             Letting a unit shoot and then use it's initial (or only) move.
             Letting a unit shoot, move, then shoot again. (You can only shoot twice if you don't move)
@@ -5257,7 +5261,7 @@ class OrderGenerator():
         # make a dict of player units to the actions that they can no longer use
         bannedactions = {p: set() for p in self.game.playerunits}
         # as we step through the attempt, we'll add actions that are no longer available and find illegal attempts
-        for unit, action in attempt:
+        for unit, action in actionorder:
             if action in bannedactions[unit]: # make sure the current action isn't already banned
                 return False
             else: # if not, it is now
@@ -5270,6 +5274,30 @@ class OrderGenerator():
             elif action == Actions.SHOOT2: # you can't move or take your first shot after your 2nd shot.
                 bannedactions[unit].update({Actions.MOVE, Actions.SHOOT})
         return True
+    def _genActions(self):
+        "This generates unique combinations from _getAllActions. yields a set of {(unit, action), ...} tuples."
+        # The way this works is that the bool at the beginning indicates whether it should be included or not.
+        # when we start and get allactions, everything is off, set to False. We'll go through this and flip each bool,
+        # essentially counting in binary.
+        allactions = self._getAllActions()
+        while True:
+            current = set() # this is what we'll build and yield
+            for i in allactions: # for each (bool, unit, action) item in all the actions...
+                if i[0]: # if the bool says to include it
+                    current.add(tuple(i[1:])) # include it but strip out the bool
+            yield current # and there we go, we did it
+            # Now we increment the binary count up one
+            n = 0 # index of allactions item to check
+            while True:
+                try:
+                    if allactions[n][0]: # if it's true, change it to False and go to the next until we find a False
+                        allactions[n][0] = False
+                        n += 1
+                    else: # we found a False
+                        allactions[n][0] = True
+                        break
+                except IndexError: # we tried to go beyond the end, this means we offered a set with all actions
+                    return
 
 class OrderSimulator():
     "This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves and shots for this order of operations."
@@ -5288,7 +5316,7 @@ class OrderSimulator():
                 unit_action_counters[item[0]] = {item[1]: None}
         while True: # the main loop
             game = deepcopy(self.game) # make a new copy of the game, we can't modify the same one over and over again
-            
+
 
 def unitAllShotsGen(unit):
     """This generator takes a unit and yields the next shot they should attempt sequentially.

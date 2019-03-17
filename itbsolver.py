@@ -127,7 +127,6 @@ Actions = Constant(thegen, ( # These are the actions that a player can take with
     'SHOOT',
     'MOVE2', # secondary move
     'SHOOT2', # secondary shoot
-    'NULL', # don't do anything
     ))
 
 # don't need these anymore
@@ -5208,6 +5207,34 @@ class ScoreKeeper():
         self.score -= score * amount
 
 ################################ SIMULATING ############################
+class BinaryCounter():
+    """Count a number in binary to be used for deciding which elements to include and exclude and also to advance
+    unit move and shoot action generators."""
+    def __init__(self, iterobj):
+        self.binary = [False] * len(iterobj)
+    def __iter__(self):
+        return self
+    def __next__(self):
+        "advance the binary counter by 1, returning the index of the highest changed index."
+        n = 0  # index of allactions item to check
+        while True:
+            try:
+                if self.binary[n]: # if it's true, change it to False and go to the next until we find a False
+                    self.binary[n] = False
+                    n += 1
+                else:  # we found a False
+                    self.binary[n] = True
+                    return n
+            except IndexError:  # we tried to go beyond the end, this means we offered a set with all actions
+                raise StopIteration
+    def getInclusion(self, iterobj):
+        "return a new list of items from iterobj when corresponding indexes of the binary number are True"
+        newobj = []
+        for i in range(len(iterobj)):
+            if self.binary[i]:
+                newobj.append(iterobj[i])
+        return newobj
+
 class OrderGenerator():
     "This object takes a Game object that's been set up and it generates instructions for worker threads to carry out and simulate."
     def __init__(self, game):
@@ -5220,35 +5247,33 @@ class OrderGenerator():
                 pretty = [(unit.type, Actions.pprint((action,))[0]) for unit, action in order] # DEBUG
                 if self._validate(order):
                     print("Valid:", pretty)
-                    yield order # DEBUG
+                    yield order
                 else:
                     print("Invalid:", pretty)
     def _getAllActions(self):
         """return a list of all possible actions the player can take on their turn.
         This includes exclusive moves, for example if a unit can shoot twice this will also show that they can move,
         even though they can't do both on a single turn.
-        It's a list of lists: [[False, unit, action], ...]
-        False indicates that this action is not included in the current turn. OrderGenerator will change these flags."""
+        It's a list of tuples: [(unit, action), ...]"""
         allactions = []
         for pcu in self.game.playerunits:
-            #   allactions.append((pcu, action)) # maybe NULL can be figured into a different part of logic
-            allactions.append([False, pcu, Actions.SHOOT]) # all units can shoot
+            allactions.append((pcu, Actions.SHOOT)) # all units can shoot
             if pcu.moves: # if the unit can move
-                allactions.append([False, pcu, Actions.MOVE]) # give it a move turn
+                allactions.append((pcu, Actions.MOVE)) # give it a move turn
             try:
                 if pcu.secondarymoves: # if the unit has a secondary move
                     raise FakeException
             except AttributeError: # unit didn't have secondarymoves at all, it wasn't a mech
                 pass
             except FakeException:
-                allactions.append([False, pcu, Actions.MOVE2])  # give it a 2nd move turn
+                allactions.append((pcu, Actions.MOVE2))  # give it a 2nd move turn
             try:
                 if pcu.doubleshot: # if the unit is allowed a 2nd shot
                     raise FakeException
             except AttributeError:
                 pass
             except FakeException:
-                allactions.append([False, pcu, Actions.SHOOT2])
+                allactions.append((pcu, Actions.SHOOT2))
         return allactions
     def _validate(self, actionorder):
         """Verify that this attempt is valid and not trying to simulate something not allowed in the game.
@@ -5280,27 +5305,14 @@ class OrderGenerator():
         # when we start and get allactions, everything is off, set to False. We'll go through this and flip each bool,
         # essentially counting in binary.
         allactions = self._getAllActions()
+        bc = BinaryCounter(allactions)
         while True:
-            current = set() # this is what we'll build and yield
-            for i in allactions: # for each (bool, unit, action) item in all the actions...
-                if i[0]: # if the bool says to include it
-                    current.add(tuple(i[1:])) # include it but strip out the bool
-            yield current # and there we go, we did it
-            # Now we increment the binary count up one
-            n = 0 # index of allactions item to check
-            while True:
-                try:
-                    if allactions[n][0]: # if it's true, change it to False and go to the next until we find a False
-                        allactions[n][0] = False
-                        n += 1
-                    else: # we found a False
-                        allactions[n][0] = True
-                        break
-                except IndexError: # we tried to go beyond the end, this means we offered a set with all actions
-                    return
+            yield bc.getInclusion(allactions)
+            next(bc)
 
 class OrderSimulator():
-    "This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves and shots for this order of operations."
+    """This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves
+    and shots for this order of operations. This can be thought of as a worker thread."""
     def __init__(self, game, order):
         self.game = game
         self.order = order
@@ -5308,21 +5320,37 @@ class OrderSimulator():
         # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
         # first, create a dict of dicts containing a unit to it's actions to it's action counter object: {unit:{Actions.MOVE: unitAllMovesGen(), Actions.SHOOT: unitAllShotsGen()}, ...}
         # Note that each action counter is actually set to None so we can do the null action first.
-        unit_action_counters = {}
-        for item in order:
-            try: # try to add a new action to an existing unit key
-                unit_action_counters[item[0]][item[1]] = None
-            except KeyError: # create the new unit key
-                unit_action_counters[item[0]] = {item[1]: None}
+        # unit_action_counters = {}
+        # for item in self.order:
+        #     try: # try to add a new action to an existing unit key
+        #         unit_action_counters[item[0]][item[1]] = None
+        #     except KeyError: # create the new unit key
+        #         unit_action_counters[item[0]] = {item[1]: None}
+        self.unit_action_gens = [None] * len(self.order) # first create a list of unit action counters that correspond to self.order
+
         while True: # the main loop
             game = deepcopy(self.game) # make a new copy of the game, we can't modify the same one over and over again
+    def incrementUnitActionGens(self):
+        "Increment the unit_action_gens by 1. This is also counting in binary."
+        for i in range(len(self.unit_action_gens)):
+            try:
+                self.unit_action_gens[i] = next(self.unit_action_gens[i])
+            except TypeError: # next(None), that means this slot was never initialized
+                if self.order[i][1] in (Actions.SHOOT, Actions.SHOOT2):
+                    self.unit_action_gens[i] = unitAllShotsGen(self.order[i][0])
+                else:
+                    self.unit_action_gens[i] = unitAllMovesGen(self.order[i][0])
+                XXX CONTINUE
 
 
 def unitAllShotsGen(unit):
     """This generator takes a unit and yields the next shot they should attempt sequentially.
     unit is a unit object.
-    returns a tuple of (weaponname, shot) where weaponname is a str, shot is a tuple from genShots.
+    returns a tuple of (weaponname, shot) where weaponname is a str of the weapon method to use, shot is a tuple from genShots.
     """
+    if Effects.SMOKE in unit.game.board[unit.square].effects: # if this unit is in smoke
+        if Attributes.IMMUNESMOKE not in unit.attributes: # and it's not smoke immune...
+            return # it can't shoot
     for weapon in 'repweapon', 'weapon1', 'weapon2':
         for gs in getattr(unit, weapon).genShots():
             yield (weapon, gs)

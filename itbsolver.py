@@ -1181,6 +1181,7 @@ class Unit_PlayerControlled_Base():
         returns a set-like dict_keys of squares of where this unit can travel to.
         It's important to note that that this list includes squares that are occupied by other units that you can pass through!
         Another part of the code must check if the square is occupied before actually moving you there.
+        The square where the unit starts is not included.
         Things that DO block movement:
         Enemies
           Blob
@@ -5314,53 +5315,102 @@ class OrderSimulator():
     """This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves
     and shots for this order of operations. This can be thought of as a worker thread."""
     def __init__(self, game, order):
-        self.game = game
+        self.game = deepcopy(game) # make a new copy of the game, we can't modify the same one over and over again
         self.order = order
-    def run(self):
-        # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
-        # first, create a dict of dicts containing a unit to it's actions to it's action counter object: {unit:{Actions.MOVE: unitAllMovesGen(), Actions.SHOOT: unitAllShotsGen()}, ...}
-        # Note that each action counter is actually set to None so we can do the null action first.
-        # unit_action_counters = {}
-        # for item in self.order:
-        #     try: # try to add a new action to an existing unit key
-        #         unit_action_counters[item[0]][item[1]] = None
-        #     except KeyError: # create the new unit key
-        #         unit_action_counters[item[0]] = {item[1]: None}
-        self.unit_action_gens = [None] * len(self.order) # first create a list of unit action counters that correspond to self.order
+    # def run(self): XXX CONTINUE
+    #     # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
+    #     self.unit_action_gens = [None] * len(self.order)
+    #     for i in range(len(self.order)): # first create a list of unit action counters that correspond to self.order
+    #         self._replaceUnitCounter(i)
+    #     while True: # the main loop
+    #         lastunit = self.unit_action_gens[-1]
+    #         currentgame = lastunit.getGame() # copy the game object from the last unit_action_gen
+    #         if lastunit.action == Actions.MOVE:
+    #
+    #         currentgame.playerunits[self.unit_action_gens[-1].getUnit()]
+    # def incrementUnitActionGens(self):
+    #     "Increment the unit_action_gens by 1."
+    #     for i in reversed(range(len(self.unit_action_gens))): # increment the last action first, working our way toward the first
+    #         try:
+    #             self.unit_action_gens[i] = next(self.unit_action_gens[i])
+    #         except (TypeError, StopIteration): # next(None), that means this slot was never initialized, StopIteration means
+    #
+    def _replaceUnitCounter(self, index):
+        """set a new unitAllShotsGen or UnitAllMovesGen in self.unit_action_gens.
+        index is the index of the order and unit_action_gens to replace.
+        returns nothing."""
+        if self.order[index][1] in (Actions.SHOOT, Actions.SHOOT2):  # if the action is to shoot...
+            # give it a shot generator
+            theobj = UnitAllShotsGen
+        else:  # otherwise the action is to move
+            theobj = UnitAllMovesGen
+        if index == 0: # if this is the first unit counter being replaced...
+            # give it the highest level copy of the game from this OrderSimulator object
+            self.unit_action_gens[index] = theobj(self.order[index][0], self.game)
+        else: # otherwise give it a copy of the game from the previous, higher-level counter:
+            self.unit_action_gens[index] = theobj(self.order[index][0], self.unit_action_gens[index-1].getGame())
 
-        while True: # the main loop
-            game = deepcopy(self.game) # make a new copy of the game, we can't modify the same one over and over again
-    def incrementUnitActionGens(self):
-        "Increment the unit_action_gens by 1. This is also counting in binary."
-        for i in range(len(self.unit_action_gens)):
+class Player_Action_Iter_Base():
+    """The base object for Player Action iters.
+    Player Action Iters are used by Order Simulator for a single unit to take every possible action.
+    Actions consist of moves or shots.
+    __next__ methods return a new deepcopy of a game object with this unit's next move already made."""
+    def __init__(self, prevgame, unit):
+        """prevgame is the game object and state before this unit makes it's moves.
+        prevgame should not be a deepcopy.
+        unit is the unit object that this iter is iterating through.
+        returns nothing."""
+        self.prevgame = prevgame
+        self.unit = unit
+    def _copygame(self):
+        "Return a deepcopy of the previous game and also set self.unit to the proper unit in the new deepcopy."
+        newgame = deepcopy(self.prevgame)
+        for u in newgame.playerunits:
+            if self.unit.square == u.square:
+                self.unit = u
+                return newgame
+    def __iter__(self):
+        return self
+
+class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
+    """This object iterates through Action.SHOOT actions."""
+    def __init__(self, prevgame, unit):
+        super().__init__(prevgame, unit)
+        self.gen = self._genNextShot()
+    def __next__(self):
+        while True:
+            g = next(self.gen) # will raise StopIteration and stop this from advancing
+            newgame = self._copygame()
             try:
-                self.unit_action_gens[i] = next(self.unit_action_gens[i])
-            except TypeError: # next(None), that means this slot was never initialized
-                if self.order[i][1] in (Actions.SHOOT, Actions.SHOOT2):
-                    self.unit_action_gens[i] = unitAllShotsGen(self.order[i][0])
-                else:
-                    self.unit_action_gens[i] = unitAllMovesGen(self.order[i][0])
-                XXX CONTINUE
+                getattr(self.unit, g[0]).shoot(*g[1])
+            except NullWeaponShot:
+                continue
+            else:
+                return newgame
+    def _genNextShot(self):
+        "generate tuples of (weapon, (shot,)) for __next__ to return."
+        if Effects.SMOKE in self.unit.game.board[unit.square].effects: # if this unit is in smoke
+            if Attributes.IMMUNESMOKE not in self.unit.attributes: # and it's not smoke immune...
+                return # it can't shoot
+        for weapon in 'repweapon', 'weapon1', 'weapon2':
+            for shot in getattr(self.unit, weapon).genShots():
+                yield (weapon, shot)
 
-
-def unitAllShotsGen(unit):
-    """This generator takes a unit and yields the next shot they should attempt sequentially.
-    unit is a unit object.
-    returns a tuple of (weaponname, shot) where weaponname is a str of the weapon method to use, shot is a tuple from genShots.
-    """
-    if Effects.SMOKE in unit.game.board[unit.square].effects: # if this unit is in smoke
-        if Attributes.IMMUNESMOKE not in unit.attributes: # and it's not smoke immune...
-            return # it can't shoot
-    for weapon in 'repweapon', 'weapon1', 'weapon2':
-        for gs in getattr(unit, weapon).genShots():
-            yield (weapon, gs)
-
-def unitAllMovesGen(unit):
-    """This generator takes a unit and yields the next move they should attempt sequentially.
-    unit is a unit object.
-    returns a tuple of the square to move the unit to.
-    """
-    if not self.unit.web:  # if the unit is webbed, it can't move
-        for move in self.unit.getMoves():
-            if not self.game.board[move].unit: # if there's not a unit present on the square
-                yield move
+# class UnitAllMovesGen():
+#     """This object takes a unit and yields the next move it should attempt sequentially.
+#             unit is a unit object.
+#             returns a tuple of the square to move the unit to.
+#             """
+#     def __init__(self, unit):
+#         self.unit = unit
+#     def getGame(self):
+#         "return an instance of this unit's game object in it's current state."
+#         return self.unit.game
+#     def __iter__(self):
+#         return self
+#     def __next__(self):
+#         if not self.unit.web:  # if the unit is webbed, it can't move
+#             for move in self.unit.getMoves():
+#                 if not self.unit.game.board[move].unit: # if there's not a unit present on the square
+#                     self.move = move
+#                     yield move

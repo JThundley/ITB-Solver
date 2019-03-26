@@ -269,6 +269,7 @@ class Game():
             self.score = MasterScoreKeeper() # assign a dummy scorekeeper
         else:
             self.score = scorekeeper # use the passed in MasterScoreKeeper()
+        self.actionlog = [] # a log of each action the player has taken in this particular game
     def flushHurt(self):
         "resolve the effects of hurt units, returns the number of enemies killed (for use with viscera nanobots). Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -1176,12 +1177,15 @@ class Unit_PlayerControlled_Base():
         self.game.playerunits.add(self)
     def _removeUnitFromGame(self):
         self.game.playerunits.remove(self)
-    def getMoves(self):
+    def getMoves(self, moves):
         """Find out where this unit can move to in the current state of the gameboard and return it as a set of coordinate tuples.
+        moves is the number of moves this unit has (int).
         returns a set-like dict_keys of squares of where this unit can travel to.
         It's important to note that that this list includes squares that are occupied by other units that you can pass through!
         Another part of the code must check if the square is occupied before actually moving you there.
         The square where the unit starts is not included.
+        This method will return an empty set if you are unable to move due to web or ice
+
         Things that DO block movement:
         Enemies
           Blob
@@ -1210,10 +1214,14 @@ class Unit_PlayerControlled_Base():
         Mine Bot (Technically an enemy)
         
         Flying lets you pass through anything."""
+        if self.web or Effects.ICE in self.effects: # if you're webbed or frozen...
+            return set() # you can't move
         self.positions = {}
-        self._getMovesBranch(self.square, self.moves+1)
+        self._getMovesBranch(self.square, moves+1)
         del self.positions[self.square] # Don't include the starting position
-        return self.positions.keys()
+        answer = self.positions.keys()
+        del self.positions # positions is no longer needed, delete it to keep the size of the game obj down since it will be deepcopied many times.
+        return answer
     def _getMovesBranch(self, position, moves):
         "recursive method used by getMoves() to build self.positions. returns nothing."
         if moves == 0:
@@ -5241,11 +5249,16 @@ class OrderGenerator():
     def __init__(self, game):
         self.game = game
         self.game.start()
-    def gen(self):
+    def __iter__(self):
+        self.realgen = self._gen()
+        return self
+    def __next__(self):
+        return next(self.realgen)
+    def _gen(self):
         "Do the actual generating."
         for playeractions in self._genActions():
             for order in permutations(playeractions):
-                pretty = [(unit.type, Actions.pprint((action,))[0]) for unit, action in order] # DEBUG
+                pretty = tuple([(unit.type, Actions.pprint((action,))[0]) for unit, action in order]) # DEBUG
                 if self._validate(order):
                     print("Valid:", pretty)
                     yield order
@@ -5296,6 +5309,8 @@ class OrderGenerator():
             if action == Actions.SHOOT: # shooting means you can no longer move
                 bannedactions[unit].add(Actions.MOVE)
             elif action == Actions.MOVE2: # You can't move, shoot, or shoot2 or after doing your 2nd move
+                if Actions.SHOOT not in bannedactions[unit]: # if you haven't shot yet...
+                    return False # you can't do a 2nd move. 2nd moves are only allowed after shooting a weapon
                 bannedactions[unit].update({Actions.MOVE, Actions.SHOOT, Actions.SHOOT2})
             elif action == Actions.SHOOT2: # you can't move or take your first shot after your 2nd shot.
                 bannedactions[unit].update({Actions.MOVE, Actions.SHOOT})
@@ -5383,34 +5398,38 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
             newgame = self._copygame()
             try:
                 getattr(self.unit, g[0]).shoot(*g[1])
-            except NullWeaponShot:
+            except (NullWeaponShot, GameOver):
                 continue
             else:
                 return newgame
     def _genNextShot(self):
-        "generate tuples of (weapon, (shot,)) for __next__ to return."
+        "generate tuples of (weapon, (shot,)) for __next__ to use."
         if Effects.SMOKE in self.unit.game.board[unit.square].effects: # if this unit is in smoke
             if Attributes.IMMUNESMOKE not in self.unit.attributes: # and it's not smoke immune...
                 return # it can't shoot
-        for weapon in 'repweapon', 'weapon1', 'weapon2':
+        if Effects.ICE in self.unit.effects: # if this unit is frozen...
+            weapons = ('repweapon',) # the only weapon you can fire is your repair
+        else:
+            weapons = ('repweapon', 'weapon1', 'weapon2')
+        for weapon in weapons:
             for shot in getattr(self.unit, weapon).genShots():
                 yield (weapon, shot)
 
-# class UnitAllMovesGen():
-#     """This object takes a unit and yields the next move it should attempt sequentially.
-#             unit is a unit object.
-#             returns a tuple of the square to move the unit to.
-#             """
-#     def __init__(self, unit):
-#         self.unit = unit
-#     def getGame(self):
-#         "return an instance of this unit's game object in it's current state."
-#         return self.unit.game
-#     def __iter__(self):
-#         return self
-#     def __next__(self):
-#         if not self.unit.web:  # if the unit is webbed, it can't move
-#             for move in self.unit.getMoves():
-#                 if not self.unit.game.board[move].unit: # if there's not a unit present on the square
-#                     self.move = move
-#                     yield move
+class Player_Action_Iter_Move(Player_Action_Iter_Base):
+    """This object iterates through Action.MOVE actions."""
+    def __init__(self, prevgame, unit, moves):
+        """Moves is the number of squares this unit can move.
+        This is provided because this object is used for both regular moves and secondary moves."""
+        super().__init__(prevgame, unit)
+        self.gen = self._genNextMove(moves)
+    def __next__(self):
+        while True:
+            sq = next(self.gen) # will raise StopIteration and stop this from advancing
+            newgame = self._copygame()
+            newgame[self.unit.square].moveUnit(sq)
+            return newgame
+    def _genNextMove(self, moves):
+        "generate tuples of squares (x, y) for __next__ to use."
+        for square in self.unit.getMoves(moves):
+            if not self.unit.game.board[square].unit: # if there's not a unit present on the square
+                yield square

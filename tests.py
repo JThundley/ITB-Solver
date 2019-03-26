@@ -12264,7 +12264,7 @@ def t_Movement1():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
     g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
     g.board[(3, 1)].unit = None
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == {(2, 1), (3, 1)}
 
 def t_MovementMountain():
@@ -12276,7 +12276,7 @@ def t_MovementMountain():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
     #g.board[(2, 1)].unit = None # remove mountains from 2 squares next to it
     g.board[(3, 1)].unit = None
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == set()
 
 def t_MovementMech():
@@ -12288,7 +12288,7 @@ def t_MovementMech():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g)) # replace one with a mech
     g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g)) # put a mech next to him
     g.board[(3, 1)].unit = None # remove mountains from 2 squares next to it
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == {(2, 1), (3, 1)}
 
 def t_MovementLarge4():
@@ -12298,7 +12298,7 @@ def t_MovementLarge4():
     g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == {(2, 1), (2, 2), (3, 2), (3, 3), (4, 2)}
 
 def t_MovementLarge5():
@@ -12308,7 +12308,7 @@ def t_MovementLarge5():
     g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == { (2, 1), (2, 2), (3, 2), (3, 3), (4, 2), (3, 4), (4, 1), (4, 3), (5, 2)}
 
 def t_MovementLarge4Flying():
@@ -12318,7 +12318,7 @@ def t_MovementLarge4Flying():
     g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Mountain(g))
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     #print(moves)
     assert set(moves) == { (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
 
@@ -12329,7 +12329,7 @@ def t_MovementLarge4Kwan():
     g.board[(1, 2)].createUnitHere(Unit_Mountain(g))
     g.board[(2, 3)].createUnitHere(Unit_Mountain(g))
     g.board[(3, 1)].createUnitHere(Unit_Scorpion(g))
-    moves = g.board[(1, 1)].unit.getMoves()
+    moves = g.board[(1, 1)].unit.getMoves(g.board[(1, 1)].unit.moves)
     assert set(moves) == { (2, 1), (2, 2), (3, 1), (3, 2), (3, 3), (4, 1), (4, 2), (5, 1)}
 
 def t_ScoreBuildingDamage():
@@ -12492,6 +12492,22 @@ def t_Pilot_Kazaaakpleth():
     g.board[(1, 1)].unit.repweapon.shoot(Direction.RIGHT) # shoot the repair weapon
     assert g.board[(2, 1)].unit == None  # pushed from here
     assert g.board[(3, 1)].unit.hp == 1 # unit pushed here and took 2 damage
+
+def t_OrderGenerator_Move2():
+    "Make sure that only valid orders are generated for a single unit with secondary moves available."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Archimedes()))
+    bob = g.board[(1, 1)].unit # his name is now bob
+    gennedorders = set()
+    for i in OrderGenerator(g):
+        gennedorders.add(i)
+    assert gennedorders == {(),
+                ((bob, Actions.SHOOT),),
+                ((bob, Actions.MOVE),),
+                ((bob, Actions.MOVE), (bob, Actions.SHOOT)),
+                ((bob, Actions.SHOOT), (bob, Actions.MOVE2)),
+                ((bob, Actions.MOVE), (bob, Actions.SHOOT), (bob, Actions.MOVE2))
+                }
 
 ########### write tests for these:
 # a shielded mountain takes damage. same with ice

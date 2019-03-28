@@ -170,6 +170,9 @@ class ScoreKeeperInvalidated(Exception):
 class DontGiveUnitAcid(Exception):
     "This is raised when a tile tries to give acid to a building that can't take it. This signals that the tile should take the acid instead as if the unit isn't there."
 
+class SimulationFinished(Exception):
+    "This is raised when an OrderSimulator runs out of actions to simulate"
+
 # Onto the rest
 class Powergrid():
     "This represents your powergrid hp. When this hits 0, it's game over!"
@@ -378,6 +381,13 @@ class Game():
                 except AttributeError: # unit.None.shoot()
                     pass
         self.vekemerge.run()
+    def killMech(self, unit):
+        """Run this to process a mech dying.
+        unit is the mech unit in self.playerunits
+        returns nothing, raises GameOver if the last mech dies."""
+        self.playerunits.discard(unit)
+        #if not self.playerunits: # XXX TODO: CONTINUE
+        #    raise GameOver
 
 ##############################################################################
 ######################################## TILES ###############################
@@ -1239,7 +1249,7 @@ class Unit_PlayerControlled_Base():
             return False
         try:
             if self.game.board[square].unit.isMoveBlocker(): # if the unit blocks movement:
-                if self.kwanmove and self.game.board[square].unit.alliance == Alliance.ENEMY: # if the Kwan pilot is allowing this unit to move through enemies...
+                if self.getKwanMove() and self.game.board[square].unit.alliance == Alliance.ENEMY: # if the Kwan pilot is allowing this unit to move through enemies...
                     pass
                 else:
                     return True # the unit blocks movement
@@ -2156,9 +2166,6 @@ class Unit_BotLeader_Healing(Unit_EnemyBot_Base):
 class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
     "This is the base unit of Mechs."
     alliance = Alliance.FRIENDLY  # and friendly, duh
-    kwanmove = False # This is set to True when HenryKwan allows the mech to move through enemy units
-    doubleshot = False # This is set to True when Silica allows the mech to shoot twice if it doesn't move
-    secondarymoves = 0  # These are moves that you make after shooting, only pilots can enable this # TODO: implement this
     def __init__(self, game, type, hp, maxhp, moves, repweapon=None, weapon1=None, weapon2=None, pilot=None, effects=None, attributes=None):
         super().__init__(game, type=type, hp=hp, maxhp=maxhp, weapon1=weapon1, effects=effects, attributes=attributes)
         self.moves = moves # how many moves the mech has
@@ -2200,7 +2207,7 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
             self.game.board[self.square]._putUnitHere(Unit_Mech_Corpse(self.game, oldunit=self)) # it's dead, replace it with a mech corpse
             if Effects.EXPLOSIVE in self.effects: # if the mech that died was explosive, the corpse needs to be explosive and explode
                 self.game.board[self.square].unit.effects.add(Effects.EXPLOSIVE)
-        self.game.playerunits.discard(self)
+        self.game.killMech(self)
         self._dieScore()
     def repair(self, hp, ignorerepairfield=False):
         "Repair the unit healing hp and removing bad effects. ignorerepairfield is set to True by _repairField() to make sure we don't get stuck in a loop."
@@ -2248,6 +2255,24 @@ class Unit_Mech_Base(Unit_Repairable_Base, Unit_PlayerControlled_Base):
                       'die': -15 * self.maxhp,
                       'heal': 15
                     } # TODO: score pilot deaths?
+    def canDoubleShot(self):
+        "return True if this unit can shoot twice due to Silica's doubleshot, False if not."
+        try:
+            return self.doubleshot
+        except AttributeError:
+            return False
+    def getSecondaryMoves(self):
+        ":return These are moves that you make after shooting, only pilots can enable this"
+        try:
+            return self.secondarymoves
+        except AttributeError:
+            return 0
+    def getKwanMove(self):
+        ":return This is set to True when HenryKwan allows the mech to move through enemy units"
+        try:
+            return self.kwanmove
+        except AttributeError:
+            return False
 
 class Unit_MechFlying_Base(Unit_Mech_Base):
     "The base class for flying mechs. Flying mechs typically have 2 hp and 4 moves."
@@ -5250,12 +5275,12 @@ class OrderGenerator():
         self.game = game
         self.game.start()
     def __iter__(self):
-        self.realgen = self._gen()
+        self.gen = self._gen()
         return self
     def __next__(self):
-        return next(self.realgen)
+        return next(self.gen)
     def _gen(self):
-        "Do the actual generating."
+        "Do the actual generating tuples of tuples: ((unit, Action.xxx), ...)"
         for playeractions in self._genActions():
             for order in permutations(playeractions):
                 pretty = tuple([(unit.type, Actions.pprint((action,))[0]) for unit, action in order]) # DEBUG
@@ -5282,7 +5307,7 @@ class OrderGenerator():
             except FakeException:
                 allactions.append((pcu, Actions.MOVE2))  # give it a 2nd move turn
             try:
-                if pcu.doubleshot: # if the unit is allowed a 2nd shot
+                if pcu.canDoubleShot(): # if the unit is allowed a 2nd shot
                     raise FakeException
             except AttributeError:
                 pass
@@ -5327,43 +5352,74 @@ class OrderGenerator():
             next(bc)
 
 class OrderSimulator():
-    """This object takes a Game object that's been set up and a game order tuple and simulates all possible unit moves
-    and shots for this order of operations. This can be thought of as a worker thread."""
+    """This object takes a Game object that's been set up and a game order tuple.
+    It simulates all possible unit moves/shots and returns the best possible score.
+    This can be thought of as a worker thread."""
+    # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
     def __init__(self, game, order):
-        self.game = deepcopy(game) # make a new copy of the game, we can't modify the same one over and over again
-        self.order = order
-    # def run(self): XXX CONTINUE
-    #     # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
-    #     self.unit_action_gens = [None] * len(self.order)
-    #     for i in range(len(self.order)): # first create a list of unit action counters that correspond to self.order
-    #         self._replaceUnitCounter(i)
-    #     while True: # the main loop
-    #         lastunit = self.unit_action_gens[-1]
-    #         currentgame = lastunit.getGame() # copy the game object from the last unit_action_gen
-    #         if lastunit.action == Actions.MOVE:
-    #
-    #         currentgame.playerunits[self.unit_action_gens[-1].getUnit()]
-    # def incrementUnitActionGens(self):
-    #     "Increment the unit_action_gens by 1."
-    #     for i in reversed(range(len(self.unit_action_gens))): # increment the last action first, working our way toward the first
-    #         try:
-    #             self.unit_action_gens[i] = next(self.unit_action_gens[i])
-    #         except (TypeError, StopIteration): # next(None), that means this slot was never initialized, StopIteration means
-    #
-    def _replaceUnitCounter(self, index):
-        """set a new unitAllShotsGen or UnitAllMovesGen in self.unit_action_gens.
-        index is the index of the order and unit_action_gens to replace.
+        if not order:
+            print("Empty Simulation finished") # TODO: do game ending score counting for the null set order where the player does nothing
+            return
+        self.game = game  # set the final game instance to be persistent so run can use it.
+        self.player_action_iters = [None] * len(order)
+        # build out self.player_action_iters based on order
+        self._increment_player_action_iters(len(self.player_action_iters)-1, game, order)
+    def run(self):
+        "Start brute forcing all possible player actions for this particular order."
+        game = self.game
+        del self.game # don't keep the cruft
+        finalaction = len(self.player_action_iters)
+        while True:
+            try:
+                game.endPlayerTurn()
+            except GameOver:
+                pass # continue on to the next simulation
+            else:
+                pass #TODO: score stuff
+            try:
+                self._increment_player_action_iters(finalaction)
+            except SimulationFinished:
+                return # TODO: final score stuff
+    def _increment_player_action_iters(self, index, startingstate=None, startingorder=None):
+        """increment self.player_action_iters.
+        index is an int of the index of self.player_action_iters to operate on.
+        startingstate is the initial gamestate to use when bootstrapping
+        startingorder is the order to to use when bootstrapping
+        returns the next game object.
+        :raise SimulationFinished when we run out of unit actions to iterate through."""
+        try:
+            print("index is %s" % index)
+            return next(self.player_action_iters[index])
+        except StopIteration: # this one ran out, so increment the previous one and get a new gamestate from it
+            if index == 0: # don't wrap around to -1
+                raise SimulationFinished
+            self._replace_pai(self._increment_player_action_iters(index - 1), index)
+            return self._increment_player_action_iters(index) # and now try to get the next game from this newly replaced pai
+        except TypeError: # raised when trying to next(None) on initial startup
+            if not startingstate:
+                raise
+            if index == 0:
+                self._replace_pai(startingstate, index, startingorder)
+            self._replace_pai(self._increment_player_action_iters(index - 1), index)
+    def _replace_pai(self, game, index, orders=None):
+        """Replace a player_action_iter with a new one with game as it's starting state.
+        game is the game state with which to start this new iterator.
+        index is an int of the index of this player_action_iter.
+        orders is the order if we are initializing a None
         returns nothing."""
-        if self.order[index][1] in (Actions.SHOOT, Actions.SHOOT2):  # if the action is to shoot...
-            # give it a shot generator
-            theobj = UnitAllShotsGen
-        else:  # otherwise the action is to move
-            theobj = UnitAllMovesGen
-        if index == 0: # if this is the first unit counter being replaced...
-            # give it the highest level copy of the game from this OrderSimulator object
-            self.unit_action_gens[index] = theobj(self.order[index][0], self.game)
-        else: # otherwise give it a copy of the game from the previous, higher-level counter:
-            self.unit_action_gens[index] = theobj(self.order[index][0], self.unit_action_gens[index-1].getGame())
+        try:
+            self.player_action_iters[index] = type(self.player_action_iters[index])(game, *self.player_action_iters[index].getArgs())
+        except AttributeError: # type(None)(...)
+            if not orders:
+                raise # TODO: Debug
+            print("orders is", orders)
+            for order in orders:
+                if order[1] in (Actions.SHOOT, Actions.SHOOT2):  # if this action is to shoot...
+                    self.player_action_iters.append(Player_Action_Iter_Shoot(game, order[0]))  # add a shoot iterator (order[0] is the unit in orders)
+                elif order[1] == Actions.MOVE:  # if the action is to move
+                    self.player_action_iters.append(Player_Action_Iter_Move(game, order[0], order[0].moves))  # add a MOVE iterator
+                else:  # it must be a MOVE2 action
+                    self.player_action_iters.append(Player_Action_Iter_Move(game, order[0], order[0].secondarymoves))  # add a MOVE2 iterator
 
 class Player_Action_Iter_Base():
     """The base object for Player Action iters.
@@ -5394,17 +5450,21 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
         self.gen = self._genNextShot()
     def __next__(self):
         while True:
-            g = next(self.gen) # will raise StopIteration and stop this from advancing
+            s = next(self.gen) # will raise StopIteration and stop this from advancing. s is for shot.
             newgame = self._copygame()
             try:
-                getattr(self.unit, g[0]).shoot(*g[1])
+                getattr(self.unit, s[0]).shoot(*s[1])
             except (NullWeaponShot, GameOver):
+                continue # this wasn't a valid solution if the shot did nothing or ended the game
+            try:
+                newgame.flushHurt()
+            except GameOver:
                 continue
-            else:
-                return newgame
+            newgame.actionlog.append((self.unit, Actions.SHOOT, s))  # record this action to the game's action log
+            return newgame
     def _genNextShot(self):
         "generate tuples of (weapon, (shot,)) for __next__ to use."
-        if Effects.SMOKE in self.unit.game.board[unit.square].effects: # if this unit is in smoke
+        if Effects.SMOKE in self.unit.game.board[self.unit.square].effects: # if this unit is in smoke
             if Attributes.IMMUNESMOKE not in self.unit.attributes: # and it's not smoke immune...
                 return # it can't shoot
         if Effects.ICE in self.unit.effects: # if this unit is frozen...
@@ -5412,8 +5472,16 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
         else:
             weapons = ('repweapon', 'weapon1', 'weapon2')
         for weapon in weapons:
-            for shot in getattr(self.unit, weapon).genShots():
-                yield (weapon, shot)
+            try:
+                for shot in getattr(self.unit, weapon).genShots():
+                    yield (weapon, shot)
+            except AttributeError: # unit.weapon.genShots() when genShots doesn't exist, meaning it's a passive weapon that can't be fired.
+                continue
+    def getArgs(self):
+        """return a tuple of the (unit,) argument that was used to construct this object.
+        note that the prevgame argument is omitted, because this is what changes in the replacement object.
+        This is used to initialize a replacement object after this one has run it's course."""
+        return (self.unit,)
 
 class Player_Action_Iter_Move(Player_Action_Iter_Base):
     """This object iterates through Action.MOVE actions."""
@@ -5421,15 +5489,28 @@ class Player_Action_Iter_Move(Player_Action_Iter_Base):
         """Moves is the number of squares this unit can move.
         This is provided because this object is used for both regular moves and secondary moves."""
         super().__init__(prevgame, unit)
-        self.gen = self._genNextMove(moves)
+        self.moves = moves
+        self.gen = self._genNextMove()
     def __next__(self):
         while True:
             sq = next(self.gen) # will raise StopIteration and stop this from advancing
             newgame = self._copygame()
             newgame[self.unit.square].moveUnit(sq)
+            try: # you can move onto a mine and die so we need flushHurt after moving
+                newgame.flushHurt()
+            except GameOver:
+                continue
+            newgame.actionlog.append((self.unit, Actions.MOVE, sq)) # record this action to the game's action log
             return newgame
     def _genNextMove(self, moves):
         "generate tuples of squares (x, y) for __next__ to use."
-        for square in self.unit.getMoves(moves):
+        for square in self.unit.getMoves(self.moves):
             if not self.unit.game.board[square].unit: # if there's not a unit present on the square
                 yield square
+    def getArgs(self):
+        """return a tuple of the (unit, moves) arguments that were used to construct this object.
+        note that the prevgame argument is omitted, because this is what changes in the replacement object.
+        This is used to initialize a replacement object after this one has run it's course."""
+        return (self.unit, self.moves)
+
+# TODO: consider deleting variables generated by genShots() in weapons to keep the game size low

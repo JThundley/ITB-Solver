@@ -12423,7 +12423,7 @@ def t_Pilot_ChenRong():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_ChenRong()))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 1 # mech gets one secondary move
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 1 # mech gets one secondary move
 
 def t_Pilot_Archimedes():
     "Make sure Archimedes works properly"
@@ -12431,7 +12431,7 @@ def t_Pilot_Archimedes():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Archimedes()))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 3 # mech's default move is 3
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 3 # mech's default move is 3
 
 def t_Pilot_HenryKwan():
     "Make sure HenryKwan works properly"
@@ -12439,8 +12439,8 @@ def t_Pilot_HenryKwan():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_HenryKwan()))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 0
-    assert g.board[(1, 1)].unit.kwanmove == True
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 0
+    assert g.board[(1, 1)].unit.getKwanMove()== True
 
 def t_Pilot_Silica():
     "Make sure Silica works properly"
@@ -12448,8 +12448,8 @@ def t_Pilot_Silica():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Silica()))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 0
-    assert g.board[(1, 1)].unit.kwanmove == False
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 0
+    assert g.board[(1, 1)].unit.getKwanMove()== False
     assert g.board[(1, 1)].unit.doubleshot == True
 
 def t_Pilot_Mafan():
@@ -12458,9 +12458,9 @@ def t_Pilot_Mafan():
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, pilot=Pilot_Mafan()))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 0
-    assert g.board[(1, 1)].unit.kwanmove == False
-    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 0
+    assert g.board[(1, 1)].unit.getKwanMove()== False
+    assert g.board[(1, 1)].unit.canDoubleShot() == False
     assert g.board[(1, 1)].unit.score['shield_off'] == 0
 
 def t_Pilot_HaroldSchmidt():
@@ -12470,9 +12470,9 @@ def t_Pilot_HaroldSchmidt():
     g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g, ))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 0
-    assert g.board[(1, 1)].unit.kwanmove == False
-    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 0
+    assert g.board[(1, 1)].unit.getKwanMove()== False
+    assert g.board[(1, 1)].unit.canDoubleShot() == False
     assert g.board[(1, 1)].unit.score['shield_off'] != 0
     g.board[(1, 1)].unit.repweapon.shoot() # shoot the repair weapon
     assert g.board[(2, 1)].unit == None # pushed from here
@@ -12485,9 +12485,9 @@ def t_Pilot_Kazaaakpleth():
     g.board[(2, 1)].createUnitHere(Unit_Combat_Mech(g, ))
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.attributes == {Attributes.MASSIVE}
-    assert g.board[(1, 1)].unit.secondarymoves == 0
-    assert g.board[(1, 1)].unit.kwanmove == False
-    assert g.board[(1, 1)].unit.doubleshot == False
+    assert g.board[(1, 1)].unit.getSecondaryMoves() == 0
+    assert g.board[(1, 1)].unit.getKwanMove()== False
+    assert g.board[(1, 1)].unit.canDoubleShot() == False
     assert g.board[(1, 1)].unit.score['shield_off'] != 0
     g.board[(1, 1)].unit.repweapon.shoot(Direction.RIGHT) # shoot the repair weapon
     assert g.board[(2, 1)].unit == None  # pushed from here

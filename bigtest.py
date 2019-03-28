@@ -60,5 +60,5 @@ g.board[(4, 6)].createUnitHere(Unit_AlphaScarab(g, hp=1, qshot=(Direction.DOWN, 
 
 
 for i in OrderGenerator(g):
-    pass
+    OrderSimulator(g, i)
     #print(i)

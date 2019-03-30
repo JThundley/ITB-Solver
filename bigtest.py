@@ -36,29 +36,7 @@ g.board[(3, 2)].createUnitHere(Unit_BlastPsion(g))
 g.board[(5, 3)].createUnitHere(Unit_Hornet(g, qshot=(Direction.LEFT,)))
 g.board[(4, 6)].createUnitHere(Unit_AlphaScarab(g, hp=1, qshot=(Direction.DOWN, 3), effects={Effects.FIRE}))
 
-# print("Simulation starting")
-# g.start()
-# assert g.board[(4, 6)].unit.effects == {Effects.FIRE, Effects.EXPLOSIVE} # make sure vek got explosive
-# assert g.board[(4, 6)].unit.gotfire == False # make sure that alpha scarab didn't "get" fire, it was on fire before this turn started.
-#
-# # get the scorekeeper out so we can use it in different simulations:
-# sk = g.score
-#
-# for pcu in permutations(g.playerunits): # For each possible order of the player controlled units:
-#     thisgame = deepcopy(g) # set up a new board for this simulation and
-#     thisgame.score = sk # replace the copy of the scorekeeper with one we intend to use throughout.
-#     for unit in pcu: # TODO: we also need to allow units to move, then other units move, then the first shoot. more permutations
-#         for position in unit.getMoves():
-#             if thisgame.board[position].unit: # if the square is occupied...
-#                 if unit.square != position: # and it's not occupied by this unit itself
-#                     continue # we can't move to it
-#             thisgame.board[unit.square].moveUnit(position)
-#             for weapon in 'repweapon', 'weapon1', 'weapon2':
-#                 if getattr(unit, weapon, False): # if the mech has this type of weapon...
-#                     for shot in getattr(unit, weapon).genShots():
-#                         getattr(unit, weapon).shoot(*shot)
-
-
 for i in OrderGenerator(g):
-    OrderSimulator(g, i)
+    os = OrderSimulator(g, i)
+    os.run()
     #print(i)

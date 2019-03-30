@@ -2956,7 +2956,7 @@ class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
     def shoot(self, direction, distance):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
         try:
-            if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding(): # ifi buildings are immune and the target is a building..
+            if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding(): # if buildings are immune and the target is a building..
                 pass # don't damage the target
             else:
                 raise AttributeError
@@ -5283,12 +5283,9 @@ class OrderGenerator():
         "Do the actual generating tuples of tuples: ((unit, Action.xxx), ...)"
         for playeractions in self._genActions():
             for order in permutations(playeractions):
-                pretty = tuple([(unit.type, Actions.pprint((action,))[0]) for unit, action in order]) # DEBUG
                 if self._validate(order):
-                    print("Valid:", pretty)
+                    #print("Valid:", tuple([(unit.type, Actions.pprint((action,))[0]) for unit, action in order])) # DEBUG
                     yield order
-                else:
-                    print("Invalid:", pretty)
     def _getAllActions(self):
         """return a list of all possible actions the player can take on their turn.
         This includes exclusive moves, for example if a unit can shoot twice this will also show that they can move,
@@ -5358,17 +5355,23 @@ class OrderSimulator():
     # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
     def __init__(self, game, order):
         if not order:
-            print("Empty Simulation finished") # TODO: do game ending score counting for the null set order where the player does nothing
+            print("Empty Order Simulation skipped") # TODO: do game ending score counting for the null set order where the player does nothing
             return
+        else:
+            print("Order is: ", order)
         self.game = game  # set the final game instance to be persistent so run can use it.
         self.player_action_iters = [None] * len(order)
         # build out self.player_action_iters based on order
         self._increment_player_action_iters(len(self.player_action_iters)-1, game, order)
+        print("self.pai is", self.player_action_iters)
     def run(self):
         "Start brute forcing all possible player actions for this particular order."
-        game = self.game
+        try:
+            game = self.game
+        except AttributeError: # self.game was never set because we're working on the null set of orders
+            return # TODO: end the game for the null set
         del self.game # don't keep the cruft
-        finalaction = len(self.player_action_iters)
+        finalaction = len(self.player_action_iters) - 1
         while True:
             try:
                 game.endPlayerTurn()
@@ -5377,7 +5380,7 @@ class OrderSimulator():
             else:
                 pass #TODO: score stuff
             try:
-                self._increment_player_action_iters(finalaction)
+                game = self._increment_player_action_iters(finalaction)
             except SimulationFinished:
                 return # TODO: final score stuff
     def _increment_player_action_iters(self, index, startingstate=None, startingorder=None):
@@ -5388,7 +5391,6 @@ class OrderSimulator():
         returns the next game object.
         :raise SimulationFinished when we run out of unit actions to iterate through."""
         try:
-            print("index is %s" % index)
             return next(self.player_action_iters[index])
         except StopIteration: # this one ran out, so increment the previous one and get a new gamestate from it
             if index == 0: # don't wrap around to -1
@@ -5397,10 +5399,12 @@ class OrderSimulator():
             return self._increment_player_action_iters(index) # and now try to get the next game from this newly replaced pai
         except TypeError: # raised when trying to next(None) on initial startup
             if not startingstate:
+                print("No startingstate! Caught TypeError when trying to next(self.player_action_iters[{0}]). That Iter was: {1}".format(index, self.player_action_iters[index]))
                 raise
             if index == 0:
-                self._replace_pai(startingstate, index, startingorder)
-            self._replace_pai(self._increment_player_action_iters(index - 1), index)
+                self._replace_pai(startingstate, 0, startingorder)
+            else:
+                self._replace_pai(self._increment_player_action_iters(index - 1, startingstate, startingorder), index, startingorder)
     def _replace_pai(self, game, index, orders=None):
         """Replace a player_action_iter with a new one with game as it's starting state.
         game is the game state with which to start this new iterator.
@@ -5412,14 +5416,12 @@ class OrderSimulator():
         except AttributeError: # type(None)(...)
             if not orders:
                 raise # TODO: Debug
-            print("orders is", orders)
-            for order in orders:
-                if order[1] in (Actions.SHOOT, Actions.SHOOT2):  # if this action is to shoot...
-                    self.player_action_iters.append(Player_Action_Iter_Shoot(game, order[0]))  # add a shoot iterator (order[0] is the unit in orders)
-                elif order[1] == Actions.MOVE:  # if the action is to move
-                    self.player_action_iters.append(Player_Action_Iter_Move(game, order[0], order[0].moves))  # add a MOVE iterator
-                else:  # it must be a MOVE2 action
-                    self.player_action_iters.append(Player_Action_Iter_Move(game, order[0], order[0].secondarymoves))  # add a MOVE2 iterator
+            if orders[index][1] in (Actions.SHOOT, Actions.SHOOT2):  # if this action is to shoot...
+                self.player_action_iters[index] = Player_Action_Iter_Shoot(game, orders[index][0])  # add a shoot iterator (orders[index][0] is the unit in orders)
+            elif orders[index][1] == Actions.MOVE:  # if the action is to move
+                self.player_action_iters[index] = Player_Action_Iter_Move(game, orders[index][0], orders[index][0].moves)  # add a MOVE iterator
+            else:  # it must be a MOVE2 action
+                self.player_action_iters[index] = Player_Action_Iter_Move(game, orders[index][0], orders[index][0].secondarymoves)  # add a MOVE2 iterator
 
 class Player_Action_Iter_Base():
     """The base object for Player Action iters.
@@ -5437,7 +5439,7 @@ class Player_Action_Iter_Base():
         "Return a deepcopy of the previous game and also set self.unit to the proper unit in the new deepcopy."
         newgame = deepcopy(self.prevgame)
         for u in newgame.playerunits:
-            if self.unit.square == u.square:
+            if self.unit.square == u.square: # XXX CONTINUE: this isn't reliable because we move the unit and then it's on a different square TODO: 
                 self.unit = u
                 return newgame
     def __iter__(self):
@@ -5452,6 +5454,7 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
         while True:
             s = next(self.gen) # will raise StopIteration and stop this from advancing. s is for shot.
             newgame = self._copygame()
+            self._setTargetSquare(s[0])
             try:
                 getattr(self.unit, s[0]).shoot(*s[1])
             except (NullWeaponShot, GameOver):
@@ -5462,6 +5465,18 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
                 continue
             newgame.actionlog.append((self.unit, Actions.SHOOT, s))  # record this action to the game's action log
             return newgame
+    def _setTargetSquare(self, weapon):
+        """Try to set unit's weapon's targetsquare to whatever is set in self.prevgame where the unit's next shot is generated.
+        weapon is the str name of the weapon we're operating on
+        returns nothing."""
+        # First find the unit in self.prevgame:
+        for u in self.prevgame.playerunits:
+            if self.unit.square == u.square:
+                break # we'll use u as that unit
+        try:
+            getattr(self.unit, weapon).targetsquare = getattr(u, weapon).targetsquare
+        except AttributeError: # not all weapons have a targetsquare
+            return
     def _genNextShot(self):
         "generate tuples of (weapon, (shot,)) for __next__ to use."
         if Effects.SMOKE in self.unit.game.board[self.unit.square].effects: # if this unit is in smoke
@@ -5495,14 +5510,14 @@ class Player_Action_Iter_Move(Player_Action_Iter_Base):
         while True:
             sq = next(self.gen) # will raise StopIteration and stop this from advancing
             newgame = self._copygame()
-            newgame[self.unit.square].moveUnit(sq)
+            newgame.board[self.unit.square].moveUnit(sq)
             try: # you can move onto a mine and die so we need flushHurt after moving
                 newgame.flushHurt()
             except GameOver:
                 continue
             newgame.actionlog.append((self.unit, Actions.MOVE, sq)) # record this action to the game's action log
             return newgame
-    def _genNextMove(self, moves):
+    def _genNextMove(self):
         "generate tuples of squares (x, y) for __next__ to use."
         for square in self.unit.getMoves(self.moves):
             if not self.unit.game.board[square].unit: # if there's not a unit present on the square

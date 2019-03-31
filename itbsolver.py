@@ -386,8 +386,10 @@ class Game():
         unit is the mech unit in self.playerunits
         returns nothing, raises GameOver if the last mech dies."""
         self.playerunits.discard(unit)
-        #if not self.playerunits: # XXX TODO: CONTINUE
-        #    raise GameOver
+        for u in self.playerunits:
+            if u.isMech(): # if there is a live mech still in play, the game goes on
+                return
+        raise GameOver # if not, the game ends
 
 ##############################################################################
 ######################################## TILES ###############################
@@ -562,7 +564,7 @@ class Tile_Base(TileUnit_Base):
                 self.moveUnit(destinationsquare) # move the unit from this tile to destination square
             except KeyError:
                 #raise # DEBUG
-                return False # raised by self.board[None], attempted to push unit off the Game, no action is taken
+                return False # raised by self.board[None], attempted to push unit off the board, no action is taken
             else:
                 self.unit.takeBumpDamage() # The destination took bump damage, now the unit that got pushed also takes damage
             return True

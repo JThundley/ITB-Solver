@@ -1769,6 +1769,7 @@ def t_CataclysmEnvironmental():
     g.board[(2, 1)].applyFire()
     g.board[(3, 1)].createUnitHere(Unit_BlastPsion(g))
     g.board[(3, 1)].applySmoke()
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g)) # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -2737,6 +2738,7 @@ def t_WeaponRammingEnginesIntoChasm():
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g, weapon1=Weapon_RammingEngines(power1=False, power2=False)))
     g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 1)].replaceTile(Tile_Chasm(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].unit.hp == 3
     assert g.board[(3, 1)].unit.hp == 5
     assert g.board[(3, 1)].effects == set() # normal chasm tile

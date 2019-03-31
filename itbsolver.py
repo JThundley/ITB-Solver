@@ -5401,21 +5401,28 @@ class OrderSimulator():
             if not startingstate:
                 print("No startingstate! Caught TypeError when trying to next(self.player_action_iters[{0}]). That Iter was: {1}".format(index, self.player_action_iters[index]))
                 raise
+            print("replacing pai at index", index)
+            print("startingstate is ", startingstate)
+            print("startingorder is", startingorder)
             if index == 0:
                 self._replace_pai(startingstate, 0, startingorder)
             else:
-                self._replace_pai(self._increment_player_action_iters(index - 1, startingstate, startingorder), index, startingorder)
+                self._replace_pai(self._increment_player_action_iters(index - 1, startingstate, startingorder), index)
+            # Now that a pai has been put in place, call this same method recursively to get the next one and return a game
+            return self._increment_player_action_iters(index, startingstate, startingorder)
     def _replace_pai(self, game, index, orders=None):
         """Replace a player_action_iter with a new one with game as it's starting state.
         game is the game state with which to start this new iterator.
         index is an int of the index of this player_action_iter.
         orders is the order if we are initializing a None
         returns nothing."""
+        print("game is", game)
+        assert game
         try:
             self.player_action_iters[index] = type(self.player_action_iters[index])(game, *self.player_action_iters[index].getArgs())
         except AttributeError: # type(None)(...)
             if not orders:
-                raise # TODO: Debug
+                raise Exception("No orders given!") # TODO: Debug
             if orders[index][1] in (Actions.SHOOT, Actions.SHOOT2):  # if this action is to shoot...
                 self.player_action_iters[index] = Player_Action_Iter_Shoot(game, orders[index][0])  # add a shoot iterator (orders[index][0] is the unit in orders)
             elif orders[index][1] == Actions.MOVE:  # if the action is to move
@@ -5433,13 +5440,16 @@ class Player_Action_Iter_Base():
         prevgame should not be a deepcopy.
         unit is the unit object that this iter is iterating through.
         returns nothing."""
-        self.prevgame = prevgame
+        assert prevgame
+        self.prevgame = prevgame # the starting state for each action that this object generates. This should never change.
+        self.origunitsquare = unit.square # this won't change and is used to find the corresponding unit in new copies of prevgame.
         self.unit = unit
     def _copygame(self):
         "Return a deepcopy of the previous game and also set self.unit to the proper unit in the new deepcopy."
+        assert self.prevgame
         newgame = deepcopy(self.prevgame)
         for u in newgame.playerunits:
-            if self.unit.square == u.square: # XXX CONTINUE: this isn't reliable because we move the unit and then it's on a different square TODO: 
+            if self.origunitsquare == u.square:
                 self.unit = u
                 return newgame
     def __iter__(self):
@@ -5452,23 +5462,24 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
         self.gen = self._genNextShot()
     def __next__(self):
         while True:
-            s = next(self.gen) # will raise StopIteration and stop this from advancing. s is for shot.
+            shot = next(self.gen) # will raise StopIteration and stop this from advancing.
             newgame = self._copygame()
-            self._setTargetSquare(s[0])
+            self._setTargetSquare(shot[0])
             try:
-                getattr(self.unit, s[0]).shoot(*s[1])
-            except (NullWeaponShot, GameOver):
+                getattr(self.unit, shot[0]).shoot(*shot[1])
+            except (NullWeaponShot, GameOver) as exc:
+                print("Disqualified: ", exc)
                 continue # this wasn't a valid solution if the shot did nothing or ended the game
             try:
                 newgame.flushHurt()
             except GameOver:
                 continue
-            newgame.actionlog.append((self.unit, Actions.SHOOT, s))  # record this action to the game's action log
+            newgame.actionlog.append((self.unit, Actions.SHOOT, shot))  # record this action to the game's action log
             return newgame
     def _setTargetSquare(self, weapon):
         """Try to set unit's weapon's targetsquare to whatever is set in self.prevgame where the unit's next shot is generated.
         weapon is the str name of the weapon we're operating on
-        returns nothing."""
+        returns newgame."""
         # First find the unit in self.prevgame:
         for u in self.prevgame.playerunits:
             if self.unit.square == u.square:

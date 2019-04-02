@@ -2828,10 +2828,6 @@ class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Bas
             self.game.board[self.wieldingunit.square].moveUnit(self.game.board[victimtile].getRelSquare(Direction.opposite(direction), 1)) # move wielder to the square before the victimsquare
             return True
 
-#class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
-class Weapon_Artillery_Base(Weapon_ArtilleryGen_Base):
-    "The base class for Artillery weapons."
-
 class Weapon_Projectile_Base(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base):
     "The base class for Projectile weapons."
 
@@ -2945,7 +2941,7 @@ class Weapon_TaurusCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base, 
     def shoot(self, direction):
         self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(direction, edgeok=True), direction)
 
-class Weapon_ArtemisArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
+class Weapon_ArtemisArtillery(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base):
     "Artillery Mech's default weapon."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -3099,7 +3095,7 @@ class Weapon_ViceFist(Weapon_getRelSquare_Base, Weapon_DirectionalGen_Base):
         except AttributeError: # raised from None.alliance. This happens when you throw the unit into a chasm or such and it immediately dies
             pass # unit died, no point in damaging the tile that killed it.
 
-class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_ClusterArtillery(Weapon_ArtilleryGen_Base, Weapon_hurtAndPushEnemy_Base):
     "Default weapon for Siege Mech."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -3120,7 +3116,7 @@ class Weapon_ClusterArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Bas
             except (KeyError, AttributeError): # KeyError raised from currentsquare being False, self.game.board[False]. AttributeError raised from None.isBuilding()
                 pass # this square was off the board
 
-class Weapon_GravWell(Weapon_Artillery_Base):
+class Weapon_GravWell(Weapon_ArtilleryGen_Base):
     "Default first weapon for Gravity Mech"
     def __init__(self, power1=False, power2=False):
         pass # grav well can't be upgraded at all
@@ -3159,7 +3155,7 @@ class Weapon_JanusCannon(Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndP
         for d in direction, Direction.opposite(direction):
             self._hurtAndPushEnemy(self._getSquareOfUnitInDirection(d, edgeok=True), d)
 
-class Weapon_CryoLauncher(Weapon_Artillery_Base):
+class Weapon_CryoLauncher(Weapon_ArtilleryGen_Base):
     "Default weapon for the Ice mech"
     def __init__(self, power1=False, power2=False):
         pass # cryolauncher doesn't take power
@@ -3192,7 +3188,7 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
             self.game.board[targetsquare].applySmoke() # smoke the target
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
-class Weapon_RocketArtillery(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base, Weapon_FartSmoke_Base):
+class Weapon_RocketArtillery(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base, Weapon_FartSmoke_Base):
     "Default weapon for the Rocket mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
@@ -3309,7 +3305,7 @@ class Weapon_GrapplingHook(Weapon_getSquareOfUnitInDirection_Base, Weapon_Direct
         if self.shieldally and (Alliance.FRIENDLY == targetunit.alliance or targetunit.isBuilding()):
             targetunit.applyShield()
 
-class Weapon_RockLauncher(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base):
+class Weapon_RockLauncher(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWithPowerInit_Base):
     "Default weapon for Boulder Mech"
     def __init__(self, power1=False, power2=False):
         self.damage = 2
@@ -3359,7 +3355,7 @@ class Weapon_FlameThrower(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
 
 #class Weapon_FlameShielding() is in the passives section
 
-class Weapon_VulcanArtillery(Weapon_Artillery_Base, Weapon_PushAdjacent_Base, Weapon_getRelSquare_Base):
+class Weapon_VulcanArtillery(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base, Weapon_getRelSquare_Base):
     "Default Weapon for Meteor Mech"
     def __init__(self, power1=False, power2=False):
         if power1:
@@ -3403,7 +3399,7 @@ class Weapon_Teleporter(Weapon_RangedGen_Base, Weapon_getRelSquare_Base):
             pass
         self.game.board[self.wieldingunit.square].teleport(targetsquare)
 
-class Weapon_HydraulicLegs(Weapon_Artillery_Base, Weapon_HydraulicLegsUnstableInit_Base, Weapon_hurtPushAdjacent_Base):
+class Weapon_HydraulicLegs(Weapon_ArtilleryGen_Base, Weapon_HydraulicLegsUnstableInit_Base, Weapon_hurtPushAdjacent_Base):
     "The default weapon for Leap Mech"
     def genShots(self):
         return super().genShots(minimumdistance=1)
@@ -3452,7 +3448,7 @@ class Weapon_NeedleShot(Weapon_RangedAttack_Base):
                 self.range += 1
                 self.damage += 1
 
-class Weapon_ExplosiveGoo(Weapon_Artillery_Base, Weapon_PushAdjacent_Base):
+class Weapon_ExplosiveGoo(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base):
     "Default weapon for the TechnoScarab"
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -3749,7 +3745,7 @@ class Weapon_HermesEngines(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Bas
                 break
         self.game.board[self.wieldingunit.square].moveUnit(oldtargetsquare) # move the wielder to the last good square
 
-class Weapon_MicroArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_MicroArtillery(Weapon_ArtilleryGen_Base, Weapon_hurtAndPushEnemy_Base):
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         if power1:
@@ -3767,7 +3763,7 @@ class Weapon_MicroArtillery(Weapon_Artillery_Base, Weapon_hurtAndPushEnemy_Base)
                 except NullWeaponShot:
                     pass # peripheral shots went off the board which is OK
 
-class Weapon_AegonMortar(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_AegonMortar(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWithPowerInit_Base, Weapon_hurtAndPushEnemy_Base):
     "Deals damage to two tiles, pushing one forwards and one backwards."
     def __init__(self, power1=False, power2=False):
         self.damage = 1
@@ -3779,7 +3775,7 @@ class Weapon_AegonMortar(Weapon_Artillery_Base, Weapon_IncreaseDamageWithPowerIn
         except NullWeaponShot: # if you hit the edge, this action is ignored
             pass
 
-class Weapon_SmokeMortar(Weapon_Artillery_Base, Weapon_NoUpgradesInit_Base):
+class Weapon_SmokeMortar(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base):
     "Artillery shot that applies Smoke and pushes two adjacent tiles."
     def shoot(self, direction, distance):
         self.game.board[self.targetsquare].applySmoke()

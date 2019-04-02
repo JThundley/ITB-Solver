@@ -2316,6 +2316,9 @@ class Unit_Mech_Corpse(Unit_Mech_Base):
     def _realDeath(self):
         "This method removes the mech corpse from the game. This kind of death can only be achieved by pushing a mech corpse into a chasm tile (or a flying mech dying over a chasm). returns nothing"
         super()._removeUnitFromGame()
+    def isMech(self):
+        "A mech corpse is NOT considered a mech even though it has the repweapon attribute."
+        return False
 
 class Unit_Combat_Mech(Unit_Mech_Base):
     def __init__(self, game, type='combat', hp=3, maxhp=3, moves=3, pilot=None, repweapon=None, weapon1=None, weapon2=None, effects=None, attributes=None):

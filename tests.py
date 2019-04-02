@@ -1239,6 +1239,7 @@ def t_DamDiesInstantDeath():
     g.board[(8, 3)].createUnitHere(Unit_Dam(g))
     g.board[(8, 4)].createUnitHere(Unit_Dam(g))
     g.board[(7, 4)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct()))  # power is ignored
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     g.start()
     assert g.board[(8, 3)].effects == {Effects.SUBMERGED}
     assert g.board[(8, 4)].effects == {Effects.SUBMERGED}
@@ -1262,6 +1263,7 @@ def t_DamDiesInstantDeathWebbed():
     g.board[(8, 4)].createUnitHere(Unit_Dam(g))
     g.board[(7, 4)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct()))  # power is ignored
     g.board[(7, 4)].unit._makeWeb((8, 4))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     g.start()
     assert g.board[(8, 3)].effects == {Effects.SUBMERGED}
     assert g.board[(8, 4)].effects == {Effects.SUBMERGED}
@@ -1547,6 +1549,7 @@ def t_UnitWithAcidDiesInLava():
 def t_MechCorpseIsRepairedBackToLife():
     "a mech is killed, becomes a mech corpse, and then is repaired to become the alive mech again."
     g = Game()
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     g.board[(1, 1)].createUnitHere(Unit_Judo_Mech(g))
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
@@ -1565,6 +1568,7 @@ def t_MechDiesAndRevivedOnTeleporter():
     g.board[(1, 1)].replaceTile(Tile_Teleporter(g, companion=(8, 8)))
     g.board[(8, 8)].replaceTile(Tile_Teleporter(g, companion=(1, 1)))
     g.board[(2, 1)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(7, 7)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(8, 8)].effects == set()
@@ -1595,6 +1599,7 @@ def t_MechCorpsesDontGoThroughTelePorter():
     g.board[(1, 1)].replaceTile(Tile_Teleporter(g, companion=(8, 8)))
     g.board[(8, 8)].replaceTile(Tile_Teleporter(g, companion=(1, 1)))
     g.board[(2, 1)].createUnitHere(Unit_Leap_Mech(g))
+    g.board[(7, 7)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit == None
     assert g.board[(8, 8)].effects == set()
@@ -1618,6 +1623,7 @@ def t_RevivedMechCorpsesKeepAcidButNotFire():
     "When a mech corpse is repaired back to life, it keeps acid if it had it before. If the mech died with fire, it is revived without fire (assuming it's not on a fire tile. The revived unit will be on fire if revived on a fire tile)."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Cannon_Mech(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyAcid()
@@ -1642,6 +1648,7 @@ def t_ReviveMechCorpseKeepsAcidGetsFireFromTile():
     "When a mech corpse is repaired back to life, it keeps acid if it had it before. In this test we get fire from the tile we were revived on."
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyAcid()
@@ -1684,6 +1691,7 @@ def t_AirStrikeEnvironmental():
     g.board[(2, 2)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].applyFire()
     g.board[(3, 2)].replaceTile(Tile_Sand(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     assert g.board[(2, 3)].effects == {Effects.SUBMERGED}
@@ -1720,6 +1728,7 @@ def t_LightningEnvironmental():
     g.board[(2, 2)].replaceTile(Tile_Forest(g))
     g.board[(2, 1)].applyFire()
     g.board[(3, 2)].replaceTile(Tile_Sand(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 2)].effects == set()
     assert g.board[(1, 2)].unit.effects == set()
     assert g.board[(2, 3)].effects == {Effects.SUBMERGED}
@@ -1796,6 +1805,7 @@ def t_FallingRockEnvironmental():
     g.board[(2, 1)].applyFire()
     g.board[(3, 1)].createUnitHere(Unit_PsionTyrant(g))
     g.board[(3, 1)].applySmoke()
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -1822,6 +1832,7 @@ def t_TentaclesEnvironmental():
     g.board[(2, 1)].applyFire()
     g.board[(3, 1)].createUnitHere(Unit_Hornet(g))
     g.board[(3, 1)].applySmoke()
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -1874,6 +1885,7 @@ def t_VolcanicProjectileEnvironmental():
     g.board[(2, 1)].applyFire()
     g.board[(3, 1)].createUnitHere(Unit_HornetLeader(g))
     g.board[(3, 1)].applySmoke()
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == {Effects.FIRE}
@@ -2216,6 +2228,7 @@ def t_MechMovesToMine():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Combat_Mech(g, weapon1=Weapon_TitanFist(power2=True)))
     g.board[(2, 1)].effects.add(Effects.MINE)
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     assert g.board[(1, 1)].unit.hp == 3
@@ -7137,6 +7150,7 @@ def t_WeaponSelfDestruct1():
     g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_SelfDestruct(power1=False, power2=False))) # power is ignored
     g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(1, 2)].createUnitHere(Unit_AlphaScorpion(g, effects={Effects.ACID}))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
     g.flushHurt()
@@ -9004,6 +9018,7 @@ def t_WeaponGooAttackMechDies():
     g = Game()
     g.board[(2, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, hp=4, maxhp=4)) # less hp given
     g.board[(1, 1)].createUnitHere(Unit_LargeGoo(g, qshot=(Direction.RIGHT,)))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(2, 1)].unit.hp == 4
     assert g.board[(2, 1)].unit.effects == set()
     assert g.board[(2, 1)].effects == set()
@@ -9458,6 +9473,7 @@ def t_WeaponBKRBeamMarkII():
     g.board[(3, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(4, 1)].createUnitHere(Unit_Defense_Mech(g))
     g.board[(5, 1)].createUnitHere(Unit_Mountain(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].unit.hp == 1
     assert g.board[(2, 1)].unit.hp == 5
     assert g.board[(3, 1)].unit.hp == 5
@@ -9813,6 +9829,7 @@ def t_WeaponDisintegrator():
     g.board[(1, 6)].createUnitHere(Unit_Hornet(g))
     g.board[(1, 7)].createUnitHere(Unit_Mountain(g))
     g.board[(1, 8)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(1, 1)].unit.type == 'acidlauncher'
     assert g.board[(1, 6)].effects == set()
@@ -9847,6 +9864,7 @@ def t_WeaponTerraformer():
     g.board[(5, 3)].createUnitHere(Unit_Hornet(g))
     g.board[(5, 4)].createUnitHere(Unit_Mountain(g))
     g.board[(6, 2)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(4, 3)].unit.hp == 2
     assert g.board[(4, 3)].unit.type == 'terraformer'
     assert g.board[(5, 3)].effects == set()
@@ -9885,6 +9903,7 @@ def t_WeaponTerraformer2():
     g.board[(5, 3)].createUnitHere(Unit_Hornet(g, effects=(Effects.EXPLOSIVE,)))
     g.board[(5, 4)].createUnitHere(Unit_Mountain(g))
     g.board[(6, 2)].createUnitHere(Unit_Flame_Mech(g))
+    g.board[(8, 8)].createUnitHere(Unit_Combat_Mech(g))  # Dummy unit to prevent the game from ending.
     assert g.board[(4, 3)].unit.hp == 2
     assert g.board[(4, 3)].unit.type == 'terraformer'
     assert g.board[(5, 3)].effects == set()
@@ -12510,6 +12529,24 @@ def t_OrderGenerator_Move2():
                 ((bob, Actions.SHOOT), (bob, Actions.MOVE2)),
                 ((bob, Actions.MOVE), (bob, Actions.SHOOT), (bob, Actions.MOVE2))
                 }
+
+def t_KillingMechsGameOver():
+    "The game ends when all your mechs die"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g))
+    g.board[(1, 2)].createUnitHere(Unit_Combat_Mech(g))
+    g.board[(1, 3)].createUnitHere(Unit_OldArtillery(g))
+    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g))
+    g.flushHurt()
+    g.board[(1, 1)].die() # kill the first unit
+    g.flushHurt()
+    try:
+        g.board[(1, 2)].die()  # kill the last unit
+    except GameOver:
+        pass # This is expected
+    else:
+        assert False # this is bad
+    g.flushHurt()
 
 ########### write tests for these:
 # a shielded mountain takes damage. same with ice

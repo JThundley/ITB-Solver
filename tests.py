@@ -3081,8 +3081,9 @@ def t_WeaponShieldProjectorGen():
     g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
     gs = g.board[(5, 5)].unit.weapon1.genShots()
     g.flushHurt()
-    assert next(gs) == (Direction.UP, 2) # generator generates what we expect
-    g.board[(5, 5)].unit.weapon1.shoot(Direction.UP, 2) # shoot to spend the ammo
+    shot = next(gs)
+    assert shot == ((5, 7), Direction.UP) # generator generates what we expect
+    g.board[(5, 5)].unit.weapon1.shoot(*shot) # shoot to spend the ammo
     for i in gs:
         assert False # This should never be hit as the gs iterator should be at the end
 
@@ -3170,8 +3171,8 @@ def t_WeaponClusterArtilleryNoPower():
     assert g.board[(3, 4)].unit.hp == 5
     gs = g.board[(1, 3)].unit.weapon1.genShots()
     for i in range(5):
-        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
-    g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # ((3, 3), RIGHT)
     g.flushHurt()
     assert g.board[(1, 3)].unit.hp == 2
     assert g.board[(3, 3)].unit.hp == 1  # building
@@ -3193,8 +3194,8 @@ def t_WeaponClusterArtilleryPower1():
     assert g.board[(3, 4)].unit.hp == 1 # attacked building
     gs = g.board[(1, 3)].unit.weapon1.genShots()
     for i in range(5):
-        shot = next(gs)  # iterate through the shotgenerator until it sets self.destinationsquare where we need it
-    g.board[(1, 3)].unit.weapon1.shoot(Direction.RIGHT, 2)
+        shot = next(gs)
+    g.board[(1, 3)].unit.weapon1.shoot(*shot) # ((3, 3), RIGHT)
     g.flushHurt()
     assert g.board[(1, 3)].unit.hp == 2
     assert g.board[(3, 3)].unit.hp == 1  # building
@@ -6127,7 +6128,7 @@ def t_WeaponAstraBombsMaxPower():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # ((3, 1), RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].unit == None # wielder jumped from start position
     assert g.board[(2, 1)].unit.hp == 2 # vek took 3 weapon damage
@@ -6209,8 +6210,9 @@ def t_WeaponMicroArtilleryNoPower():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 2)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    assert shot == ((3, 1), Direction.RIGHT)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)
+    
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # no change to wielder
     assert g.board[(3, 1)].unit == None # vek pushed from here
@@ -6229,7 +6231,7 @@ def t_WeaponMicroArtilleryPower2():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 2)
+    assert shot == ((3, 1), Direction.RIGHT)
     g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # no change to wielder
@@ -6249,7 +6251,7 @@ def t_WeaponMicroArtilleryPower1():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 2)
+    assert shot == ((3, 1), Direction.RIGHT)
     g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # no change to wielder
@@ -6270,8 +6272,8 @@ def t_WeaponMicroArtilleryMaxPower():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 2)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # (RIGHT, 2)
+    assert shot == ((3, 1), Direction.RIGHT)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # no change to wielder
     assert g.board[(3, 1)].unit == None # vek pushed from here
@@ -6370,7 +6372,7 @@ def t_WeaponAegonMortarEdge():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(12):
         shot = next(gs)
-    assert shot == (2, 7)
+    assert shot == ((8, 1), 2)
     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 7
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2 # wielder took 0 damage
@@ -6493,7 +6495,7 @@ def t_WeaponRainingDeathNoPower():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(9):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 4)
+    assert shot == ((5, 1), Direction.RIGHT)
     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 4
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 self damage
@@ -6518,8 +6520,8 @@ def t_WeaponRainingDeath1Power():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(9):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 4)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 4
+    assert shot == ((5, 1), Direction.RIGHT)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 4  # wielder took 1 self damage
     assert g.board[(2, 1)].unit.hp == 1 # building took no damage
@@ -6543,8 +6545,8 @@ def t_WeaponRainingDeath2Power():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(9):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 4)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 4
+    assert shot == ((5, 1), Direction.RIGHT)
+    g.board[(1, 1)].unit.weapon1.shoot(*shot)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 3  # wielder took 2 self damage
     assert g.board[(2, 1)].unit == None  # Building died
@@ -6568,7 +6570,7 @@ def t_WeaponRainingDeathMaxPower():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(9):
         shot = next(gs)
-    assert shot == (Direction.RIGHT, 4)
+    assert shot == ((5, 1), Direction.RIGHT)
     g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 4
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 3  # wielder took 2 self damage
@@ -6612,7 +6614,7 @@ def t_WeaponHeavyArtillery1Power():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # ((3, 1), RIGHT)
     g.flushHurt()
     assert g.board[(1, 1)].unit.hp == 2  # wielder took no damage
     assert g.board[(2, 1)].unit.hp == 2 # 3 damage
@@ -6651,7 +6653,7 @@ def t_WeaponGeminiMissilesMaxPower():
     gs = g.board[(1, 2)].unit.weapon1.genShots()
     for shot in range(6):
         shot = next(gs)
-    g.board[(1, 2)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.board[(1, 2)].unit.weapon1.shoot(*shot) # ((3, 2), RIGHT)
     g.flushHurt()
     assert g.board[(1, 2)].unit.hp == 2  # wielder took no damage
     assert g.board[(3, 1)].unit == None
@@ -7411,15 +7413,15 @@ def t_WeaponIceGeneratorMaxPower():
 def t_WeaponDeployableGenSwallow():
     "Test genShots() for deployable weapons to make sure it skips over water, lava, and chasms"
     g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=False)))
     g.board[(1, 3)].replaceTile(Tile_Water(g))
     g.board[(1, 5)].replaceTile(Tile_Lava(g))
     g.board[(1, 7)].replaceTile(Tile_Chasm(g))
-    g.board[(1, 1)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_LightTank(power1=False, power2=False)))
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    assert next(gs) == (Direction.UP, 3)
-    assert next(gs) == (Direction.UP, 5)
-    assert next(gs) == (Direction.UP, 7)
-    assert next(gs) == (Direction.RIGHT, 2)
+    assert next(gs) == ((1, 4), Direction.UP)
+    assert next(gs) == ((1, 6), Direction.UP)
+    assert next(gs) == ((1, 8), Direction.UP)
+    assert next(gs) == ((3, 1), Direction.RIGHT)
 
 def t_WeaponLightTankLowPower():
     "Shoot and deploy a LightTank with no power."
@@ -7450,7 +7452,7 @@ def t_WeaponLightTank1Power():
     gs = g.board[(1, 1)].unit.weapon1.genShots()
     for shot in range(7):
         shot = next(gs)
-    g.board[(1, 1)].unit.weapon1.shoot(*shot) # RIGHT, 2
+    g.board[(1, 1)].unit.weapon1.shoot(*shot) # ((3, 1), RIGHT)
     g.flushHurt()
     assert g.board[(4, 1)].unit.hp == 5  # vek untouched
     assert g.board[(3, 1)].unit.hp == 3  # this is the light tank
@@ -12535,8 +12537,8 @@ def t_KillingMechsGameOver():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g))
     g.board[(1, 2)].createUnitHere(Unit_Combat_Mech(g))
-    g.board[(1, 3)].createUnitHere(Unit_OldArtillery(g))
-    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g))
+    g.board[(1, 3)].createUnitHere(Unit_OldArtillery(g)) # not a mech, even though you control it
+    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g)) # and an enemy, why not
     g.flushHurt()
     g.board[(1, 1)].die() # kill the first unit
     g.flushHurt()
@@ -12546,7 +12548,6 @@ def t_KillingMechsGameOver():
         pass # This is expected
     else:
         assert False # this is bad
-    g.flushHurt()
 
 ########### write tests for these:
 # a shielded mountain takes damage. same with ice

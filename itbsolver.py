@@ -2605,16 +2605,17 @@ class Weapon_DirectionalLimitedGen_Base():
 class Weapon_ArtilleryGen_Base():
     "The generator for artillery weapons."
     def genShots(self, minimumdistance=2):
-        """Generate every possible shot that the weapon wielder can take from their position with an artillery weapon. Yields a tuple of (direction, relativedistance) and sets self.targetsquare.
+        """Generate every possible shot that the weapon wielder can take from their position with an artillery weapon.
+        Yields a tuple of ((x, y), direction). x, y are the coordinates where the weapon should strike and direction is the direction the weapon is being fired.
         minimumdistance is how near the wielder the weapon can shoot. Artillery weapons typically can't shoot the square next to them, but Hydraulic Legs can.
         genShots() methods usually don't take arguments, only child objects should use this argument.
         This genShots can only return valid shots by nature, no need to validate them in weapons that use this."""
         for direction in Direction.gen():
             relativedistance = minimumdistance  # artillery weapons can't shoot the tile next to them, they start at one tile past that.
             while True:
-                self.targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, relativedistance)
-                if self.targetsquare:
-                    yield (direction, relativedistance)
+                targetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, relativedistance)
+                if targetsquare:
+                    yield (targetsquare, direction)
                     relativedistance += 1
                 else:  # square was false, we went off the board
                     break  # move onto the next direction
@@ -2901,13 +2902,13 @@ class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
     def genShots(self):
         "A genshots for limited deployable tanks that doesn't allow you to shoot into swallowing tiles and immediately kill your deployable."
         for i in super().genShots():
-            if not self.game.board[self.targetsquare].isSwallow():
+            if not self.game.board[i[0]].isSwallow():
                 yield i
-    def shoot(self, unit): # this should only ever be called by child objects so the non-standard arg should be fine
-        if self.game.board[self.targetsquare].unit:
+    def shoot(self, targetsquare, unit): # this should only ever be called by child objects so the non-standard arg should be fine
+        if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't deploy a tank to an occupied square
         self.usesremaining -= 1
-        self.game.board[self.targetsquare].createUnitHere(unit)
+        self.game.board[targetsquare].createUnitHere(unit)
 
 class Weapon_AcidGun_Base(Weapon_Projectile_Base):
     "Shared shoot method for AcidProjector and AcidShot"
@@ -2954,16 +2955,16 @@ class Weapon_ArtemisArtillery(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base
             self._buildingsimmune = False
         if power2:
             self.damage += 2
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
         try:
-            if self._buildingsimmune and self.game.board[self.targetsquare].unit.isBuilding(): # if buildings are immune and the target is a building..
+            if self._buildingsimmune and self.game.board[targetsquare].unit.isBuilding(): # if buildings are immune and the target is a building..
                 pass # don't damage the target
             else:
                 raise AttributeError
         except AttributeError: # None.isBuilding(), there was no unit there or manually raised because buildings aren't immune or the unit there isn't a building
-            self.game.board[self.targetsquare].takeDamage(self.damage)
-        self._pushAdjacent(self.targetsquare) # now push all the tiles around targetsquare regardless
+            self.game.board[targetsquare].takeDamage(self.damage)
+        self._pushAdjacent(targetsquare) # now push all the tiles around targetsquare regardless
 
 class Weapon_BurstBeam(Weapon_DirectionalGen_Base, Weapon_BlocksBeamShot_Base):
     """Laser Mech's default weapon.
@@ -3050,18 +3051,18 @@ class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquar
             self.bigarea = True
         else:
             self.bigarea = False
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         self.usesremaining -= 1
-        self.game.board[self.targetsquare].applyShield() # the target tile itself is shielded
+        self.game.board[targetsquare].applyShield() # the target tile itself is shielded
         if self.bigarea:
             for d in Direction.gen(): # do all tiles around the target if we have the +3 area upgrade
                 try:
-                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].applyShield()
+                    self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].applyShield()
                 except KeyError:
                     pass # tried to shield off the board
         else:
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(direction, 1)].applyShield() # just shield one tile past the target in the same direction
+                self.game.board[self.game.board[targetsquare].getRelSquare(direction, 1)].applyShield() # just shield one tile past the target in the same direction
             except KeyError:
                 pass # tried to shield off the board
 
@@ -3108,9 +3109,9 @@ class Weapon_ClusterArtillery(Weapon_ArtilleryGen_Base, Weapon_hurtAndPushEnemy_
             self._buildingsimmune = False
         if power2:
             self.damage += 1
-    def shoot(self, direction, distance):
-        for d in Direction.gen(): # self.targetsquare indicates where the shot landed. Nothing actually happens on this tile for this weapon, it's all around it instead.
-            currenttargetsquare = self.game.board[self.targetsquare].getRelSquare(d, 1) # set the square we're working on
+    def shoot(self, targetsquare, direction):
+        for d in Direction.gen(): # targetsquare indicates where the shot landed. Nothing actually happens on this tile for this weapon, it's all around it instead.
+            currenttargetsquare = self.game.board[targetsquare].getRelSquare(d, 1) # set the square we're working on
             try:
                 if self._buildingsimmune and self.game.board[currenttargetsquare].unit.isBuilding(): # if buildings are immune and the unit taking damage is a building...
                     pass # don't damage it
@@ -3123,8 +3124,8 @@ class Weapon_GravWell(Weapon_ArtilleryGen_Base):
     "Default first weapon for Gravity Mech"
     def __init__(self, power1=False, power2=False):
         pass # grav well can't be upgraded at all
-    def shoot(self, direction, distance):
-        self.game.board[self.targetsquare].push(Direction.opposite(direction))
+    def shoot(self, targetsquare, direction):
+        self.game.board[targetsquare].push(Direction.opposite(direction))
 
 class Weapon_SpartanShield(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base):
     "Default weapon of the Aegis Mech"
@@ -3162,9 +3163,9 @@ class Weapon_CryoLauncher(Weapon_ArtilleryGen_Base):
     "Default weapon for the Ice mech"
     def __init__(self, power1=False, power2=False):
         pass # cryolauncher doesn't take power
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         "Shoot in direction distance number of tiles. Artillery can never shoot 1 tile away from the wielder."
-        self.game.board[self.targetsquare].applyIce() # freeze the target
+        self.game.board[targetsquare].applyIce() # freeze the target
         self.game.board[self.wieldingunit.square].applyIce() # freeze yourself (the square you're on)
 
 class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
@@ -3196,8 +3197,8 @@ class Weapon_RocketArtillery(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWith
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         super().__init__(power1, power2)
-    def shoot(self, direction, distance):
-        self._hurtAndPushEnemy(self.targetsquare, direction)
+    def shoot(self, targetsquare, direction):
+        self._hurtAndPushEnemy(targetsquare, direction)
         self._fartSmoke(direction)
 
 class Weapon_Repulse(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base):
@@ -3313,14 +3314,14 @@ class Weapon_RockLauncher(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWithPow
     def __init__(self, power1=False, power2=False):
         self.damage = 2
         super().__init__(power1, power2)
-    def shoot(self, direction, distance):
-        if self.game.board[self.targetsquare].unit: # the tile only takes damage if a unit is present
-            self.game.board[self.targetsquare].takeDamage(self.damage) # target takes damage
+    def shoot(self, targetsquare, direction):
+        if self.game.board[targetsquare].unit: # the tile only takes damage if a unit is present
+            self.game.board[targetsquare].takeDamage(self.damage) # target takes damage
         else: # otherwise we just place a rock there
-            self.game.board[self.targetsquare]._putUnitHere(Unit_Rock(self.game))
+            self.game.board[targetsquare]._putUnitHere(Unit_Rock(self.game))
         for d in Direction.genPerp(direction):
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
+                self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
             except KeyError:
                 pass # tried to push off the board
 
@@ -3370,13 +3371,13 @@ class Weapon_VulcanArtillery(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base,
             self.shoot = self.shoot_damage
         else:
             self.shoot = self.shoot_nodamage
-    def shoot_damage(self, direction, distance):
-        self.shoot_nodamage(direction, distance)
-        self.game.board[self.targetsquare].takeDamage(self.damage)
-    def shoot_nodamage(self, direction, distance):
+    def shoot_damage(self, targetsquare, direction):
+        self.shoot_nodamage(targetsquare, direction)
+        self.game.board[targetsquare].takeDamage(self.damage)
+    def shoot_nodamage(self, targetsquare, direction):
         "This shoot method doesn't cause any damage to the tile or unit."
-        self.game.board[self.targetsquare].applyFire()
-        self._pushAdjacent(self.targetsquare)
+        self.game.board[targetsquare].applyFire()
+        self._pushAdjacent(targetsquare)
         if self.backburn:
             try:
                 self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applyFire()
@@ -3406,12 +3407,12 @@ class Weapon_HydraulicLegs(Weapon_ArtilleryGen_Base, Weapon_HydraulicLegsUnstabl
     "The default weapon for Leap Mech"
     def genShots(self):
         return super().genShots(minimumdistance=1)
-    def shoot(self, direction, distance):
-        if self.game.board[self.targetsquare].unit:
+    def shoot(self, targetsquare, direction):
+        if self.game.board[targetsquare].unit:
             raise NullWeaponShot # the tile you're leaping to must be clear of units
-        self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the wielder first
+        self.game.board[self.wieldingunit.square].moveUnit(targetsquare) # move the wielder first
         self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # then the wielder takes damage on the new tile
-        self._hurtPushAdjacent(self.targetsquare)
+        self._hurtPushAdjacent(targetsquare)
 
 class Weapon_UnstableCannon(Weapon_HydraulicLegsUnstableInit_Base, Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base, Weapon_hurtAndPushSelf_Base):
     "Default weapon for the Unstable Mech"
@@ -3459,21 +3460,21 @@ class Weapon_ExplosiveGoo(Weapon_ArtilleryGen_Base, Weapon_PushAdjacent_Base):
             self.shoot = self.shoot_2tiles
         if power2:
             self.damage += 2
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         "This is the ExplosiveGoo's shot when it only affects 1 tile, very simple."
-        self.game.board[self.targetsquare].takeDamage(self.damage)
-        self._pushAdjacent(self.targetsquare)  # now push all the tiles around targetsquare
-    def shoot_2tiles(self, direction, distance):
-        self.game.board[self.targetsquare].takeDamage(self.damage)
-        extrasquare = self.game.board[self.targetsquare].getRelSquare(direction, 1) # set the 2nd square
+        self.game.board[targetsquare].takeDamage(self.damage)
+        self._pushAdjacent(targetsquare)  # now push all the tiles around targetsquare
+    def shoot_2tiles(self, targetsquare, direction):
+        self.game.board[targetsquare].takeDamage(self.damage)
+        extrasquare = self.game.board[targetsquare].getRelSquare(direction, 1) # set the 2nd square
         try: # try to damage one tile past the target
             self.game.board[extrasquare].takeDamage(self.damage)
         except KeyError: # board[False]; the extra shot was wasted which is fine
-            self._pushAdjacent(self.targetsquare)  # just push all the tiles around targetsquare, one of them will be off board
+            self._pushAdjacent(targetsquare)  # just push all the tiles around targetsquare, one of them will be off board
         else: # The tile exists and now we have to push all tiles around BOTH
             for d in list(Direction.genPerp(direction)) + [Direction.opposite(direction)]: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one in the direction of fire
                 try:
-                    self.game.board[self.game.board[self.targetsquare].getRelSquare(d, 1)].push(d)
+                    self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
                 except KeyError:  # game.board[False]
                     pass
             for d in list(Direction.genPerp(direction)) + [direction]: # push all BUT ONE of the tiles around targetsquare. The excluded tile is the one opposite the direction of fire
@@ -3712,16 +3713,16 @@ class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
         self.damage = 1
         if power2:  # power1 for extra uses is ignored
             self.damage += 2
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
-        if self.game.board[self.targetsquare].unit:
+        if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't land on an occupied square
         self.usesremaining -= 1
-        currenttargetsquare = self.wieldingunit.square # start where the unit is
-        for r in range(distance):
-            currenttargetsquare = self.game.board[currenttargetsquare].getRelSquare(direction, 1)
+        currenttargetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1) # start one square in front of the unit
+        while currenttargetsquare != targetsquare:
             self.game.board[currenttargetsquare].takeDamage(self.damage) # damage the target
-        self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the unit to its landing position 1 square beyond the last attack
+            currenttargetsquare = self.game.board[currenttargetsquare].getRelSquare(direction, 1) # move one square in direction
+        self.game.board[self.wieldingunit.square].moveUnit(targetsquare) # move the unit to its landing position 1 square beyond the last attack
 
 class Weapon_HermesEngines(Weapon_DirectionalGen_Base, Weapon_NoUpgradesInit_Base, Weapon_getRelSquare_Base):
     "Dash in a line, pushing adjacent tiles away."
@@ -3757,12 +3758,12 @@ class Weapon_MicroArtillery(Weapon_ArtilleryGen_Base, Weapon_hurtAndPushEnemy_Ba
             self.extratiles = False
         if power2:
             self.damage += 1
-    def shoot(self, direction, distance):
-        self._hurtAndPushEnemy(self.targetsquare, direction)
+    def shoot(self, targetsquare, direction):
+        self._hurtAndPushEnemy(targetsquare, direction)
         if self.extratiles:
             for dir in Direction.genPerp(direction): # and then the 2 sides
                 try:
-                    self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(dir, 1), direction) # push in same direction as shot
+                    self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(dir, 1), direction) # push in same direction as shot
                 except NullWeaponShot:
                     pass # peripheral shots went off the board which is OK
 
@@ -3771,20 +3772,20 @@ class Weapon_AegonMortar(Weapon_ArtilleryGen_Base, Weapon_IncreaseDamageWithPowe
     def __init__(self, power1=False, power2=False):
         self.damage = 1
         super().__init__(power1, power2)
-    def shoot(self, direction, distance):
-        self._hurtAndPushEnemy(self.targetsquare, Direction.opposite(direction)) # hurt and push the unit towards the wielder
+    def shoot(self, targetsquare, direction):
+        self._hurtAndPushEnemy(targetsquare, Direction.opposite(direction)) # hurt and push the unit towards the wielder
         try:
-            self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(direction, 1), direction)  # hurt and push the unit on the tile past the one we just hit away from the wielder
+            self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(direction, 1), direction) # hurt and push the unit on the tile past the one we just hit away from the wielder
         except NullWeaponShot: # if you hit the edge, this action is ignored
             pass
 
 class Weapon_SmokeMortar(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base):
     "Artillery shot that applies Smoke and pushes two adjacent tiles."
-    def shoot(self, direction, distance):
-        self.game.board[self.targetsquare].applySmoke()
+    def shoot(self, targetsquare, direction):
+        self.game.board[targetsquare].applySmoke()
         for dir in direction, Direction.opposite(direction):
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].push(dir)
+                self.game.board[self.game.board[targetsquare].getRelSquare(dir, 1)].push(dir)
             except KeyError:
                 pass # shot went off the board
 
@@ -3795,11 +3796,11 @@ class Weapon_BurningMortar(Weapon_ArtilleryGen_Base):
             self.selfdamage = 0
         else:
             self.selfdamage = 1
-    def shoot(self, direction, distance):
-        self.game.board[self.targetsquare].applyFire() # first hit the dead center tile
+    def shoot(self, targetsquare, direction):
+        self.game.board[targetsquare].applyFire() # first hit the dead center tile
         for dir in Direction.gen():
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].applyFire()
+                self.game.board[self.game.board[targetsquare].getRelSquare(dir, 1)].applyFire()
             except KeyError:
                 pass # extra tile was off board
         if self.selfdamage: # take self damage if applicable
@@ -3817,12 +3818,12 @@ class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
         if power2:
             self.selfdamage += 1
             self.damage += 1
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage) # first take self damage
         currentsquare = self.wieldingunit.square # the current square that we are hitting with less damage
         while True:
             currentsquare = self.game.board[currentsquare].getRelSquare(direction, 1) # move to the next square
-            if currentsquare == self.targetsquare: # if we're on the last square...
+            if currentsquare == targetsquare: # if we're on the last square...
                 self.damageSquare(currentsquare, self.damage) # hit it with full power
                 return # and we're done
             self.damageSquare(currentsquare, self.damage-1) # hit the square with one less damage
@@ -3840,12 +3841,12 @@ class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
         self.damage = 2
         if power2: # power1 for an extra use is ignored
             self.damage += 1
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         self.usesremaining -= 1
-        self.game.board[self.targetsquare].takeDamage(self.damage) # first hit the dead center tile
+        self.game.board[targetsquare].takeDamage(self.damage) # first hit the dead center tile
         for dir in Direction.gen():
             try:
-                self.game.board[self.game.board[self.targetsquare].getRelSquare(dir, 1)].takeDamage(self.damage)
+                self.game.board[self.game.board[targetsquare].getRelSquare(dir, 1)].takeDamage(self.damage)
             except KeyError:
                 pass # extra tile was off board
 
@@ -3856,11 +3857,11 @@ class Weapon_GeminiMissiles(Weapon_ArtilleryGenLimited_Base, Weapon_hurtAndPushE
         self.damage = 3
         if power2: # power1 for an extra use is also ignored
             self.damage += 1
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         self.usesremaining -= 1
         for dir in Direction.genPerp(direction):
             try:
-                self._hurtAndPushEnemy(self.game.board[self.targetsquare].getRelSquare(dir, 1), direction)
+                self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(dir, 1), direction)
             except NullWeaponShot: # one of the missiles was off board
                 pass # totally fine
 
@@ -3942,11 +3943,11 @@ class Weapon_Boosters(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base, Weap
     "Jump forward and push adjacent tiles away."
     def genShots(self):
         return super().genShots(minimumdistance=1)
-    def shoot(self, direction, distance):
-        if self.game.board[self.targetsquare].unit:
+    def shoot(self, targetsquare, direction):
+        if self.game.board[targetsquare].unit:
             raise NullWeaponShot # the tile you're leaping to must be clear of units
-        self.game.board[self.wieldingunit.square].moveUnit(self.targetsquare) # move the wielder first
-        self._pushAdjacent(self.targetsquare)
+        self.game.board[self.wieldingunit.square].moveUnit(targetsquare) # move the wielder first
+        self._pushAdjacent(targetsquare)
 
 class Weapon_SmokeBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
     "Fly over the targets while dropping Smoke."
@@ -4116,32 +4117,32 @@ class Weapon_LightTank(Weapon_Deployable_Base):
     "Deploy a small tank to help in combat."
     def __init__(self, power1=False, power2=False, usesremaining=1):
         super().__init__(power1, power2, usesremaining)
-    def shoot(self, direction, distance):
-        super().shoot(Unit_LightTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
+    def shoot(self, targetsquare, direction):
+        super().shoot(targetsquare, Unit_LightTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
 
 class Weapon_ShieldTank(Weapon_Deployable_Base):
     "Deploy a Shield-Tank that can give Shields to allies."
     def __init__(self, power1=False, power2=False, usesremaining=1):
         super().__init__(power1, power2, usesremaining)
-    def shoot(self, direction, distance):
-        super().shoot(Unit_ShieldTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_ShieldShot(power2=self.power2)))
+    def shoot(self, targetsquare, direction):
+        super().shoot(targetsquare, Unit_ShieldTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_ShieldShot(power2=self.power2)))
 
 class Weapon_AcidTank(Weapon_Deployable_Base):
     "Deploy a Tank that can apply A.C.I.D. to targets."
     def __init__(self, power1=False, power2=False, usesremaining=1):
         super().__init__(power1, power2, usesremaining)
-    def shoot(self, direction, distance):
-        super().shoot(Unit_AcidTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_AcidShot(power2=self.power2)))
+    def shoot(self, targetsquare, direction):
+        super().shoot(targetsquare, Unit_AcidTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_AcidShot(power2=self.power2)))
 
 class Weapon_PullTank(Weapon_Deployable_Base):
     "Deploy a Pull-Tank that can pull targets with a projectile."
     def __init__(self, power1=False, power2=False, usesremaining=1):
         super().__init__(power1, power2, usesremaining)
-    def shoot(self, direction, distance):
+    def shoot(self, targetsquare, direction):
         if self.power2:
-            super().shoot(Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot(), attributes=(Attributes.FLYING,)))
+            super().shoot(targetsquare, Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot(), attributes=(Attributes.FLYING,)))
         else:
-            super().shoot(Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot()))
+            super().shoot(targetsquare, Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot()))
 ######################### Weapons that deployables shoot ################
 # Deployable weapons don't actually take power, but we still use it here because the weapons are modified based on the power of the weapon that actually deployed the tank
 class Weapon_StockCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):
@@ -4191,9 +4192,9 @@ Weapon_PullShot = Weapon_AttractionPulse # PullShot is literally the same weapon
 class Weapon_OldEarthArtillery(Weapon_ArtilleryGen_Base, Weapon_NoUpgradesInit_Base):
     "Underpowered compared to modern artillery, but still useful. OldArtillery"
     damage = 2
-    def shoot(self, direction, distance):
-        self.game.board[self.targetsquare].takeDamage(self.damage) # copypasta from Weapon_ExplosiveGoo
-        extrasquare = self.game.board[self.targetsquare].getRelSquare(direction, 1) # set the 2nd square
+    def shoot(self, targetsquare, direction):
+        self.game.board[targetsquare].takeDamage(self.damage) # copypasta from Weapon_ExplosiveGoo
+        extrasquare = self.game.board[targetsquare].getRelSquare(direction, 1) # set the 2nd square
         try: # try to damage one tile past the target
             self.game.board[extrasquare].takeDamage(self.damage)
         except KeyError: # board[False]; the extra shot was wasted which is fine

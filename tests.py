@@ -3078,7 +3078,7 @@ def t_WeaponShieldProjectorPower2():
 def t_WeaponShieldProjectorGen():
     "Test the generator for the shield projector."
     g = Game()
-    g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, usesremaining=1)))  # power1 is ignored
+    g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, ammo=1)))  # power1 is ignored
     gs = g.board[(5, 5)].unit.weapon1.genShots()
     g.flushHurt()
     shot = next(gs)
@@ -5584,7 +5584,7 @@ def t_WeaponTitaniteBlade1Power():
 def t_WeaponTitaniteBladeExtraUse():
     "Fire the TitaniteBlade weapon with 1 power and an extra use given."
     g = Game()
-    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=True, power2=False, usesremaining=2)))
+    g.board[(1, 1)].createUnitHere(Unit_TechnoHornet_Mech(g, weapon1=Weapon_TitaniteBlade(power1=True, power2=False, ammo=2)))
     g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g))
     g.board[(2, 2)].createUnitHere(Unit_AlphaScorpion(g))
     assert g.board[(1, 1)].unit.hp == 2

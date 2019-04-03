@@ -173,6 +173,9 @@ class DontGiveUnitAcid(Exception):
 class SimulationFinished(Exception):
     "This is raised when an OrderSimulator runs out of actions to simulate"
 
+class OutOfAmmo(Exception):
+    "This is raised when a weapon tries to fire a shot but doesn't have ammo."
+
 # Onto the rest
 class Powergrid():
     "This represents your powergrid hp. When this hits 0, it's game over!"
@@ -2580,7 +2583,7 @@ class Environ_VekEmerge():
 # Any weapons that deal damage must store the amount of damage as self.damage
 # Any weapons that deal self damage must store the amount of damage as self.selfdamage
 # Any weapons that have limited range must store their range as self.range
-# Weapons with limited uses must accept the argument usesremaining=int() in __init__(). Set the number of uses left as self.usesremaining
+# Weapons with limited uses must accept the argument ammo=int() in __init__(). Set the number of uses left as self.ammo
 # self.game will be set by the unit that owns the weapon.
 # self.wieldingunit is the unit that owns the weapon. It will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
@@ -2596,7 +2599,7 @@ class Weapon_DirectionalLimitedGen_Base():
     "A genshots for weapons that use the DirectionalGen but with limited uses."
     def genShots(self):
         for d in Direction.gen():
-            if self.usesremaining:
+            if self.ammo:
                 yield (d,)
             else:
                 #raise StopIteration # doing this is wrong: https://www.python.org/dev/peps/pep-0479/
@@ -2624,7 +2627,7 @@ class Weapon_ArtilleryGenLimited_Base(Weapon_ArtilleryGen_Base):
     "A generator for artillery weapons that only yields shots if there is a use (ammo) available."
     def genShots(self):
         for i in super().genShots():
-            if self.usesremaining:
+            if self.ammo:
                 yield i
             else:
                 return
@@ -2637,7 +2640,7 @@ class Weapon_NoChoiceGen_Base():
 class Weapon_NoChoiceLimitedGen_Base():
     "A generator for weapons that give you no options of how you can fire it and also have limited uses, e.g. SmokePellets"
     def genShots(self):
-        if self.usesremaining:
+        if self.ammo:
             yield ()
 
 class Weapon_RangedGen_Base(Weapon_DirectionalGen_Base):
@@ -2760,8 +2763,8 @@ class Weapon_NoUpgradesInit_Base():
 
 class Weapon_NoUpgradesLimitedInit_Base():
     "an init that ignores power upgrades passed to it for use with weapons lacking upgrade options and have a limited amount of uses."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
 
 class Weapon_PushProjectile_Base():
     def _pushProjectile(self, direction, targetsquare):
@@ -2773,16 +2776,16 @@ class Weapon_PushProjectile_Base():
                 pass
 
 class Weapon_LimitedUnlimitedInit_Base():
-    def __init__(self, power1=False, power2=False, usesremaining=1):
+    def __init__(self, power1=False, power2=False, ammo=1):
         "an init where power1 provides infinite uses and power2 does nothing."
-        self.usesremaining = usesremaining
+        self.ammo = ammo
         if power1:
-            self.usesremaining = -1 # easier than making it actually unlimited.
+            self.ammo = -1 # easier than making it actually unlimited.
 
 class Weapon_DeploySelfEffectLimitedSmall_Base():
     def shoot(self, methname):
         "A shared shoot method for weapons that deploy an effect on themselves and to tiles around the weapon wielder. methname is a string of the effect method to call like 'applySmoke'"
-        self.usesremaining -= 1
+        self.ammo -= 1
         getattr(self.game.board[self.wieldingunit.square], methname)() # do the effect on yourself
         for dir in Direction.gen():
             try:
@@ -2793,7 +2796,7 @@ class Weapon_DeploySelfEffectLimitedSmall_Base():
 class Weapon_DeploySelfEffectLimitedLarge_Base():
     def shoot_big(self, methname):
         "A shared shoot method for weapons that deploy an effect on themselves and to a larger area of tiles around the weapon wielder. methname is a string of the effect method to call like 'applySmoke'"
-        self.usesremaining -= 1
+        self.ammo -= 1
         getattr(self.game.board[self.wieldingunit.square], methname)() # do it to yourself first
         for dir in Direction.gen():
             branchsq = self._getRelSquare(dir, 1)
@@ -2816,6 +2819,12 @@ class Weapon_BlocksBeamShot_Base():
             return unit.blocksbeamshot
         except AttributeError:  # units that allow penetration don't have this attribute set at all
             return False
+
+# class Weapon_UseAmmo_Base():
+#     "Provides a method to spend limited ammo."
+#     def _spendAmmo(self):
+#         "Spend ammo if we have it, raise OutOfAmmo if we don't."
+#         XXX
 
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -2870,15 +2879,15 @@ class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Ba
 
 class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
     "A base class for both the FireBeam and FrostBeam."
-    def __init__(self, power1=False, power2=False, usesremaining=1, effectmeth=None):
+    def __init__(self, power1=False, power2=False, ammo=1, effectmeth=None):
         "effectmeth must be a string of either applyFire or applyIce"
-        self.usesremaining = usesremaining # power1 and 2 ignored for this weapon
+        self.ammo = ammo # power1 and 2 ignored for this weapon
         self.effectmeth = effectmeth
     def shoot(self, direction):
         currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
         if not currenttarget: # first square attacked was offboard and therefor
             raise NullWeaponShot
-        self.usesremaining -= 1
+        self.ammo -= 1
         while True:
             try:
                 getattr(self.game.board[currenttarget], self.effectmeth)()
@@ -2893,8 +2902,8 @@ class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
 
 class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
     "methods shared by weapons that deploy small tanks"
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.hp = 1 # the deployed tank's HP
         if power1:
             self.hp += 2
@@ -2907,7 +2916,7 @@ class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
     def shoot(self, targetsquare, unit): # this should only ever be called by child objects so the non-standard arg should be fine
         if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't deploy a tank to an occupied square
-        self.usesremaining -= 1
+        self.ammo -= 1
         self.game.board[targetsquare].createUnitHere(unit)
 
 class Weapon_AcidGun_Base(Weapon_Projectile_Base):
@@ -3042,17 +3051,17 @@ class Weapon_AttractionPulse(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitI
 
 class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquare_Base): # does not use the artillery base since we need the limited generator
     "The default second weapon for the Defense Mech."
-    def __init__(self, power1=False, power2=False, usesremaining=2):
-        self.usesremaining = usesremaining
-        # power1 adds another use, but we ignore that here because this simulation could be in the middle of a map where usesremaining could be anything.
+    def __init__(self, power1=False, power2=False, ammo=2):
+        self.ammo = ammo
+        # power1 adds another use, but we ignore that here because this simulation could be in the middle of a map where ammo could be anything.
         # if we increment it by one because they have it powered we could be giving the weapon a use that it doesn't really have.
-        # This weapon should always be initialized with usesremaining set to how many uses are actually remaining for the player at the time of the simulation.
+        # This weapon should always be initialized with ammo set to how many uses are actually remaining for the player at the time of the simulation.
         if power2:
             self.bigarea = True
         else:
             self.bigarea = False
     def shoot(self, targetsquare, direction):
-        self.usesremaining -= 1
+        self.ammo -= 1
         self.game.board[targetsquare].applyShield() # the target tile itself is shielded
         if self.bigarea:
             for d in Direction.gen(): # do all tiles around the target if we have the +3 area upgrade
@@ -3567,16 +3576,16 @@ class Weapon_VortexFist(Weapon_NoChoiceGen_Base, Weapon_hurtAndPushEnemy_Base):
 
 class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
     "Swing a massive sword to damage and push 3 tiles."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 2
-        # power1 adds another use, but we ignore that here because this simulation could be in the middle of a map where usesremaining could be anything.
+        # power1 adds another use, but we ignore that here because this simulation could be in the middle of a map where ammo could be anything.
         if power2:
             self.damage += 2
     def shoot(self, direction):
         targetsquare = self._getRelSquare(direction, 1)
         self._hurtAndPushEnemy(targetsquare, direction) # If this is off board, NullWeaponShot is raised
-        self.usesremaining -= 1 # this was a valid shot, so now let's spend the use
+        self.ammo -= 1 # this was a valid shot, so now let's spend the use
         for perpdir in Direction.genPerp(direction):
             try:
                 self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(perpdir, 1), direction)
@@ -3584,8 +3593,8 @@ class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPush
                 pass
 class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_Base):
     "Smash the ground, dealing huge damage and pushing adjacent tiles."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 4
         if power2: # power1 gives another use and is ignored here
             self.damage += 1
@@ -3595,7 +3604,7 @@ class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_
             self.game.board[targetsquare].takeDamage(self.damage)
         except KeyError: # target is off board and invalid
             raise NullWeaponShot
-        self.usesremaining -= 1 # shot is now valid, spend the ammo
+        self.ammo -= 1 # shot is now valid, spend the ammo
         for d in [direction] + list(Direction.genPerp(direction)):
             try:
                 self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
@@ -3678,26 +3687,26 @@ class Weapon_ShockCannon(Weapon_Projectile_Base, Weapon_IncreaseDamageWithPowerI
 
 class Weapon_HeavyRocket(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_PushProjectile_Base):
     "Fire a projectile that heavily damages a target and pushes adjacent tiles."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 3
         if power2: # power1 for extra uses is ignored
             self.damage += 2
     def shoot(self, direction):
-        self.usesremaining -= 1
+        self.ammo -= 1
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self.game.board[targetsquare].takeDamage(self.damage)
         self._pushProjectile(direction, targetsquare)
 
 class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPushEnemy_Base):
     "Shoot a projectile that damages and pushes the targeted tile and the tiles to its left and right."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 2
         if power2:  # power1 for extra uses is ignored
             self.damage += 1
     def shoot(self, direction):
-        self.usesremaining -= 1
+        self.ammo -= 1
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self._hurtAndPushEnemy(targetsquare, direction) # hit the target
         for dir in Direction.genPerp(direction): # and then the 2 sides
@@ -3708,8 +3717,8 @@ class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareO
 
 class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
     "Leap over any distance dropping a bomb on each tile you pass."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 1
         if power2:  # power1 for extra uses is ignored
             self.damage += 2
@@ -3717,7 +3726,7 @@ class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
         if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't land on an occupied square
-        self.usesremaining -= 1
+        self.ammo -= 1
         currenttargetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1) # start one square in front of the unit
         while currenttargetsquare != targetsquare:
             self.game.board[currenttargetsquare].takeDamage(self.damage) # damage the target
@@ -3836,13 +3845,13 @@ class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
 
 class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
     "Powerful attack that damages a large area."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 2
         if power2: # power1 for an extra use is ignored
             self.damage += 1
     def shoot(self, targetsquare, direction):
-        self.usesremaining -= 1
+        self.ammo -= 1
         self.game.board[targetsquare].takeDamage(self.damage) # first hit the dead center tile
         for dir in Direction.gen():
             try:
@@ -3852,13 +3861,13 @@ class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
 
 class Weapon_GeminiMissiles(Weapon_ArtilleryGenLimited_Base, Weapon_hurtAndPushEnemy_Base):
     "Launch two missiles, damaging and pushing two targets"
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 3
         if power2: # power1 for an extra use is also ignored
             self.damage += 1
     def shoot(self, targetsquare, direction):
-        self.usesremaining -= 1
+        self.ammo -= 1
         for dir in Direction.genPerp(direction):
             try:
                 self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(dir, 1), direction)
@@ -3876,15 +3885,15 @@ class Weapon_ConfuseShot(Weapon_Projectile_Base, Weapon_NoUpgradesInit_Base):
 
 class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base):
     "Surround yourself with Smoke to defend against nearby enemies."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         if power1: # power2 for extra use ignored
             self.shoot = self.shoot_allyimmune
     def shoot(self):
         super().shoot('applySmoke')
     def shoot_allyimmune(self):
         "a different shoot method for when allyimmune is powered"
-        self.usesremaining -= 1
+        self.ammo -= 1
         for dir in Direction.gen():
             try:
                 targettile = self.game.board[self._getRelSquare(dir, 1)]
@@ -3899,18 +3908,18 @@ class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Ba
 
 class Weapon_FireBeam(Weapon_TemperatureBeam_Base):
     "Fire a beam that applies Fire in a line."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(None, None, usesremaining, 'applyFire')
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(None, None, ammo, 'applyFire')
 
 class Weapon_FrostBeam(Weapon_TemperatureBeam_Base):
     "Fire a beam that Freezes everything in a line."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(None, None, usesremaining, 'applyIce')
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(None, None, ammo, 'applyIce')
 
 class Weapon_ShieldArray(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base):
     "Apply a Shield on nearby tiles."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         if power1:
             self.shoot = self.shoot_big # power2 is ignored
     def shoot(self):
@@ -3923,7 +3932,7 @@ class Weapon_PushBeam(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimited
         currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
         if not currenttarget: # first square attacked was offboard and therefor
             raise NullWeaponShot
-        self.usesremaining -= 1
+        self.ammo -= 1
         pushsquares = [] # build this into a list of squares we need to push
         while True:
             try:
@@ -3972,8 +3981,8 @@ class Weapon_SmokeBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
 
 class Weapon_HeatConverter(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_Base):
     "Freeze the tile in front but light the tile behind on Fire in the process."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining # power1 and 2 are ignored
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo # power1 and 2 are ignored
     def shoot(self, direction):
         try:
             self.game.board[self._getRelSquare(direction, 1)].applyIce()
@@ -3996,14 +4005,14 @@ class Weapon_SelfDestruct(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base, W
 class Weapon_TargetedStrike(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base, Weapon_PushAdjacent_Base):
     "Call in an air strike on a single tile anywhere on the map."
     def shoot(self, x, y):
-        self.usesremaining -= 1
+        self.ammo -= 1
         self.game.board[(x, y)].takeDamage(1) # this weapon can only do one damage so I'm breaking the convention of using self.damage so I can use that init base.
         self._pushAdjacent((x, y))
 
 class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base):
     "Drops Smoke on 5 tiles anywhere on the map."
     def shoot(self, x, y):
-        self.usesremaining -= 1
+        self.ammo -= 1
         self.game.board[(x, y)].applySmoke()
         for dir in Direction.gen():
             try:
@@ -4022,7 +4031,7 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
     # acid is NOT removed from units. If a mech has acid, dies and becomes a corpse, the corpse still has acid and the revived mech has acid.
         # You can't give acid to a mech corpse however. If you hit a mech corpse with acid, it doesn't get it. Then you revive it and it still doesn't have it.
     def shoot(self):
-        self.usesremaining -= 1
+        self.ammo -= 1
         for unit in self.game.playerunits.copy():
             self._healunit(unit)
         for unit in self.game.nonplayerunits:
@@ -4048,13 +4057,13 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
 
 class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
     "Fires a missile barrage that hits every enemy on the map."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         self.damage = 1
         if power1:
             self.damage += 1 # power2 ignored
     def shoot(self):
-        self.usesremaining -= 1
+        self.ammo -= 1
         for e in self.game.nonplayerunits:
             if e.alliance == Alliance.ENEMY:
                 self.game.board[e.square].takeDamage(self.damage)
@@ -4083,8 +4092,8 @@ class Weapon_WindTorrent(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimi
 
 class Weapon_IceGenerator(Weapon_NoChoiceLimitedGen_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base, Weapon_getRelSquare_Base):
     "Freeze yourself and nearby tiles."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        self.usesremaining = usesremaining
+    def __init__(self, power1=False, power2=False, ammo=1):
+        self.ammo = ammo
         size = 1
         for p in power1, power2:
             if p:
@@ -4115,29 +4124,29 @@ class Weapon_IceGenerator(Weapon_NoChoiceLimitedGen_Base, Weapon_DeploySelfEffec
 ############################# Deployables ##################
 class Weapon_LightTank(Weapon_Deployable_Base):
     "Deploy a small tank to help in combat."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(power1, power2, usesremaining)
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(power1, power2, ammo)
     def shoot(self, targetsquare, direction):
         super().shoot(targetsquare, Unit_LightTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_StockCannon(power2=self.power2)))
 
 class Weapon_ShieldTank(Weapon_Deployable_Base):
     "Deploy a Shield-Tank that can give Shields to allies."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(power1, power2, usesremaining)
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(power1, power2, ammo)
     def shoot(self, targetsquare, direction):
         super().shoot(targetsquare, Unit_ShieldTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_ShieldShot(power2=self.power2)))
 
 class Weapon_AcidTank(Weapon_Deployable_Base):
     "Deploy a Tank that can apply A.C.I.D. to targets."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(power1, power2, usesremaining)
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(power1, power2, ammo)
     def shoot(self, targetsquare, direction):
         super().shoot(targetsquare, Unit_AcidTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_AcidShot(power2=self.power2)))
 
 class Weapon_PullTank(Weapon_Deployable_Base):
     "Deploy a Pull-Tank that can pull targets with a projectile."
-    def __init__(self, power1=False, power2=False, usesremaining=1):
-        super().__init__(power1, power2, usesremaining)
+    def __init__(self, power1=False, power2=False, ammo=1):
+        super().__init__(power1, power2, ammo)
     def shoot(self, targetsquare, direction):
         if self.power2:
             super().shoot(targetsquare, Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot(), attributes=(Attributes.FLYING,)))
@@ -5466,7 +5475,6 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
         while True:
             shot = next(self.gen) # will raise StopIteration and stop this from advancing.
             newgame = self._copygame()
-            self._setTargetSquare(shot[0])
             try:
                 getattr(self.unit, shot[0]).shoot(*shot[1])
             except (NullWeaponShot, GameOver) as exc:
@@ -5478,18 +5486,6 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
                 continue
             newgame.actionlog.append((self.unit, Actions.SHOOT, shot))  # record this action to the game's action log
             return newgame
-    def _setTargetSquare(self, weapon):
-        """Try to set unit's weapon's targetsquare to whatever is set in self.prevgame where the unit's next shot is generated.
-        weapon is the str name of the weapon we're operating on
-        returns newgame."""
-        # First find the unit in self.prevgame:
-        for u in self.prevgame.playerunits:
-            if self.unit.square == u.square:
-                break # we'll use u as that unit
-        try:
-            getattr(self.unit, weapon).targetsquare = getattr(u, weapon).targetsquare
-        except AttributeError: # not all weapons have a targetsquare
-            return
     def _genNextShot(self):
         "generate tuples of (weapon, (shot,)) for __next__ to use."
         if Effects.SMOKE in self.unit.game.board[self.unit.square].effects: # if this unit is in smoke
@@ -5501,10 +5497,12 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
             weapons = ('repweapon', 'weapon1', 'weapon2')
         for weapon in weapons:
             try:
-                for shot in getattr(self.unit, weapon).genShots():
-                    yield (weapon, shot)
-            except AttributeError: # unit.weapon.genShots() when genShots doesn't exist, meaning it's a passive weapon that can't be fired.
-                continue
+                gs = getattr(getattr(self.unit, weapon), 'genShots') # see if this weapon exists and can be shot
+            except AttributeError: # this unit didn't have this weapon attribute at all or it's a passive weapon that can't be fired.
+                continue # onto the next weapon
+            for shot in gs():
+                yield (weapon, shot)
+
     def getArgs(self):
         """return a tuple of the (unit,) argument that was used to construct this object.
         note that the prevgame argument is omitted, because this is what changes in the replacement object.

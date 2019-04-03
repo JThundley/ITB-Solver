@@ -3075,17 +3075,19 @@ def t_WeaponShieldProjectorPower2():
     assert g.board[(4, 2)].unit.effects == set()
     assert g.board[(5, 2)].unit.effects == set()
 
-def t_WeaponShieldProjectorGen():
-    "Test the generator for the shield projector."
-    g = Game()
-    g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, ammo=1)))  # power1 is ignored
-    gs = g.board[(5, 5)].unit.weapon1.genShots()
-    g.flushHurt()
-    shot = next(gs)
-    assert shot == ((5, 7), Direction.UP) # generator generates what we expect
-    g.board[(5, 5)].unit.weapon1.shoot(*shot) # shoot to spend the ammo
-    for i in gs:
-        assert False # This should never be hit as the gs iterator should be at the end
+# This test became invalid when I removed all the LimitedGen methods for weapons with limited ammo.
+# Now the ammo is used when the weapon is actually fired.
+# def t_WeaponShieldProjectorGen():
+#     "Test the generator for the shield projector."
+#     g = Game()
+#     g.board[(5, 5)].createUnitHere(Unit_Defense_Mech(g, weapon1=Weapon_ShieldProjector(power1=True, power2=True, ammo=1)))  # power1 is ignored
+#     gs = g.board[(5, 5)].unit.weapon1.genShots()
+#     g.flushHurt()
+#     shot = next(gs)
+#     assert shot == ((5, 7), Direction.UP) # generator generates what we expect
+#     g.board[(5, 5)].unit.weapon1.shoot(*shot) # shoot to spend the ammo
+#     for i in gs:
+#         assert False # This should never be hit as the gs iterator should be at the end
 
 def t_WeaponViceFistNoPower():
     "Test the Vice Fist with no power"
@@ -5543,9 +5545,14 @@ def t_WeaponTitaniteBladeNoPower():
     assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
     assert g.board[(2, 2)].effects == set()  # no effects on tile
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    for shot in gs: # this should yield (UP) only since we only have one use
-        g.board[(1, 1)].unit.weapon1.shoot(*shot)
-        g.flushHurt()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot happens and spends the one ammo
+    g.flushHurt()
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot doesn't
+    except OutOfAmmo:
+        pass  # because there is no ammo, which is expected
+    else:
+        raise Exception  # ya fucked up
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(2, 1)].unit.hp == 5 # this vek was untouched
     assert g.board[(2, 1)].unit.effects == set()  # no effects on unit
@@ -5569,9 +5576,14 @@ def t_WeaponTitaniteBlade1Power():
     assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
     assert g.board[(2, 2)].effects == set()  # no effects on tile
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    for shot in gs: # this should yield (UP) only since we only have one use
-        g.board[(1, 1)].unit.weapon1.shoot(*shot)
-        g.flushHurt()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs)) # this shot happens and spends the one ammo
+    g.flushHurt()
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot doesn't
+    except OutOfAmmo:
+        pass # because there is no ammo, which is expected
+    else:
+        raise Exception # ya fucked up
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(2, 1)].unit.hp == 5 # this vek was untouched
     assert g.board[(2, 1)].unit.effects == set()  # no effects on unit
@@ -5595,9 +5607,16 @@ def t_WeaponTitaniteBladeExtraUse():
     assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
     assert g.board[(2, 2)].effects == set()  # no effects on tile
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    for shot in gs: # this should yield (UP) and (RIGHT) since we now have 2 uses
-        g.board[(1, 1)].unit.weapon1.shoot(*shot)
+    for i in range(2):
+        g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot happens and spends the one ammo
         g.flushHurt()
+    for i in range(2):
+        try:
+            g.board[(1, 1)].unit.weapon1.shoot(*next(gs))
+        except NullWeaponShot: # can't shoot off the board
+            pass
+        else:
+            raise Exception # ya fucked up
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(2, 1)].unit == None # Pushed from this square
     assert g.board[(3, 1)].unit.hp == 3  # this vek took 2 damage
@@ -5622,9 +5641,14 @@ def t_WeaponTitaniteBlade2Power():
     assert g.board[(2, 2)].unit.effects == set()  # no effects on unit
     assert g.board[(2, 2)].effects == set()  # no effects on tile
     gs = g.board[(1, 1)].unit.weapon1.genShots()
-    for shot in gs: # this should yield (UP) only since we only have one use and firing uses it
-        g.board[(1, 1)].unit.weapon1.shoot(*shot)
-        g.flushHurt()
+    g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot happens and spends the one ammo
+    g.flushHurt()
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(*next(gs))  # this shot doesn't
+    except OutOfAmmo:
+        pass  # because there is no ammo, which is expected
+    else:
+        raise Exception  # ya fucked up
     assert g.board[(1, 1)].unit.hp == 2
     assert g.board[(2, 1)].unit.hp == 5 # this vek was untouched
     assert g.board[(2, 1)].unit.effects == set()  # no effects on unit

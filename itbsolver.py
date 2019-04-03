@@ -153,6 +153,11 @@ class NullWeaponShot(Exception):
 
 class InvalidDirection(Exception):
     "This is raised when an invalid direction is given to something."
+    def __init__(self, dir):
+        super().__init__()
+        self.message = "Invalid Direction: {0}".format(dir)
+    def __str__(self):
+        return self.message
 
 class CantHappenInGame(Exception):
     """This is raised when something happens that's not permitted in game.
@@ -585,7 +590,7 @@ class Tile_Base(TileUnit_Base):
         elif direction == Direction.LEFT:
             destinationsquare = (self.square[0] - distance, self.square[1])
         else:
-            raise InvalidDirection
+            raise InvalidDirection(direction)
         try:
             self.game.board[destinationsquare]
         except KeyError:
@@ -607,7 +612,7 @@ class Tile_Base(TileUnit_Base):
             return (self.square[0], 1)
         if direction == Direction.LEFT:
             return (1, self.square[1])
-        raise InvalidDirection
+        raise InvalidDirection(direction)
     def isSwallow(self):
         "return True if this tile kills non-massive non-flying units like water and chasm"
         try:
@@ -2595,16 +2600,6 @@ class Weapon_DirectionalGen_Base():
         for d in Direction.gen():
             yield (d,)
 
-class Weapon_DirectionalLimitedGen_Base():
-    "A genshots for weapons that use the DirectionalGen but with limited uses."
-    def genShots(self):
-        for d in Direction.gen():
-            if self.ammo:
-                yield (d,)
-            else:
-                #raise StopIteration # doing this is wrong: https://www.python.org/dev/peps/pep-0479/
-                return
-
 class Weapon_ArtilleryGen_Base():
     "The generator for artillery weapons."
     def genShots(self, minimumdistance=2):
@@ -2623,25 +2618,10 @@ class Weapon_ArtilleryGen_Base():
                 else:  # square was false, we went off the board
                     break  # move onto the next direction
 
-class Weapon_ArtilleryGenLimited_Base(Weapon_ArtilleryGen_Base):
-    "A generator for artillery weapons that only yields shots if there is a use (ammo) available."
-    def genShots(self):
-        for i in super().genShots():
-            if self.ammo:
-                yield i
-            else:
-                return
-
 class Weapon_NoChoiceGen_Base():
     "A generator for weapons that give you no options of how you can fire it, e.g. Repulse, Self-destruct"
     def genShots(self):
         yield ()
-
-class Weapon_NoChoiceLimitedGen_Base():
-    "A generator for weapons that give you no options of how you can fire it and also have limited uses, e.g. SmokePellets"
-    def genShots(self):
-        if self.ammo:
-            yield ()
 
 class Weapon_RangedGen_Base(Weapon_DirectionalGen_Base):
     "A generator for weapons with a limited range. The weapon must use self.range and check to make sure the destination square exists."
@@ -2778,14 +2758,23 @@ class Weapon_PushProjectile_Base():
 class Weapon_LimitedUnlimitedInit_Base():
     def __init__(self, power1=False, power2=False, ammo=1):
         "an init where power1 provides infinite uses and power2 does nothing."
-        self.ammo = ammo
         if power1:
             self.ammo = -1 # easier than making it actually unlimited.
+        else:
+            self.ammo = ammo
 
-class Weapon_DeploySelfEffectLimitedSmall_Base():
+class Weapon_SpendAmmo_Base():
+    "Provides a method to spend limited ammo."
+    def _spendAmmo(self):
+        "Spend ammo if we have it, raise OutOfAmmo if we don't."
+        if self.ammo == 0:
+            raise OutOfAmmo
+        self.ammo -= 1
+
+class Weapon_DeploySelfEffectLimitedSmall_Base(Weapon_SpendAmmo_Base):
     def shoot(self, methname):
         "A shared shoot method for weapons that deploy an effect on themselves and to tiles around the weapon wielder. methname is a string of the effect method to call like 'applySmoke'"
-        self.ammo -= 1
+        self._spendAmmo()
         getattr(self.game.board[self.wieldingunit.square], methname)() # do the effect on yourself
         for dir in Direction.gen():
             try:
@@ -2793,10 +2782,10 @@ class Weapon_DeploySelfEffectLimitedSmall_Base():
             except KeyError: # board[False]
                 pass
 
-class Weapon_DeploySelfEffectLimitedLarge_Base():
+class Weapon_DeploySelfEffectLimitedLarge_Base(Weapon_SpendAmmo_Base):
     def shoot_big(self, methname):
         "A shared shoot method for weapons that deploy an effect on themselves and to a larger area of tiles around the weapon wielder. methname is a string of the effect method to call like 'applySmoke'"
-        self.ammo -= 1
+        self._spendAmmo()
         getattr(self.game.board[self.wieldingunit.square], methname)() # do it to yourself first
         for dir in Direction.gen():
             branchsq = self._getRelSquare(dir, 1)
@@ -2819,12 +2808,6 @@ class Weapon_BlocksBeamShot_Base():
             return unit.blocksbeamshot
         except AttributeError:  # units that allow penetration don't have this attribute set at all
             return False
-
-# class Weapon_UseAmmo_Base():
-#     "Provides a method to spend limited ammo."
-#     def _spendAmmo(self):
-#         "Spend ammo if we have it, raise OutOfAmmo if we don't."
-#         XXX
 
 # High level weapon bases:
 class Weapon_Charge_Base(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getSquareOfUnitInDirection_Base):
@@ -2877,7 +2860,7 @@ class Weapon_RangedAttack_Base(Weapon_RangedGen_Base, Weapon_hurtAndPushEnemy_Ba
         self._hurtAndPushEnemy(hitsquares[-1], direction)  # and finally hurtAndPush the last tile
         return (pushedunit, hitsquares[-1])
 
-class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
+class Weapon_TemperatureBeam_Base(Weapon_DirectionalGen_Base, Weapon_SpendAmmo_Base):
     "A base class for both the FireBeam and FrostBeam."
     def __init__(self, power1=False, power2=False, ammo=1, effectmeth=None):
         "effectmeth must be a string of either applyFire or applyIce"
@@ -2887,7 +2870,7 @@ class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
         currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
         if not currenttarget: # first square attacked was offboard and therefor
             raise NullWeaponShot
-        self.ammo -= 1
+        self._spendAmmo()
         while True:
             try:
                 getattr(self.game.board[currenttarget], self.effectmeth)()
@@ -2900,7 +2883,7 @@ class Weapon_TemperatureBeam_Base(Weapon_DirectionalLimitedGen_Base):
                 pass # continue on
             currenttarget = self.game.board[currenttarget].getRelSquare(direction, 1)
 
-class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
+class Weapon_Deployable_Base(Weapon_ArtilleryGen_Base, Weapon_SpendAmmo_Base):
     "methods shared by weapons that deploy small tanks"
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -2916,7 +2899,7 @@ class Weapon_Deployable_Base(Weapon_ArtilleryGenLimited_Base):
     def shoot(self, targetsquare, unit): # this should only ever be called by child objects so the non-standard arg should be fine
         if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't deploy a tank to an occupied square
-        self.ammo -= 1
+        self._spendAmmo()
         self.game.board[targetsquare].createUnitHere(unit)
 
 class Weapon_AcidGun_Base(Weapon_Projectile_Base):
@@ -3049,7 +3032,7 @@ class Weapon_AttractionPulse(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitI
         except KeyError: # raised by self.game.board[False]...
             raise NullWeaponShot
 
-class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquare_Base): # does not use the artillery base since we need the limited generator
+class Weapon_ShieldProjector(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base, Weapon_SpendAmmo_Base): # does not use the artillery base since we need the limited generator
     "The default second weapon for the Defense Mech."
     def __init__(self, power1=False, power2=False, ammo=2):
         self.ammo = ammo
@@ -3061,7 +3044,7 @@ class Weapon_ShieldProjector(Weapon_ArtilleryGenLimited_Base, Weapon_getRelSquar
         else:
             self.bigarea = False
     def shoot(self, targetsquare, direction):
-        self.ammo -= 1
+        self._spendAmmo()
         self.game.board[targetsquare].applyShield() # the target tile itself is shielded
         if self.bigarea:
             for d in Direction.gen(): # do all tiles around the target if we have the +3 area upgrade
@@ -3574,7 +3557,7 @@ class Weapon_VortexFist(Weapon_NoChoiceGen_Base, Weapon_hurtAndPushEnemy_Base):
                 pass
         self.game.board[self.wieldingunit.square].takeDamage(self.selfdamage)
 
-class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base):
+class Weapon_TitaniteBlade(Weapon_DirectionalGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_getRelSquare_Base, Weapon_SpendAmmo_Base):
     "Swing a massive sword to damage and push 3 tiles."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3584,14 +3567,17 @@ class Weapon_TitaniteBlade(Weapon_DirectionalLimitedGen_Base, Weapon_hurtAndPush
             self.damage += 2
     def shoot(self, direction):
         targetsquare = self._getRelSquare(direction, 1)
-        self._hurtAndPushEnemy(targetsquare, direction) # If this is off board, NullWeaponShot is raised
-        self.ammo -= 1 # this was a valid shot, so now let's spend the use
+        if not targetsquare:
+            raise NullWeaponShot
+        self._spendAmmo()  # this is a valid shot, so now let's spend the use
+        self._hurtAndPushEnemy(targetsquare, direction)
         for perpdir in Direction.genPerp(direction):
             try:
                 self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(perpdir, 1), direction)
             except NullWeaponShot: # it's ok if the 2 tiles next to the main target tile are off the board, the damage is just wasted
                 pass
-class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_Base):
+
+class Weapon_MercuryFist(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base, Weapon_SpendAmmo_Base):
     "Smash the ground, dealing huge damage and pushing adjacent tiles."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3600,11 +3586,10 @@ class Weapon_MercuryFist(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_
             self.damage += 1
     def shoot(self, direction):
         targetsquare = self._getRelSquare(direction, 1)
-        try:
-            self.game.board[targetsquare].takeDamage(self.damage)
-        except KeyError: # target is off board and invalid
+        if not targetsquare: # target is off board and invalid
             raise NullWeaponShot
-        self.ammo -= 1 # shot is now valid, spend the ammo
+        self._spendAmmo()
+        self.game.board[targetsquare].takeDamage(self.damage)
         for d in [direction] + list(Direction.genPerp(direction)):
             try:
                 self.game.board[self.game.board[targetsquare].getRelSquare(d, 1)].push(d)
@@ -3685,7 +3670,7 @@ class Weapon_ShockCannon(Weapon_Projectile_Base, Weapon_IncreaseDamageWithPowerI
         except NullWeaponShot: # if you hit the edge, this action is ignored
             pass
 
-class Weapon_HeavyRocket(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_PushProjectile_Base):
+class Weapon_HeavyRocket(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_PushProjectile_Base, Weapon_SpendAmmo_Base):
     "Fire a projectile that heavily damages a target and pushes adjacent tiles."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3693,12 +3678,12 @@ class Weapon_HeavyRocket(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUn
         if power2: # power1 for extra uses is ignored
             self.damage += 2
     def shoot(self, direction):
-        self.ammo -= 1
+        self._spendAmmo()
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self.game.board[targetsquare].takeDamage(self.damage)
         self._pushProjectile(direction, targetsquare)
 
-class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_ShrapnelCannon(Weapon_DirectionalGen_Base, Weapon_getSquareOfUnitInDirection_Base, Weapon_hurtAndPushEnemy_Base, Weapon_SpendAmmo_Base):
     "Shoot a projectile that damages and pushes the targeted tile and the tiles to its left and right."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3706,7 +3691,7 @@ class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareO
         if power2:  # power1 for extra uses is ignored
             self.damage += 1
     def shoot(self, direction):
-        self.ammo -= 1
+        self._spendAmmo()
         targetsquare = self._getSquareOfUnitInDirection(direction, edgeok=True)
         self._hurtAndPushEnemy(targetsquare, direction) # hit the target
         for dir in Direction.genPerp(direction): # and then the 2 sides
@@ -3715,7 +3700,7 @@ class Weapon_ShrapnelCannon(Weapon_DirectionalLimitedGen_Base, Weapon_getSquareO
             except NullWeaponShot:
                 pass # peripheral shots went off the board which is OK
 
-class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
+class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base, Weapon_SpendAmmo_Base):
     "Leap over any distance dropping a bomb on each tile you pass."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3726,7 +3711,7 @@ class Weapon_AstraBombs(Weapon_ArtilleryGen_Base, Weapon_getRelSquare_Base):
         "distance is the number of squares to jump over and damage. The wielder lands on one square past distance."
         if self.game.board[targetsquare].unit:
             raise NullWeaponShot # can't land on an occupied square
-        self.ammo -= 1
+        self._spendAmmo()
         currenttargetsquare = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1) # start one square in front of the unit
         while currenttargetsquare != targetsquare:
             self.game.board[currenttargetsquare].takeDamage(self.damage) # damage the target
@@ -3843,7 +3828,7 @@ class Weapon_RainingDeath(Weapon_ArtilleryGen_Base):
         else:
             self.game.board[square].takeDamage(damage)
 
-class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
+class Weapon_HeavyArtillery(Weapon_ArtilleryGen_Base, Weapon_SpendAmmo_Base):
     "Powerful attack that damages a large area."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3851,7 +3836,7 @@ class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
         if power2: # power1 for an extra use is ignored
             self.damage += 1
     def shoot(self, targetsquare, direction):
-        self.ammo -= 1
+        self._spendAmmo()
         self.game.board[targetsquare].takeDamage(self.damage) # first hit the dead center tile
         for dir in Direction.gen():
             try:
@@ -3859,7 +3844,7 @@ class Weapon_HeavyArtillery(Weapon_ArtilleryGenLimited_Base):
             except KeyError:
                 pass # extra tile was off board
 
-class Weapon_GeminiMissiles(Weapon_ArtilleryGenLimited_Base, Weapon_hurtAndPushEnemy_Base):
+class Weapon_GeminiMissiles(Weapon_ArtilleryGen_Base, Weapon_hurtAndPushEnemy_Base, Weapon_SpendAmmo_Base):
     "Launch two missiles, damaging and pushing two targets"
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3867,7 +3852,7 @@ class Weapon_GeminiMissiles(Weapon_ArtilleryGenLimited_Base, Weapon_hurtAndPushE
         if power2: # power1 for an extra use is also ignored
             self.damage += 1
     def shoot(self, targetsquare, direction):
-        self.ammo -= 1
+        self._spendAmmo()
         for dir in Direction.genPerp(direction):
             try:
                 self._hurtAndPushEnemy(self.game.board[targetsquare].getRelSquare(dir, 1), direction)
@@ -3883,7 +3868,7 @@ class Weapon_ConfuseShot(Weapon_Projectile_Base, Weapon_NoUpgradesInit_Base):
         except (KeyError, AttributeError): # KeyError: board[False]; AttributeError: unit.None, weapon doesn't have flip() method
             raise NullWeaponShot # didn't find a unit at all or attacked unit can't be flipped. Waste of a shot.
 
-class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base):
+class Weapon_SmokePellets(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base):
     "Surround yourself with Smoke to defend against nearby enemies."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3893,7 +3878,7 @@ class Weapon_SmokePellets(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Ba
         super().shoot('applySmoke')
     def shoot_allyimmune(self):
         "a different shoot method for when allyimmune is powered"
-        self.ammo -= 1
+        self._spendAmmo()
         for dir in Direction.gen():
             try:
                 targettile = self.game.board[self._getRelSquare(dir, 1)]
@@ -3916,7 +3901,7 @@ class Weapon_FrostBeam(Weapon_TemperatureBeam_Base):
     def __init__(self, power1=False, power2=False, ammo=1):
         super().__init__(None, None, ammo, 'applyIce')
 
-class Weapon_ShieldArray(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base):
+class Weapon_ShieldArray(Weapon_NoChoiceGen_Base, Weapon_getRelSquare_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base):
     "Apply a Shield on nearby tiles."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -3927,12 +3912,12 @@ class Weapon_ShieldArray(Weapon_NoChoiceLimitedGen_Base, Weapon_getRelSquare_Bas
     def shoot_big(self):
         super().shoot_big('applyShield')
 
-class Weapon_PushBeam(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimitedInit_Base):
+class Weapon_PushBeam(Weapon_DirectionalGen_Base, Weapon_LimitedUnlimitedInit_Base, Weapon_SpendAmmo_Base):
     def shoot(self, direction):
         currenttarget = self.game.board[self.wieldingunit.square].getRelSquare(direction, 1)
         if not currenttarget: # first square attacked was offboard and therefor
             raise NullWeaponShot
-        self.ammo -= 1
+        self._spendAmmo()
         pushsquares = [] # build this into a list of squares we need to push
         while True:
             try:
@@ -3979,15 +3964,16 @@ class Weapon_SmokeBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
             self.game.board[targetsquare].applySmoke() # smoke the target
         self.game.board[self.wieldingunit.square].moveUnit(self.game.board[targetsquare].getRelSquare(direction, 1)) # move the unit to its landing position 1 square beyond the last attack
 
-class Weapon_HeatConverter(Weapon_DirectionalLimitedGen_Base, Weapon_getRelSquare_Base):
+class Weapon_HeatConverter(Weapon_DirectionalGen_Base, Weapon_getRelSquare_Base, Weapon_SpendAmmo_Base):
     "Freeze the tile in front but light the tile behind on Fire in the process."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo # power1 and 2 are ignored
     def shoot(self, direction):
-        try:
-            self.game.board[self._getRelSquare(direction, 1)].applyIce()
-        except KeyError: # board[False]
+        targetsquare = self._getRelSquare(direction, 1)
+        if not targetsquare:
             raise NullWeaponShot
+        self._spendAmmo()
+        self.game.board[targetsquare].applyIce()
         try:
             self.game.board[self._getRelSquare(Direction.opposite(direction), 1)].applyFire()
         except KeyError: # board[False]
@@ -4002,17 +3988,17 @@ class Weapon_SelfDestruct(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesInit_Base, W
                 pass
         self.game.board[self.wieldingunit.square].die()
 
-class Weapon_TargetedStrike(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base, Weapon_PushAdjacent_Base):
+class Weapon_TargetedStrike(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base, Weapon_PushAdjacent_Base, Weapon_SpendAmmo_Base):
     "Call in an air strike on a single tile anywhere on the map."
     def shoot(self, x, y):
-        self.ammo -= 1
+        self._spendAmmo()
         self.game.board[(x, y)].takeDamage(1) # this weapon can only do one damage so I'm breaking the convention of using self.damage so I can use that init base.
         self._pushAdjacent((x, y))
 
-class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base):
+class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base, Weapon_SpendAmmo_Base):
     "Drops Smoke on 5 tiles anywhere on the map."
     def shoot(self, x, y):
-        self.ammo -= 1
+        self._spendAmmo()
         self.game.board[(x, y)].applySmoke()
         for dir in Direction.gen():
             try:
@@ -4020,7 +4006,7 @@ class Weapon_SmokeDrop(Weapon_AnyTileGen_Base, Weapon_NoUpgradesLimitedInit_Base
             except KeyError: # board[False]
                 pass
 
-class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Base):
+class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Base, Weapon_SpendAmmo_Base):
     "Heal all player units (including disabled Mechs)."
     # it repairs the train, but it has no effect since the 2 different stages only have 1 hp. Any of the 3 stages being repaired is inconsequential.
     # it repairs the earth mover which does matter because it has 2 hp! Same with acid launcher. And Satellite Rocket. And Terraformer.
@@ -4031,7 +4017,7 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
     # acid is NOT removed from units. If a mech has acid, dies and becomes a corpse, the corpse still has acid and the revived mech has acid.
         # You can't give acid to a mech corpse however. If you hit a mech corpse with acid, it doesn't get it. Then you revive it and it still doesn't have it.
     def shoot(self):
-        self.ammo -= 1
+        self._spendAmmo()
         for unit in self.game.playerunits.copy():
             self._healunit(unit)
         for unit in self.game.nonplayerunits:
@@ -4055,7 +4041,7 @@ class Weapon_RepairDrop(Weapon_NoChoiceGen_Base, Weapon_NoUpgradesLimitedInit_Ba
         except AttributeError:
             return False
 
-class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
+class Weapon_MissileBarrage(Weapon_NoChoiceGen_Base, Weapon_SpendAmmo_Base):
     "Fires a missile barrage that hits every enemy on the map."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -4063,12 +4049,12 @@ class Weapon_MissileBarrage(Weapon_NoChoiceLimitedGen_Base):
         if power1:
             self.damage += 1 # power2 ignored
     def shoot(self):
-        self.ammo -= 1
+        self._spendAmmo()
         for e in self.game.nonplayerunits:
             if e.alliance == Alliance.ENEMY:
                 self.game.board[e.square].takeDamage(self.damage)
 
-class Weapon_WindTorrent(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimitedInit_Base):
+class Weapon_WindTorrent(Weapon_DirectionalGen_Base, Weapon_LimitedUnlimitedInit_Base):
     "Push all units in a single direction."
     def shoot(self, direction):
         # so here's the plan: set xrange and yrange based on the direction chosen.
@@ -4090,7 +4076,7 @@ class Weapon_WindTorrent(Weapon_DirectionalLimitedGen_Base, Weapon_LimitedUnlimi
                 #print("pushing (%s, %s) %s" % (x, y, Direction.pprint((direction,))))
                 self.game.board[(x, y)].push(direction)
 
-class Weapon_IceGenerator(Weapon_NoChoiceLimitedGen_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base, Weapon_getRelSquare_Base):
+class Weapon_IceGenerator(Weapon_NoChoiceGen_Base, Weapon_DeploySelfEffectLimitedSmall_Base, Weapon_DeploySelfEffectLimitedLarge_Base, Weapon_getRelSquare_Base):
     "Freeze yourself and nearby tiles."
     def __init__(self, power1=False, power2=False, ammo=1):
         self.ammo = ammo
@@ -4152,6 +4138,7 @@ class Weapon_PullTank(Weapon_Deployable_Base):
             super().shoot(targetsquare, Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot(), attributes=(Attributes.FLYING,)))
         else:
             super().shoot(targetsquare, Unit_PullTank(self.game, hp=self.hp, maxhp=self.hp, weapon1=Weapon_PullShot()))
+
 ######################### Weapons that deployables shoot ################
 # Deployable weapons don't actually take power, but we still use it here because the weapons are modified based on the power of the weapon that actually deployed the tank
 class Weapon_StockCannon(Weapon_Projectile_Base, Weapon_hurtAndPushEnemy_Base):

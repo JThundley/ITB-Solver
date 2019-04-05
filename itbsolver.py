@@ -281,6 +281,8 @@ class Game():
         else:
             self.score = scorekeeper # use the passed in MasterScoreKeeper()
         self.actionlog = [] # a log of each action the player has taken in this particular game
+        self.idcount = 0 # this is used to count unique numbers assigned to player-controlled units.
+                        # this is needed so we can later find the corresponding unit in different game instances, after it has moved
     def flushHurt(self):
         "resolve the effects of hurt units, returns the number of enemies killed (for use with viscera nanobots). Tiles are damaged first, then Psions are killed, then your mechs can explode, then vek/bots can die"
         # print("hurtenemies:", self.hurtenemies)
@@ -398,6 +400,10 @@ class Game():
             if u.isMech(): # if there is a live mech still in play, the game goes on
                 return
         raise GameOver # if not, the game ends
+    def getNextUnitID(self):
+        "Increment self.idcount and return the next id to use"
+        self.idcount += 1
+        return self.idcount
 
 ##############################################################################
 ######################################## TILES ###############################
@@ -1195,6 +1201,7 @@ class Unit_PlayerControlled_Base():
     "A base class that provides methods to add and remove units that the player controls to the game objects set. This is done on creation and death. Also allows movement."
     def _addUnitToGame(self):
         self.game.playerunits.add(self)
+        self.id = self.game.getNextUnitID()
     def _removeUnitFromGame(self):
         self.game.playerunits.remove(self)
     def getMoves(self, moves):
@@ -1317,7 +1324,7 @@ class Unit_Mountain(Unit_Mountain_Building_Base):
                       'die': 0,
                       #'heal': 0
                     }
-    def applyAcid(self):
+    def applyAcid(self, ignoreprotection=False):
         pass
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         "This takeDamage ignores the amount of damage dealt to the mountain and flattens it to 1."
@@ -1354,7 +1361,7 @@ class Unit_Volcano(Unit_Mountain):
         return
     def applyShield(self):
         return
-    def applyAcid(self):
+    def applyAcid(self, ignoreprotection=False):
         return
 
 class Unit_Building(Unit_Mountain_Building_Base):
@@ -1375,7 +1382,7 @@ class Unit_Building(Unit_Mountain_Building_Base):
                       'die': 0,
                       #'heal': 0
                     }
-    def applyAcid(self):
+    def applyAcid(self, ignoreprotection=False):
         raise DontGiveUnitAcid # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         orighp = self.hp
@@ -1539,7 +1546,7 @@ class Unit_MultiTile_Base(Unit_Base, Unit_Unwebbable_Base, Unit_NonPlayerControl
     def applyIce(self):
         super().applyIce()
         self._replicate('applyIce')
-    def applyAcid(self):
+    def applyAcid(self, ignoreprotection=False):
         super().applyAcid()
         self._replicate('applyAcid')
     def applyShield(self):
@@ -1628,7 +1635,7 @@ class Unit_Train_Base(Unit_MultiTile_Base):
         self._deathAction()
         if not self.deadfromdamage: # only replicate death if dam died from an instadeath call to die(). If damage killed this dam, let the damage replicate and kill the other companion.
             self._replicate('die')
-    def applyAcid(self):
+    def applyAcid(self, ignoreprotection=False):
         "The train having acid has no consequence in the game. The train always has 1hp and leaves a corpse so it can't transfer acid anywhere"
         pass
 
@@ -5267,7 +5274,7 @@ class BinaryCounter():
                 newobj.append(iterobj[i])
         return newobj
 
-class OrderGenerator():
+class OrderGenerator(): # TODO: we aren't generating orders for tank sub-units spawned by those weapons!
     "This object takes a Game object that's been set up and it generates instructions for worker threads to carry out and simulate."
     def __init__(self, game):
         self.game = game
@@ -5356,14 +5363,13 @@ class OrderSimulator():
             print("Empty Order Simulation skipped") # TODO: do game ending score counting for the null set order where the player does nothing
             return
         else:
-            print("\nOrder is: ", order)
-            if len(order) == 2:
-                print("yeah")
+            pass
+            #print("\nOrder is: ", order)
         self.game = game  # set the final game instance to be persistent so run can use it.
         self.player_action_iters = [None] * len(order)
         # build out self.player_action_iters based on order
         self._increment_player_action_iters(len(self.player_action_iters)-1, game, order)
-        print("self.pai is", self.player_action_iters)
+        #print("self.pai is", self.player_action_iters)
     def run(self):
         "Start brute forcing all possible player actions for this particular order."
         try:
@@ -5399,11 +5405,11 @@ class OrderSimulator():
             return self._increment_player_action_iters(index) # and now try to get the next game from this newly replaced pai
         except TypeError: # raised when trying to next(None) on initial startup
             if not startingstate:
-                print("No startingstate! Caught TypeError when trying to next(self.player_action_iters[{0}]). That Iter was: {1}".format(index, self.player_action_iters[index]))
+                #print("No startingstate! Caught TypeError when trying to next(self.player_action_iters[{0}]). That Iter was: {1}".format(index, self.player_action_iters[index]))
                 raise
-            print("replacing pai at index", index)
-            print("startingstate is ", startingstate)
-            print("startingorder is", startingorder)
+            #print("replacing pai at index", index)
+            #print("startingstate is ", startingstate)
+            #print("startingorder is", startingorder)
             if index == 0:
                 self._replace_pai(startingstate, 0, startingorder)
             else:
@@ -5416,7 +5422,7 @@ class OrderSimulator():
         index is an int of the index of this player_action_iter.
         orders is the order if we are initializing a None
         returns nothing."""
-        print("game is", game)
+        #print("game is", game)
         assert game
         try:
             self.player_action_iters[index] = type(self.player_action_iters[index])(game, *self.player_action_iters[index].getArgs())
@@ -5441,23 +5447,34 @@ class Player_Action_Iter_Base():
         unit is the unit object that this iter is iterating through.
         returns nothing."""
         assert prevgame
-        self.prevgame = prevgame # the starting state for each action that this object generates. This should never change.
-        self.origunitsquare = unit.square # this won't change and is used to find the corresponding unit in new copies of prevgame.
-        self.unit = unit
+        self.prevgame = deepcopy(prevgame) # the starting state for each action that this object generates. This should never change.
+        self.origunitid = unit.id # this won't change and is used to find the corresponding unit in new copies of prevgame.
+        for u in self.prevgame.playerunits:
+            try:
+                if unit.id == u.id:
+                    self.unit = u
+                    break
+            except AttributeError: # Unit_Mech_Corpse' object has no attribute 'id'
+                continue
+        self.unit = unit # if unit wasn't set from the previous game, set it to what was passed in so this can keep being passed to new iterators
+        # until we find a game object with this unit in it
     def _copygame(self):
         "Return a deepcopy of the previous game and also set self.unit to the proper unit in the new deepcopy."
         assert self.prevgame
         newgame = deepcopy(self.prevgame)
-        assert {x.square for x in self.prevgame.playerunits} == {x.square for x in newgame.playerunits}
         #print("prevgame units is: ", self.prevgame.playerunits)
         #print("newgame units is: ", newgame.playerunits)
-        print("playerunits is", [x.square for x in newgame.playerunits])
+        #print("playerunits is", [x.square for x in newgame.playerunits])
         for u in newgame.playerunits:
-            if self.origunitsquare == u.square:
-                self.unit = u
-                return newgame
-        print("originunitsquare is", self.origunitsquare)
-        raise Exception("No unit with square {0} found in prevgame. playerunits are: {1}".format(self.origunitsquare, [x.square for x in newgame.playerunits]))
+            try:
+                if self.origunitid == u.id:
+                    self.unit = u
+                    return newgame
+            except AttributeError: # Unit_Mech_Corpse' object has no attribute 'id'
+                continue
+        #print("originunitsquare is", self.origunitsquare)
+        #raise Exception("No unit with square {0} found in prevgame. playerunits are: {1}".format(self.origunitsquare, [x.square for x in newgame.playerunits]))
+        raise StopIteration # If self.unit didn't get set, raise StopIteration as that unit is not available to make an action.
     def __iter__(self):
         return self
 
@@ -5473,7 +5490,7 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
             try:
                 getattr(self.unit, shot[0]).shoot(*shot[1])
             except (NullWeaponShot, GameOver) as exc:
-                print("Disqualified: ", exc)
+                #print("Disqualified: ", exc)
                 continue # this wasn't a valid solution if the shot did nothing or ended the game
             try:
                 newgame.flushHurt()
@@ -5483,9 +5500,12 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
             return newgame
     def _genNextShot(self):
         "generate tuples of (weapon, (shot,)) for __next__ to use."
-        if Effects.SMOKE in self.unit.game.board[self.unit.square].effects: # if this unit is in smoke
-            if Attributes.IMMUNESMOKE not in self.unit.attributes: # and it's not smoke immune...
-                return # it can't shoot
+        try:
+            if Effects.SMOKE in self.unit.game.board[self.unit.square].effects: # if this unit is in smoke
+                if Attributes.IMMUNESMOKE not in self.unit.attributes: # and it's not smoke immune...
+                    return # it can't shoot
+        except AttributeError: # self.unit was never initially set
+            return
         if Effects.ICE in self.unit.effects: # if this unit is frozen...
             weapons = ('repweapon',) # the only weapon you can fire is your repair
         else:

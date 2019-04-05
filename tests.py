@@ -12574,6 +12574,7 @@ def t_KillingMechsGameOver():
         assert False # this is bad
 
 ########### write tests for these:
+# shoot a building with the acid gun
 # a shielded mountain takes damage. same with ice
 
 ########## Weapons stuff for later

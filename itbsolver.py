@@ -1305,6 +1305,8 @@ class Unit_Mountain_Building_Base(Unit_NoDelayedDeath_Base, Unit_NonPlayerContro
     def applyFire(self):
         "mountains and buildingscan't be set on fire, but the tile they're on can!"
         pass
+    def applyAcid(self, ignoreprotection=False):
+        raise DontGiveUnitAcid # buildings and mountains can't gain acid, but the tile they're on can!. Raise this so the tile that tried to give acid to the present unit gets it instead.
 
 class Unit_Mountain(Unit_Mountain_Building_Base):
     def __init__(self, game, type='mountain', attributes=None, effects=None):
@@ -1382,8 +1384,6 @@ class Unit_Building(Unit_Mountain_Building_Base):
                       'die': 0,
                       #'heal': 0
                     }
-    def applyAcid(self, ignoreprotection=False):
-        raise DontGiveUnitAcid # buildings can't gain acid, but the tile they're on can!. Raise attribute error so the tile that tried to give acid to the present unit gets it instead.
     def takeDamage(self, damage, ignorearmor=False, ignoreacid=False):
         orighp = self.hp
         if Passives.AUTOSHIELDS in self.game.otherpassives:
@@ -2919,7 +2919,10 @@ class Weapon_AcidGun_Base(Weapon_Projectile_Base):
         except AttributeError: # there was no unit
             self.game.board[targetsquare].applyAcid() # give it to the tile instead
         else: # unit needs to be hit with acid
-            self.game.board[targetsquare].unit.applyAcid(True) # directly give the unit acid, ice and shield won't prevent you from getting acid from the gun unlike when you move to an acid pool.
+            try:
+                self.game.board[targetsquare].unit.applyAcid(True) # directly give the unit acid, ice and shield won't prevent you from getting acid from the gun unlike when you move to an acid pool.
+            except DontGiveUnitAcid:
+                raise NullWeaponShot # this turn was wasted if the unit we hit cant get acid
             if push:
                 self.game.board[targetsquare].push(direction) # now push the unit
 

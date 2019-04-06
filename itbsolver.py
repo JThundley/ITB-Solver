@@ -685,7 +685,7 @@ class Tile_Forest_Sand_Base(Tile_Base):
     def applyAcid(self):
         try:
             self.unit.applyAcid() # give the unit acid if present
-        except AttributeError: # no unit present, so the tile gets acid
+        except (AttributeError, DontGiveUnitAcid): # no unit present, so the tile gets acid
             self.effects.discard(Effects.FIRE) # fire is put out by acid.
             self.replaceTile(Tile_Ground(self.game, effects=(Effects.ACID,)), keepeffects=True) # Acid removes the forest/sand and makes it no longer flammable/smokable
         # The tile doesn't get acid effects if the unit takes it instead.
@@ -764,9 +764,9 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
     def applyAcid(self):
         try:
             self.unit.applyAcid()
-        except AttributeError:
+        except (AttributeError, DontGiveUnitAcid):
             pass
-        self.effects.add(Effects.ACID) # water gets acid regardless of a unit being there or not
+        self.effects.add(Effects.ACID) # water gets acid regardless of a unit being there or not # XXX TODO: is this wrong?
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -821,7 +821,7 @@ class Tile_Chasm(Tile_Base):
     def applyAcid(self):
         try:
             self.unit.applyAcid
-        except AttributeError:
+        except AttributeError: # there is no unit that can't take acid here
             return
     def _spreadEffects(self):
         if (Attributes.FLYING in self.unit.attributes) and (Effects.ICE not in self.unit.effects): # if the unit can fly and is not frozen...
@@ -2922,7 +2922,7 @@ class Weapon_AcidGun_Base(Weapon_Projectile_Base):
             try:
                 self.game.board[targetsquare].unit.applyAcid(True) # directly give the unit acid, ice and shield won't prevent you from getting acid from the gun unlike when you move to an acid pool.
             except DontGiveUnitAcid:
-                raise NullWeaponShot # this turn was wasted if the unit we hit cant get acid
+                self.game.board[targetsquare].applyAcid() # give it to the tile instead
             if push:
                 self.game.board[targetsquare].push(direction) # now push the unit
 
@@ -3429,8 +3429,6 @@ class Weapon_AcidProjector(Weapon_AcidGun_Base):
     "Default weapon for the Acid Mech"
     def __init__(self, power1=False, power2=False):
         pass # this weapon can't be upgraded
-    def shoot(self, direction):
-        super().shoot(direction)
 
 class Weapon_RammingSpeed(Weapon_Charge_Base, Weapon_FartSmoke_Base):
     "Default weapon for the TechnoBeetle"

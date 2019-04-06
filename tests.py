@@ -4661,6 +4661,54 @@ def t_WeaponAcidProjectorOutOfWater():
     assert g.board[(3, 1)].effects == set()  # no tile effects
     assert g.board[(3, 1)].unit.effects == {Effects.ACID} # the unit got acid
 
+def t_WeaponAcidProjectorFlyingWater():
+    "If a flying mech is over water and is hit by the acid gun, neither the water tile where he started or landed gets acid. The unit does."
+    g = Game()
+    g.board[(2, 1)].replaceTile(Tile_Water(g))
+    g.board[(3, 1)].replaceTile(Tile_Water(g))
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_AlphaScorpion(g, attributes={Attributes.FLYING})) # lol flying alpha scorpion
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].effects == {Effects.SUBMERGED} # water didn't get acid
+    assert g.board[(2, 1)].unit == None  # vek pushed from here
+    assert g.board[(3, 1)].effects == {Effects.SUBMERGED} # water didn't get acid
+    assert g.board[(3, 1)].unit.effects == {Effects.ACID} # the unit got acid
+
+def t_WeaponAcidProjectorMountain():
+    "Make sure the correct thing happens when the acid projector hits a mountain"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Mountain(g))
+    try:
+        g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    except NullWeaponShot:
+        pass # this is expected, this shot had no effect if it hit a mountain
+    else:
+        assert False # ya fucked up
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set() # the mountain didn't get acid
+    assert g.board[(2, 1)].effects == set()  # no tile effects either
+
+def t_WeaponAcidProjectorBuilding():
+    "Make sure the correct thing happens when the acid projector hits a building"
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(power1=True, power2=True))) # power is ignored for this weapon
+    g.board[(2, 1)].createUnitHere(Unit_Building(g))
+    g.board[(1, 1)].unit.weapon1.shoot(Direction.RIGHT)
+    g.flushHurt()
+    assert g.board[(1, 1)].effects == set() # no tile effects
+    assert g.board[(1, 1)].unit.effects == set()
+    assert g.board[(1, 1)].unit.hp == 2
+    assert g.board[(2, 1)].unit.effects == set() # the building didn't get acid
+    assert g.board[(2, 1)].effects == {Effects.ACID}  # The tile does get acid
+
 def t_WeaponRammingSpeedDefault():
     "Fire the RammingSpeed weapon with no powered upgrades"
     g = Game()

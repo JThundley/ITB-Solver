@@ -12432,13 +12432,11 @@ def t_ScoreBuildingDamage():
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Building(g))
     g.start()
-    assert g.score.keepers['best'].score == 0
+    assert g.score.score == 0
     g.board[(1, 1)].takeDamage(1)
     g.flushHurt()
-    #print(g.score.keepers['best'].score)
-    assert g.score.keepers['best'].score == -50
-    #print(g.score.keepers['best'].log)
-    assert g.score.keepers['best'].log == ['1building_hurt', '-1building_hurt', '1building_die', '1powergrid_hurt']
+    assert g.score.score == -50
+    assert g.score.log == ['1building_hurt', '-1building_hurt', '1building_die', '1powergrid_hurt']
 
 def t_ScoreTimepodPickup():
     "Test out the scoring system on a timepod picked up by a friendly."
@@ -12446,10 +12444,10 @@ def t_ScoreTimepodPickup():
     g.board[(1, 1)].replaceTile(Tile_Ground(g, effects={Effects.TIMEPOD}))
     g.board[(1, 2)].createUnitHere(Unit_Combat_Mech(g))
     g.start()
-    assert g.score.keepers['best'].score == 0
+    assert g.score.score == 0
     g.board[(1, 2)].moveUnit((1, 1))
-    assert g.score.keepers['best'].score == 2
-    assert g.score.keepers['best'].log == ['1timepod_pickup']
+    assert g.score.score == 2
+    assert g.score.log == ['1timepod_pickup']
 
 def t_ScoreTimepodKilled():
     "Test out the scoring system on a timepod destroyed up by a vek."
@@ -12457,10 +12455,10 @@ def t_ScoreTimepodKilled():
     g.board[(1, 1)].replaceTile(Tile_Ground(g, effects={Effects.TIMEPOD}))
     g.board[(1, 2)].createUnitHere(Unit_Firefly(g))
     g.start()
-    assert g.score.keepers['best'].score == 0
+    assert g.score.score == 0
     g.board[(1, 2)].moveUnit((1, 1))
-    assert g.score.keepers['best'].score == -30
-    assert g.score.keepers['best'].log == ['1timepod_die']
+    assert g.score.score == -30
+    assert g.score.log == ['1timepod_die']
 
 def t_MountainDie():
     "A mountain gets hit by an instakill weapon, removing it instantly"
@@ -12474,15 +12472,15 @@ def t_MountainCantBeSetOnFireScore():
     "mountains can't be set on fire, but the tile they're on can! make sure this is scored appropriately"
     g = Game()
     g.board[(1, 1)].createUnitHere(Unit_Mountain(g))
-    assert g.score.keepers['best'].score == 0
+    assert g.score.score == 0
     assert g.board[(1, 1)].effects == set()
     assert g.board[(1, 1)].unit.effects == set()
     g.board[(1, 1)].applyFire()
     g.flushHurt()
     assert g.board[(1, 1)].effects == {Effects.FIRE}
     assert g.board[(1, 1)].unit.effects == set()
-    assert g.score.keepers['best'].score == 0
-    assert g.score.keepers['best'].log == [] # no score for the mountain being set on fire
+    assert g.score.score == 0
+    assert g.score.log == [] # no score for the mountain being set on fire
 
 def t_Pilot_AbeIsamu():
     "Make sure AbeIsamu works properly"

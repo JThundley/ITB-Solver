@@ -169,9 +169,6 @@ class FakeException(Exception):
 class GameOver(Exception):
     "This is raised when your powergrid health is depleted, causing the end of the current simulation."
 
-class ScoreKeeperInvalidated(Exception):
-    "This is raised when a scorekeeper is invalidated by trying to score an event in it's set of exceptions."
-
 class DontGiveUnitAcid(Exception):
     "This is raised when a tile tries to give acid to a building that can't take it. This signals that the tile should take the acid instead as if the unit isn't there."
 
@@ -234,12 +231,12 @@ class Powergrid_CriticalShields(Powergrid):
 ############# THE MAIN GAME BOARD!
 class Game():
     "This represents the a single instance of a game. This is the highest level of the game."
-    def __init__(self, board=None, powergrid_hp=7, environeffect=None, vekemerge=None, scorekeeper=None):
+    def __init__(self, board=None, powergrid_hp=7, environeffect=None, vekemerge=None):
         """board is a dict of tiles to use. If it's left blank, a default board full of empty ground tiles is generated.
         powergrid_hp is the amount of power (hp) you as a player have. When this reaches 0, the entire game ends.
         environeffect is an environmental effect object that should be run during a turn.
         vekemerge is the special VekEmerge environmental effect. If left blank, an empty one is created.
-        scorekeeper is the scorekeeper object that this game simulation submits scores to."""
+        """
         if board:
             self.board = board
         else: # create a blank board of normal ground tiles
@@ -276,10 +273,7 @@ class Game():
         self.stormGeneratorTurn = None # This will be replaced by a method provided by the StormGenerator passive weapon
         self.visceraheal = 0 # The amount to heal a mech that killed a vek. Each vek that is killed grants this amount of hp healing
         self.otherpassives = set() # misc passives that only need to be checked for presence and nothing else.
-        if not scorekeeper:
-            self.score = MasterScoreKeeper() # assign a dummy scorekeeper
-        else:
-            self.score = scorekeeper # use the passed in MasterScoreKeeper()
+        self.score = ScoreKeeper()
         self.actionlog = [] # a log of each action the player has taken in this particular game
         self.idcount = 0 # this is used to count unique numbers assigned to player-controlled units.
                         # this is needed so we can later find the corresponding unit in different game instances, after it has moved
@@ -766,7 +760,7 @@ class Tile_Water(Tile_Water_Ice_Damaged_Base):
             self.unit.applyAcid()
         except (AttributeError, DontGiveUnitAcid):
             pass
-        self.effects.add(Effects.ACID) # water gets acid regardless of a unit being there or not # XXX TODO: is this wrong?
+        self.effects.add(Effects.ACID) # water gets acid regardless of a unit being there or not
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -5183,68 +5177,37 @@ class Pilot_Kazaaakpleth(Pilot_ReplaceRepairWep_Base):
         super().__init__(Weapon_MantisSlash())
 
 ############################# SCORING #######################
-class MasterScoreKeeper():
-    "This object keeps track of the score of a single simulation. It feeds the score to the contained ScoreKeeper objects."
-    def __init__(self):
-        self._resetKeepers()
-        self.highscores = self._getEmptyKeepers() # give it a default scorekeeper object as a high score
-        self.simulations = 0
-    def submit(self, score, event, amount=1):
-        """Submit a single event to be scored.
-        score is an int of the points that it's worth.
-        event is a string of a score event name such as unittype_hurt.
-        amount is the number of times to score it.
-        returns nothing."""
-        for k in tuple(self.keepers):
-            try:
-                self.keepers[k].submit(score, event, amount)
-            except ScoreKeeperInvalidated:
-                del self.keepers[k] # delete this invalidated keeper so we no longer submit scores to it
-    def undo(self, score, event, amount=1):
-        "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
-        for v in self.keepers.values():
-            v.undo(score, event, amount)
-    def endSimulation(self):
-        "End a single simulation and decide if this simulation was a new record best."
-        self.simulations += 1
-        for keeper in self.keepers: # check if the high score was beaten
-            if self.keepsers[keeper].score > self.highscores[keeper].score:
-                self.highscores[keeper] = self.keepsers[keeper] # TODO: get the actual log of the simulation here somehow
-            self._resetKeepers()
-    def _resetKeepers(self):
-        "Reset self.keepers for a new simulation. returns nothing"
-        self.keepers = self._getEmptyKeepers()
-    def _getEmptyKeepers(self):
-        "return a dict of empty keepers to use on init and reset"
-        return {"best": ScoreKeeper(),}
-
 class ScoreKeeper():
-    "This object keeps track of the score of a single simulation with certain criteria. The MasterScoreKeeper feeds it."
+    "This object keeps track of the score of a single game simulation with certain criteria. The MasterScoreKeeper feeds it."
     score = 0
-    def __init__(self, exceptions=None):
-        """exceptions is a set of score event strings which invalidate this scorekeeping session.
-        This is so you can concurrently run multiple of these ScoreKeepers and have one of them give you the best score without taking grid damage for example."""
-        if exceptions:
-            self.exceptions = exceptions
-        else:
-            self.exceptions = ()
+    def __init__(self):
         self.log = [] # a tally of which events this scorekeeper saw. The amount is prepended to the log event
         # When a score is undone, a - is prepended to the log event.
-    def submit(self, score, event, amount):
+    def submit(self, score, event, amount=1):
         """Submit a single event to be scored.
         score is an int of the points that it's worth.
         event is a string of a score event name.
         amount is the number of times to score it.
         returns nothing."""
-        if event in self.exceptions: # make sure this event isn't banned from othis ScoreKeeper
-            raise ScoreKeeperInvalidated
-        # now we know we're good
         self.log.append('{0}{1}'.format(amount, event))
         self.score += score * amount
-    def undo(self, score, event, amount):
+    def undo(self, score, event, amount=1):
         "Undo a single event in the score. event is a score constant. amount is the number of times to score it. returns nothing."
         self.log.append('-{0}{1}'.format(amount, event))
         self.score -= score * amount
+    def __lt__(self, other):
+        if self.score < other.score:
+            return True
+        return False
+    def __gt__(self, other):
+        if self.score > other.score:
+            return True
+        return False
+    def __str__(self):
+        try:
+            return "Score: {0}, Events: {1}, Order: {2}".format(self.score, self.log, self.order)
+        except AttributeError: # self.order wasn't set
+            return "Score: {0}, Events: {1}, Order: None".format(self.score, self.log)
 
 ################################ SIMULATING ############################
 class BinaryCounter():
@@ -5358,7 +5321,7 @@ class OrderSimulator():
     """This object takes a Game object that's been set up and a game order tuple.
     It simulates all possible unit moves/shots and returns the best possible score.
     This can be thought of as a worker thread."""
-    # order: [('oldartillery', 'MOVE'), ('oldartillery', 'SHOOT'), ('leap', 'MOVE'), ('leap', 'SHOOT'), ('nano', 'MOVE'), ('nano', 'SHOOT'), ('artillery', 'MOVE'), ('artillery', 'SHOOT')]
+    sims = 0 # a count of the unique simulations attempted.
     def __init__(self, game, order):
         if not order:
             print("Empty Order Simulation skipped") # TODO: do game ending score counting for the null set order where the player does nothing
@@ -5367,10 +5330,12 @@ class OrderSimulator():
             pass
             #print("\nOrder is: ", order)
         self.game = game  # set the final game instance to be persistent so run can use it.
+        self.order = order
         self.player_action_iters = [None] * len(order)
         # build out self.player_action_iters based on order
         self._increment_player_action_iters(len(self.player_action_iters)-1, game, order)
         #print("self.pai is", self.player_action_iters)
+        self.highscore = ScoreKeeper() # initialize with a blank scorekeeper
     def run(self):
         "Start brute forcing all possible player actions for this particular order."
         try:
@@ -5380,16 +5345,20 @@ class OrderSimulator():
         del self.game # don't keep the cruft
         finalaction = len(self.player_action_iters) - 1
         while True:
+            self.sims += 1
             try:
                 game.endPlayerTurn()
             except GameOver:
                 pass # continue on to the next simulation
             else:
-                pass #TODO: score stuff
+                if game.score > self.highscore:
+                    self.highscore = game.score
+                    self.highscore.order = self.order
             try:
                 game = self._increment_player_action_iters(finalaction)
             except SimulationFinished:
-                return # TODO: final score stuff
+                print('{0} sims finished for order {1}'.format(self.sims, [(x[0].type, Actions.pprint((x[1],))) for x in self.order]))
+                return self.highscore
     def _increment_player_action_iters(self, index, startingstate=None, startingorder=None):
         """increment self.player_action_iters.
         index is an int of the index of self.player_action_iters to operate on.
@@ -5448,7 +5417,8 @@ class Player_Action_Iter_Base():
         unit is the unit object that this iter is iterating through.
         returns nothing."""
         assert prevgame
-        self.prevgame = deepcopy(prevgame) # the starting state for each action that this object generates. This should never change.
+        #self.prevgame = deepcopy(prevgame) # the starting state for each action that this object generates. This should never change.
+        self.prevgame = prevgame # the starting state for each action that this object generates. This should never change.
         self.origunitid = unit.id # this won't change and is used to find the corresponding unit in new copies of prevgame.
         for u in self.prevgame.playerunits:
             try:

@@ -9,12 +9,13 @@ for x in range(1, 9):
 
 # Create friendly units:
 g.board[(1, 1)].createUnitHere(Unit_Nano_Mech(g, weapon1=Weapon_AcidProjector(g))) # TODO: weapon 2 is viscera nanobots
-# Create enemies:
-g.board[(2, 1)].createUnitHere(Unit_Scorpion(g, qshot=(Direction.LEFT,)))
 
-# Make a little more space for suboptimal sims
+# Make a little more space to force the mech to move
 g.board[(1, 2)].unit = None
-g.board[(2, 2)].unit = None
+g.board[(2, 1)].unit = None
+
+# Create enemies:
+g.board[(2, 2)].createUnitHere(Unit_Scorpion(g, qshot=(Direction.LEFT,)))
 
 # init a blank score
 highestscore = ScoreKeeper()

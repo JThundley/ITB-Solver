@@ -460,7 +460,7 @@ class Tile_Base(TileUnit_Base):
         "make a smoke cloud on the current tile"
         self.effects.discard(Effects.FIRE) # smoke removes fire
         self.effects.add(Effects.SMOKE)
-        self._addSmokeStormGen()
+        self._addSmokeStormGen(self.square)
         try:
             self.unit.effects.discard(Effects.FIRE) # a unit moving into smoke removes fire.
         except AttributeError: # self.None.effects.discard
@@ -624,13 +624,13 @@ class Tile_Base(TileUnit_Base):
             return self._grassland
         except AttributeError:
             return False
-    def _addSmokeStormGen(self):
+    def _addSmokeStormGen(self, square):
         "This method is replaced by Weapon_StormGenerator when it is in play."
         pass
     def _removeSmokeStormGen(self):
         "This method is replaced by Weapon_StormGenerator when it is in play."
         pass
-    def _pass(self):
+    def _pass(self, fakearg=None):
         "This is only here to replace the above 2 stormgem methods when destructing it."
         pass
     def __str__(self):
@@ -860,7 +860,7 @@ class Tile_Lava(Tile_Water):
     def applySmoke(self):
         "Smoke doesn't remove fire from the lava."
         self.effects.add(Effects.SMOKE) # we don't break webs here since only flying units can be on lava and no flying units can web
-        self._addSmokeStormGen()
+        self._addSmokeStormGen(self.square)
     def _spreadEffects(self):
         if (Attributes.MASSIVE not in self.unit.attributes) and (Attributes.FLYING not in self.unit.attributes): # kill non-massive non-flying units that went into the water.
             self.unit.die()
@@ -3179,7 +3179,7 @@ class Weapon_AerialBombs(Weapon_getRelSquare_Base, Weapon_RangedGen_Base):
         try:
             if self.game.board[destsquare].unit:
                 raise NullWeaponShot # can't land on an occupied square
-        except AttributeError: # landing spot was off the board
+        except KeyError: # landing spot was off the board
             raise NullWeaponShot
         targetsquare = self.wieldingunit.square # start where the unit is
         for r in range(distance):
@@ -4992,7 +4992,7 @@ class Weapon_StormGenerator():
         # replace the game instance's stormGeneratorTurn with a real method
         self.game.stormGeneratorTurn = self._turnAction
         # Build a set of all tiles on the board that have smoke.
-        for t in self.game.board.values():  # for now, iterate through all 64 tiles looking for smoke
+        for t in self.game.board.values():  # for now, iterate through all 64 tiles looking for smoke TODO: optimize?
             if Effects.SMOKE in t.effects:
                 self.game.stormtiles.add(t.square)
         # replace the dummy stormgen methods on the Tile object:
@@ -5012,8 +5012,8 @@ class Weapon_StormGenerator():
             if Effects.SMOKE in t.effects:
                 t.unit.takeDamage(self.damage, ignoreacid=True, ignorearmor=True) # the tile doesn't take damage
         self.game.flushHurt()
-    def _addSmokeStormGen(self):
-        self.game.stormtiles.add(self.square)
+    def _addSmokeStormGen(self, square):
+        self.game.stormtiles.add(square)
     def _removeSmokeStormGen(self):
         self.game.stormtiles.discard(self.square)
     def disable(self):
@@ -5021,8 +5021,6 @@ class Weapon_StormGenerator():
         # put the dummy stormgen methods back onto the Tile object:
         Tile_Base._addSmokeStormGen = Tile_Base._pass
         Tile_Base._removeSmokeStormGen = Tile_Base._pass
-
-
 
 class Weapon_VisceraNanobots():
     "Mechs heal 1 damage when they deal a killing blow."
@@ -5205,9 +5203,9 @@ class ScoreKeeper():
         return False
     def __str__(self):
         try:
-            return "Score: {0}, Events: {1}, Order: {2}".format(self.score, self.log, self.order)
-        except AttributeError: # self.order wasn't set
-            return "Score: {0}, Events: {1}, Order: None".format(self.score, self.log)
+            return "Score: {0}, Events: {1}, ActionLog: {2}".format(self.score, self.log, self.actionlog)
+        except AttributeError: # self.actionlog wasn't set
+            return "Score: {0}, Events: {1}, ActionLog: None".format(self.score, self.log)
 
 ################################ SIMULATING ############################
 class BinaryCounter():
@@ -5337,7 +5335,8 @@ class OrderSimulator():
         #print("self.pai is", self.player_action_iters)
         self.highscore = ScoreKeeper() # initialize with a blank scorekeeper
     def run(self):
-        "Start brute forcing all possible player actions for this particular order."
+        """Start brute forcing all possible player actions for this particular order.
+        returns a tuple of how many simulations were run and the best high score object."""
         try:
             game = self.game
         except AttributeError: # self.game was never set because we're working on the null set of orders
@@ -5353,12 +5352,12 @@ class OrderSimulator():
             else:
                 if game.score > self.highscore:
                     self.highscore = game.score
-                    self.highscore.order = self.order
+                    self.highscore.actionlog = game.actionlog
             try:
                 game = self._increment_player_action_iters(finalaction)
             except SimulationFinished:
                 print('{0} sims finished for order {1}'.format(self.sims, [(x[0].type, Actions.pprint((x[1],))) for x in self.order]))
-                return self.highscore
+                return self.sims, self.highscore
     def _increment_player_action_iters(self, index, startingstate=None, startingorder=None):
         """increment self.player_action_iters.
         index is an int of the index of self.player_action_iters to operate on.
@@ -5467,7 +5466,7 @@ class Player_Action_Iter_Shoot(Player_Action_Iter_Base):
                 newgame.flushHurt()
             except GameOver:
                 continue
-            newgame.actionlog.append((self.unit, Actions.SHOOT, shot))  # record this action to the game's action log
+            newgame.actionlog.append('{0} on {1} shoots {2} {3}'.format(self.unit.type, self.unit.square, *shot))  # record this action to the game's action log
             return newgame
     def _genNextShot(self):
         "generate tuples of (weapon, (shot,)) for __next__ to use."
@@ -5502,6 +5501,7 @@ class Player_Action_Iter_Move(Player_Action_Iter_Base):
         super().__init__(prevgame, unit)
         self.moves = moves
         self.gen = self._genNextMove()
+        self.originsquare = self.unit.square
     def __next__(self):
         while True:
             sq = next(self.gen) # will raise StopIteration and stop this from advancing
@@ -5511,7 +5511,8 @@ class Player_Action_Iter_Move(Player_Action_Iter_Base):
                 newgame.flushHurt()
             except GameOver:
                 continue
-            newgame.actionlog.append((self.unit, Actions.MOVE, sq)) # record this action to the game's action log
+            #newgame.actionlog.append((self.unit, Actions.MOVE, sq)) # record this action to the game's action log
+            newgame.actionlog.append('{0} on {1} moves to {2}'.format(self.unit.type, self.originsquare, self.unit.square)) # record this action to the game's action log
             return newgame
     def _genNextMove(self):
         "generate tuples of squares (x, y) for __next__ to use."

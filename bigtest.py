@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 from itbsolver import *
-from itertools import permutations
-from copy import deepcopy
 
 g = Game()
 # set forest tiles:

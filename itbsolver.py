@@ -5313,7 +5313,10 @@ class OrderGenerator(): # TODO: we aren't generating orders for tank sub-units s
         bc = BinaryCounter(allactions)
         while True:
             yield bc.getInclusion(allactions)
-            next(bc)
+            try:
+                next(bc)
+            except StopIteration:
+                return
 
 class OrderSimulator():
     """This object takes a Game object that's been set up and a game order tuple.
@@ -5365,6 +5368,7 @@ class OrderSimulator():
         startingorder is the order to to use when bootstrapping
         returns the next game object.
         :raise SimulationFinished when we run out of unit actions to iterate through."""
+        assert index > -1
         try:
             return next(self.player_action_iters[index])
         except StopIteration: # this one ran out, so increment the previous one and get a new gamestate from it
@@ -5428,6 +5432,8 @@ class Player_Action_Iter_Base():
                 continue
         self.unit = unit # if unit wasn't set from the previous game, set it to what was passed in so this can keep being passed to new iterators
         # until we find a game object with this unit in it
+    def __iter__(self):
+        return self
     def _copygame(self):
         "Return a deepcopy of the previous game and also set self.unit to the proper unit in the new deepcopy."
         assert self.prevgame

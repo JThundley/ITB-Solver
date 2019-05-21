@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 from itbsolver import *
+import sys
+#import stackprinter
+#stackprinter.set_excepthook(style='color')
+#sys.setrecursionlimit(1500)
 
 # This is a test of https://old.reddit.com/r/IntoTheBreach/comments/bgmz5f/help_jet_move_5_pulse_4_rocket_3_default_weapons/
 
@@ -36,7 +40,6 @@ g.board[(5, 5)].createUnitHere(Unit_Jet_Mech(g, weapon1=Weapon_AerialBombs(g), m
 g.board[(6, 5)].createUnitHere(Unit_Pulse_Mech(g, weapon1=Weapon_Repulse(g), moves=4))
 
 # Create enemies:
-#g.board[(2, 2)].createUnitHere(Unit_Scorpion(g, qshot=(Direction.LEFT,)))
 g.board[(2, 3)].createUnitHere(Unit_AlphaHornet(g, qshot=(Direction.UP,)))
 g.board[(3, 4)].createUnitHere(Unit_Hornet(g, qshot=(Direction.LEFT,)))
 g.board[(4, 2)].createUnitHere(Unit_BlastPsion(g))

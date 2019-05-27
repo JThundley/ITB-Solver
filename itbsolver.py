@@ -249,7 +249,7 @@ class Game():
         try:
             environeffect.game = self
         except AttributeError:
-            pass # no environmental effect being used
+            self.environeffect = None # no environmental effect being used
         else:
             self.environeffect = environeffect
         if vekemerge:
@@ -398,6 +398,20 @@ class Game():
         "Increment self.idcount and return the next id to use"
         self.idcount += 1
         return self.idcount
+    def getCopy(self):
+        "return a copy of this game object and copies of all the objects it contains."
+        try:
+            environeffect = type(self.environeffect)(list(self.environeffect.squares)) # make a new environeffect object
+        except TypeError:
+            environeffect = None # set it to be none when passed in
+        # create the new game object.
+        # The board is set to True so that creation of a blank one will be skipped
+        newgame = Game(True, self.powergrid.hp, environeffect, Environ_VekEmerge(list(self.vekemerge.squares)))
+        # Now go through each square and copy the properties of each to the new game object
+        for letter in range(1, 9):
+            for num in range(1, 9):
+                newgame.board[(letter, num)] = type(self.board[(letter, num)])(newgame, (letter, num), set(self.board[(letter, num)].effects))
+        return newgame
 
 ##############################################################################
 ######################################## TILES ###############################
@@ -421,7 +435,7 @@ class TileUnit_Base():
 
 class Tile_Base(TileUnit_Base):
     """The base class for all Tiles, all other tiles are based on this. Mountains and buildings are considered units since they have HP and block movement on a tile, thus they go on top of the tile."""
-    def __init__(self, game, square=None, type=None, effects=None, unit=None):
+    def __init__(self, game, square=None, type=None, effects=None, unit=None): # TODO: this unit argument is unreachable
         super().__init__(game, square, type, effects=effects)
         self.unit = unit # This is the unit on the tile. If it's None, there is no unit on it.
     def takeDamage(self, damage=1, ignorearmor=False, ignoreacid=False):

@@ -402,15 +402,19 @@ class Game():
         "return a copy of this game object and copies of all the objects it contains."
         try:
             environeffect = type(self.environeffect)(list(self.environeffect.squares)) # make a new environeffect object
-        except TypeError:
+        except (TypeError, AttributeError): # AttributeError: 'NoneType' object has no attribute 'squares'
             environeffect = None # set it to be none when passed in
         # create the new game object.
-        # The board is set to True so that creation of a blank one will be skipped
-        newgame = Game(True, self.powergrid.hp, environeffect, Environ_VekEmerge(list(self.vekemerge.squares)))
+        newgame = Game({}, self.powergrid.hp, environeffect, Environ_VekEmerge(list(self.vekemerge.squares)))
         # Now go through each square and copy the properties of each to the new game object
         for letter in range(1, 9):
             for num in range(1, 9):
-                newgame.board[(letter, num)] = type(self.board[(letter, num)])(newgame, (letter, num), set(self.board[(letter, num)].effects))
+                newgame.board[(letter, num)] = self.board[(letter, num)].getCopy(newgame)
+                try:
+                    newgame.board[(letter, num)].createUnitHere(self.board[(letter, num)].unit.getCopy(newgame))
+                except AttributeError: # None._addUnitToGame()
+                    pass # there was no unit on this tile
+        newgame.start()
         return newgame
 
 ##############################################################################
@@ -647,6 +651,11 @@ class Tile_Base(TileUnit_Base):
     def _pass(self, fakearg=None):
         "This is only here to replace the above 2 stormgem methods when destructing it."
         pass
+    def getCopy(self, newgame):
+        """return a copy of this tile for inclusion in a new copy of a game object
+        newgame is the newgame object to be set.
+        """
+        return type(self)(newgame, self.square, effects=set(self.effects))
     def __str__(self):
         return "%s at %s. Effects: %s Unit: %s" % (self.type, self.square, set(Effects.pprint(self.effects)), self.unit)
 
@@ -1144,6 +1153,14 @@ class Unit_Base(TileUnit_Base):
         else:
             self.game.score.submit(self.score['shield_off'], '{0}_shield_off'.format(self.type))
             self.lostshield = True
+    def getCopy(self, newgame):
+        "return a copy of this unit object. newgame is the new game instance to assign to this newly created unit."
+        newunit = type(self)(newgame, hp=self.hp, maxhp=self.maxhp, effects=set(self.effects), attributes=set(self.attributes))
+        try:
+            newunit.web = set(self.web)
+        except NameError: # unit has no web because webs don't matter for this type of unit
+            pass
+        return newunit
     def _initScore(self):
         "This method is overridden by children to set up their score dicts. This one is a dummy."
         print("DEBUG: No _initScore() for unit {0}".format(self.type))
@@ -2599,7 +2616,7 @@ class Environ_VekEmerge():
 # All weapons must have a genShots() method to generate all possible shots the wieldingunit in its current position with this weapon can take. It must yield tuples which are arguments to the weapon's shoot() method.
     # genShots() should generate a shot to take, but not test the entire state of the board to ensure it is valid. It makes more sense to have shoot() invalidate the shot when it discovers that it's invalid.
     # That way if it is valid, we may have temporary variables ready to go for the shot and we avoided checking to see if it's valid twice.
-    # The weapon should raise NullWeaponShot when it detects an invalid shot. The board should NOT be changed before NullWeaponShot is raised.
+    # The weapon should raise NullWeaponShot when it detects an invalid shot. The board MUST NOT be changed before NullWeaponShot is raised (because we'll try the next shot then and there without generating an entire new board).
 # Any weapons that deal damage must store the amount of damage as self.damage
 # Any weapons that deal self damage must store the amount of damage as self.selfdamage
 # Any weapons that have limited range must store their range as self.range
@@ -2607,6 +2624,13 @@ class Environ_VekEmerge():
 # self.game will be set by the unit that owns the weapon.
 # self.wieldingunit is the unit that owns the weapon. It will be set by the unit that owns the weapon.
 # All mech weapons are assumed to be enabled whether they require power or not. If your mech has an unpowered weapon, it's totally useless to us here.
+# All weapons must have a getCopy() method that returns a copy of the object.
+
+#class Weapon_Base(): XXX TODO
+#    "Weapon base object"
+#    def getCopy(self):
+#        "By default, return a new obj of the same type WITHOUT copying any of the weapon's attributes"
+#        return type(self)
 
 # Generator base classes:
 class Weapon_DirectionalGen_Base():
@@ -5261,7 +5285,7 @@ class OrderGenerator(): # TODO: we aren't generating orders for tank sub-units s
     def __next__(self):
         return next(self.gen)
     def _gen(self):
-        "Do the actual generating tuples of tuples: ((unit, Action.xxx), ...)"
+        "Do the actual generating tuples of tuples: ((unit, Action.xyz), ...)"
         for playeractions in self._genActions():
             for order in permutations(playeractions):
                 if self._validate(order):

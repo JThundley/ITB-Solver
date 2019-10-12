@@ -12619,7 +12619,28 @@ def t_KillingMechsGameOver():
     else:
         assert False # this is bad
 
+def t_CopyBoard():
+    "Make a copy of a gameboard and make sure it's done properly."
+    g = Game()
+    g.board[(1, 1)].createUnitHere(Unit_Charge_Mech(g))
+    g.board[(1, 2)].createUnitHere(Unit_Combat_Mech(g))
+    g.board[(1, 3)].createUnitHere(Unit_OldArtillery(g)) # not a mech, even though you control it
+    g.board[(1, 4)].createUnitHere(Unit_AlphaScorpion(g)) # and an enemy, why not
+    g.board[(1, 5)].applyFire()
+    g.start()
+    newgame = g.getCopy()
+    for x in range(1, 9):
+        for y in range(1, 9):
+            #print(g.board[x, y].effects, newgame.board[x, y].effects)
+            assert g.board[x, y].type == newgame.board[x, y].type
+            assert g.board[x, y].effects == newgame.board[x, y].effects
+            if g.board[x, y].unit and newgame.board[x, y].unit:
+                for attr in 'type', 'hp', 'maxhp', 'effects', 'attributes', 'web':
+                    assert getattr(g.board[x, y].unit, attr) == getattr(newgame.board[x, y].unit, attr)
+    
 ########### write tests for these:
+# If a vek with 1 hp gets frozen and then the +1hp psion died, the vek with 1 hp dies and the ice is gone.
+# The Psion Tyrant volcano level psion that damages your mechs for 1 is an attack and blocked by armor!
 # shoot a building with the acid gun
 # a shielded mountain takes damage. same with ice
 
